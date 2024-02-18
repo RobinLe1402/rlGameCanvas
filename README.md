@@ -1,4 +1,6 @@
 # rlGameCanvas – A pixel-based game graphics framework
+<img alt="rlGameCanvas Logo" src="res/logo.jpg" width="200px">
+
 > [!IMPORTANT]
 > This library is currently WiP and shall not yet be used.
 
