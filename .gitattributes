@@ -1,0 +1,10 @@
+# C code
+*.c   text working-tree-encoding=UTF-8
+*.h   text working-tree-encoding=UTF-8
+
+# C++ code
+*.cpp text working-tree-encoding=UTF-8
+*.hpp text working-tree-encoding=UTF-8
+
+# misc. text files
+*.md  text working-tree-encoding=UTF-8
