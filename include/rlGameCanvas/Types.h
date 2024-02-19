@@ -84,78 +84,6 @@ typedef struct
 
 
 
-/*
-	MESSAGE:           RL_GAMECANVAS_MSG_CREATE
-	TRIGGER:           Graphics engine is starting.
-	                   Guaranteed to be called exactly one time, as the very first message.
-	EXPECTED BEHAVIOR: Initialization of internal data.
-	PARAMETER 1:       Not used.
-	PARAMETER 2:       Not used.
-*/
-#define RL_GAMECANVAS_MSG_CREATE (0x00000001)
-
-/*
-	MESSAGE:           RL_GAMECANVAS_MSG_DESTROY
-	TRIGGER:           Graphics engine is exiting.
-	                   Guaranteed to be called exactly one time, as the very last message.
-	EXPECTED BEHAVIOR: Cleanup of internal data.
-	PARAMETER 1:       Not used.
-	PARAMETER 2:       Not used.
-*/
-#define RL_GAMECANVAS_MSG_DESTROY (0x00000002)
-
-/*
-	MESSAGE:           RL_GAMECANVAS_MSG_LOSEFOCUS
-	TRIGGER:           Graphics engine has lost focus.
-	EXPECTED BEHAVIOR: Stop music/reduce volume, pause if necessary.
-	PARAMETER 1:       Not used.
-	PARAMETER 2:       Not used.
-*/
-#define RL_GAMECANVAS_MSG_LOSEFOCUS (0x00000003)
-
-/*
-	MESSAGE:           RL_GAMECANVAS_MSG_GAINFOCUS
-	TRIGGER:           Graphics engine has gained focus.
-	EXPECTED BEHAVIOR: Resume music/reset volume, possibly unpause.
-	PARAMETER 1:       Not used.
-	PARAMETER 2:       Not used.
-*/
-#define RL_GAMECANVAS_MSG_GAINFOCUS (0x00000004)
-
-// TODO: replace "<TBA>"
-/*
-	MESSAGE:           RL_GAMECANVAS_MSG_RESIZE
-	TRIGGER:           Client area size has changed (= fullscreen mode/maximization was toggled).
-	EXPECTED BEHAVIOR: Possibly adjust the viewport and layer resolutions via the <TBA> function.
-	PARAMETER 1:       [rlGameCanvas_ResizeParams*] Information about the resize. Changes are ignored.
-	PARAMETER 2:       Not used.
-*/
-#define RL_GAMECANVAS_MSG_RESIZE (0x00000005)
-
-/*
-	MESSAGE:           RL_GAMECANVAS_MSG_MOUSEMOVE
-	TRIGGER:           The mouse cursor has moved to a new position on the client area.
-	                   Only fired when the window has focus.
-	EXPECTED BEHAVIOR: Possibly move mouse cursor/change button highlighting.
-	PARAMETER 1:       [rlGameCanvas_Resolution*] The coordinates of the pixel the mouse cursor is now
-	                   on.
-	PARAMETER 2:       Not used.
-*/
-#define RL_GAMECANVAS_MSG_MOUSEMOVE (0x00000006)
-
-/*
-	MESSAGE:           RL_GAMECANVAS_MSG_MOUSELEAVE
-	TRIGGER:           a) The window has focus and the mouse cursor has moved to a new position
-	                      outside the client area.
-					   b) The window has lost focus. Sent after RL_GAMECANVAS_MSG_LOSEFOCUS.
-	EXPECTED BEHAVIOR: Possibly move mouse cursor/change button highlighting.
-	PARAMETER 1:       Not used.
-	PARAMETER 2:       Not used.
-*/
-#define RL_GAMECANVAS_MSG_MOUSELEAVE (0x00000007)
-
-
-
 typedef uint64_t rlGameCanvas_MsgParam;
 
 typedef void (*rlGameCanvas_MsgCallback)(
@@ -164,17 +92,6 @@ typedef void (*rlGameCanvas_MsgCallback)(
 	rlGameCanvas_MsgParam iParam1,
 	rlGameCanvas_MsgParam iParam2
 );
-
-
-
-/*
-	MAX = Maximization
-	Enum defining the behavior on attempted maximization via the maximize button by the user.
-*/
-#define RL_GAMECANVAS_MAX_NONE       0 /* disable maximization altogether.                          */
-#define RL_GAMECANVAS_MAX_MAXIMIZE   1 /* regular maximization.
-                                          behaves like a smaller fullscreen mode.                   */
-#define RL_GAMECANVAS_MAX_FULLSCREEN 2 /* switch to fullscreen mode instead of maximizing.          */
 
 
 
@@ -192,12 +109,16 @@ typedef struct
 
 typedef struct
 {
-	char *szWindowCaption;                   /* the text that should appear in the titlebar.
+	char *szWindowCaption;                   /* the (UTF-8) text that should appear in the titlebar.
 	                                            can be NULL.                                        */
 	HICON hIconSmall, hIconBig;              /* the icons for the titlebar and taskbar.
 	                                            can be NULL.                                        */
-	rlGameCanvas_UInt iMaximization;         /* maximization behaviour.
+	rlGameCanvas_UInt iMaximizeBtnAction;    /* behaviour when user clicks the maximize button.
 	                                            one of the RL_GAMECANVAS_MAX_[...] values.          */
+	rlGameCanvas_UInt iInitialMaximization;  /* initial maximization state.
+	                                            one of the RL_GAMECANVAS_MAX_[...] values.          */
+	rlGameCanvas_Bool bHideMouseCursor;      /* should the mouse cursor (initially) be hidden on the
+	                                             client area when the window has focus?             */
 	rlGameCanvas_WinMsgCallback pWMCallback; /* callback function for window messages.
 	                                            can be NULL.                                        */
 	rlGameCanvas_DrawCallback pDrawCallback; /* callback function that updates the canvas.
