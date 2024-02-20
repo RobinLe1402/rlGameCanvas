@@ -18,7 +18,7 @@
 /*
 	MESSAGE:           RL_GAMECANVAS_MSG_DESTROY
 	TRIGGER:           Graphics engine is exiting.
-                    Guaranteed to be called exactly one time, as the very last message.
+	                   Guaranteed to be called exactly one time, as the very last message.
 	EXPECTED BEHAVIOR: Cleanup of internal data.
 	PARAMETER 1:       Not used.
 	PARAMETER 2:       Not used.
@@ -56,10 +56,10 @@
 /*
 	MESSAGE:           RL_GAMECANVAS_MSG_MOUSEMOVE
 	TRIGGER:           The mouse cursor has moved to a new position on the client area.
-                    Only fired when the window has focus.
+	                   Only fired when the window has focus.
 	EXPECTED BEHAVIOR: Possibly move mouse cursor/change button highlighting.
 	PARAMETER 1:       [rlGameCanvas_Resolution*] The coordinates of the pixel the mouse cursor is now
-                    on.
+	                   on.
 	PARAMETER 2:       Not used.
 */
 #define RL_GAMECANVAS_MSG_MOUSEMOVE (0x00000006)
@@ -67,7 +67,7 @@
 /*
 	MESSAGE:           RL_GAMECANVAS_MSG_MOUSELEAVE
 	TRIGGER:           a) The window has focus and the mouse cursor has moved to a new position outside the client area.
-                    b) The window has lost focus. Sent after RL_GAMECANVAS_MSG_LOSEFOCUS.
+	                   b) The window has lost focus. Sent after RL_GAMECANVAS_MSG_LOSEFOCUS.
 	EXPECTED BEHAVIOR: Possibly move mouse cursor/change button highlighting.
 	PARAMETER 1:       Not used.
 	PARAMETER 2:       Not used.
