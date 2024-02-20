@@ -8,7 +8,7 @@
 /*
 	MESSAGE:           RL_GAMECANVAS_MSG_CREATE
 	TRIGGER:           Graphics engine is starting.
-                    Guaranteed to be called exactly one time, as the very first message.
+	                   Guaranteed to be called exactly one time, as the very first message.
 	EXPECTED BEHAVIOR: Initialization of internal data.
 	PARAMETER 1:       Not used.
 	PARAMETER 2:       Not used.
