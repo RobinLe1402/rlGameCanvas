@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main-dynamic.cpp">
+    <ClCompile Include="main-dynamic.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

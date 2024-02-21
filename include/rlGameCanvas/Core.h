@@ -40,7 +40,9 @@ RLGAMECANVAS_API rlGameCanvas_Bool RLGAMECANVAS_LIB rlGameCanvas_Run(
 );
 
 /// <summary>
-/// Quit a running <c>rlGameCanvas</c> object.
+/// Quit a running <c>rlGameCanvas</c> object.<para />
+/// Calling this function doesn't immediately stop execution of the graphics thread. Instead, a
+/// request is made that will be handled after the current frame.
 /// </summary>
 /// <param name="canvas">The canvas to quit execution on.</param>
 RLGAMECANVAS_API void RLGAMECANVAS_LIB rlGameCanvas_Quit(
@@ -48,7 +50,10 @@ RLGAMECANVAS_API void RLGAMECANVAS_LIB rlGameCanvas_Quit(
 );
 
 /// <summary>
-/// Update the configuration of a <c>rlGameCanvas</c> object.
+/// Update the configuration of a <c>rlGameCanvas</c> object.<para />
+/// May only be called from the Update callback.<para />
+/// A call to this function does not immediately update the configuration. Rather, a request for the
+/// changes to be applied is made and will be accepted after rendering the current frame.
 /// </summary>
 /// <param name="canvas">The canvas the new settings should be applied to.</param>
 /// <param name="config">A pointer to the settings to be applied. Cannot be NULL.</param>
@@ -56,7 +61,7 @@ RLGAMECANVAS_API void RLGAMECANVAS_LIB rlGameCanvas_Quit(
 /// Flags to be considered when applying the configuration.<para />
 /// One or more of the <c>RLGAMECANVAS_CFG_[...]</c> values.
 /// </param>
-/// <returns>Were the settings successfully applied?</returns>
+/// <returns>Were the changes successfully requested?</returns>
 RLGAMECANVAS_API rlGameCanvas_Bool RLGAMECANVAS_LIB rlGameCanvas_UpdateConfig(
 	      rlGameCanvas         canvas,
 	const rlGameCanvas_Config *config,

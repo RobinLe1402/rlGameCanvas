@@ -41,7 +41,8 @@ namespace rlGameCanvasLib
 	GameCanvas::PIMPL::PIMPL(const StartupConfig &config) : m_oConfig(config)
 	{
 		// check if the configuration is valid
-		if (config.fnDraw        == nullptr ||
+		if (config.fnUpdate      == nullptr ||
+			config.fnDraw        == nullptr ||
 			config.fnCreateData  == nullptr ||
 			config.fnDestroyData == nullptr ||
 			config.fnCopyData    == nullptr ||
@@ -72,7 +73,7 @@ namespace rlGameCanvasLib
 
 
 		std::unique_lock<std::mutex> lock(m_mux);
-		m_oGraphicsThread = std::thread(graphicsThreadProc, this);
+		m_oGraphicsThread = std::thread(&GameCanvas::PIMPL::graphicsThreadProc, this);
 		m_cv.wait(lock); // wait for the graphics thread to finish the attempt to create the window.
 
 		if (m_hWnd == NULL) // window was not created --> error, join thread now.
@@ -80,6 +81,7 @@ namespace rlGameCanvasLib
 			if (m_oGraphicsThread.joinable())
 				m_oGraphicsThread.join();
 			
+			lock.unlock();
 			throw std::exception{ "Failed to create window" };
 		}
 	}
@@ -88,11 +90,23 @@ namespace rlGameCanvasLib
 
 	bool GameCanvas::PIMPL::run()
 	{
+		std::unique_lock<std::mutex> lock(m_mux);
 		if (m_eGraphicsThreadState != GraphicsThreadState::Waiting)
 			return false;
 
-		// todo
-		return false;
+		m_oMainThreadID = std::this_thread::get_id();
+
+		m_cv.notify_one(); // tell graphics thread to start working
+		lock.unlock();
+
+		logicThreadProc(); // run game logic
+		
+		m_oMainThreadID = {};
+
+		if (m_oGraphicsThread.joinable())
+			m_oGraphicsThread.join();
+
+		return true;
 	}
 
 	void GameCanvas::PIMPL::quit()
@@ -100,16 +114,26 @@ namespace rlGameCanvasLib
 		if (m_eGraphicsThreadState != GraphicsThreadState::Running)
 			return;
 
-		// todo
+		std::unique_lock<std::mutex> lock(m_mux);
+		m_bStopRequested = true;
 	}
 
 	bool GameCanvas::PIMPL::updateConfig(const Config &oConfig, UInt iFlags)
 	{
+		// only calls from the main thread currently running game logic are accepted.
+		if (std::this_thread::get_id() != m_oMainThreadID)
+			return false;
+
+		std::unique_lock<std::mutex> lock(m_muxBetweenFrames);
 		if (m_eGraphicsThreadState == GraphicsThreadState::Stopped)
 			return false;
 
-		// todo
-		return false;
+		m_bNewConfig = true;
+		m_oNewConfig = oConfig;
+		m_cv.notify_one(); // TODO: maybe split up into multiple CVs and/or Mutexes?
+		m_cv.wait(lock); // wait for thread to apply new settings
+
+		return !m_bNewConfig;
 	}
 
 	LRESULT GameCanvas::PIMPL::localWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -121,17 +145,33 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::graphicsThreadProc()
 	{
-		// todo
+		// todo: create window, initial graphics setup
+		if (m_hWnd == NULL)
+		{
+			std::unique_lock<std::mutex> lock(m_mux);
+			m_eGraphicsThreadState = GraphicsThreadState::Stopped;
+			m_cv.notify_one(); // notify main thread that initialization is done
+			return;
+		}
+
+		std::unique_lock<std::mutex> lock(m_mux);
+		m_eGraphicsThreadState = GraphicsThreadState::Waiting;
+		m_cv.notify_one();
+		m_cv.wait(lock); // wait for run(), quit() or destructor
+		lock.unlock();
+
+		if (m_bRunning)
+		{
+			// todo: Windows message loop with peek + graphics processing
+			// NOTE: graphics processing = lock mutex, copy data, unlock mutex, process copied data
+		}
 
 		m_eGraphicsThreadState = GraphicsThreadState::Stopped;
 	}
 
 	void GameCanvas::PIMPL::logicThreadProc()
 	{
-		// todo
-
-		if (m_oGraphicsThread.joinable())
-			m_oGraphicsThread.join();
+		// todo: core game loop framework, call to update callback (surrounded with lock)
 	}
 
 }

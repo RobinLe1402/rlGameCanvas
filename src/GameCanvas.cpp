@@ -10,7 +10,7 @@ namespace rlGameCanvasLib
 		{
 			m_pPIMPL = new GameCanvas::PIMPL(config);
 		}
-		catch (const std::exception &e)
+		catch (...)
 		{
 			delete m_pPIMPL;
 			m_pPIMPL = nullptr;

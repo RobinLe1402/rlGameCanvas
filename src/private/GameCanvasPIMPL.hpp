@@ -70,12 +70,19 @@ namespace rlGameCanvasLib
 		std::string m_sWindowCaption;
 #endif
 
+		std::thread::id     m_oMainThreadID;
 		std::thread         m_oGraphicsThread;
 		GraphicsThreadState m_eGraphicsThreadState = GraphicsThreadState::Waiting;
 		/* initialized with Waiting because thread will be started within the constructor.        */
 
 		std::mutex m_mux;
+		std::mutex m_muxBetweenFrames;
 		std::condition_variable m_cv;
+		bool m_bRunning       = false;
+		bool m_bStopRequested = false;
+
+		bool   m_bNewConfig = false;
+		Config m_oNewConfig = {};
 		
 		HWND m_hWnd = NULL;
 		GraphicsData m_pGraphicsData_Live    = nullptr;

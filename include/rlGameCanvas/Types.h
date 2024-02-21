@@ -61,9 +61,9 @@ typedef struct rlGameCanvas_OpaquePtrStruct
 
 
 
-typedef void (*rlGameCanvas_CreateData )(rlGameCanvas_GraphicsData pData);
-typedef void (*rlGameCanvas_DestroyData)(rlGameCanvas_GraphicsData pData);
-typedef void (*rlGameCanvas_CopyData)(rlGameCanvas_GraphicsData pSrc,
+typedef void (__stdcall *rlGameCanvas_CreateData )(rlGameCanvas_GraphicsData pData);
+typedef void (__stdcall *rlGameCanvas_DestroyData)(rlGameCanvas_GraphicsData pData);
+typedef void (__stdcall *rlGameCanvas_CopyData)(rlGameCanvas_GraphicsData pSrc,
 	rlGameCanvas_GraphicsData pDest);
 
 typedef struct
@@ -74,7 +74,7 @@ typedef struct
 
 
 
-typedef void (*rlGameCanvas_WinMsgCallback)(
+typedef void (__stdcall *rlGameCanvas_WinMsgCallback)(
 	rlGameCanvas canvas, // the canvas that received the message.
 	UINT         uMsg,   // the message code, see WM_[...].
 	WPARAM       wParam, // generic parameter #1.
@@ -83,11 +83,20 @@ typedef void (*rlGameCanvas_WinMsgCallback)(
 
 
 
-typedef void (*rlGameCanvas_DrawCallback)(
-		  rlGameCanvas               canvas,  // the canvas to be modified.
-	      rlGameCanvas_Layer        *pLayers, // array of the layers to be updated.
-	      rlGameCanvas_UInt          iLayers, // count of elements in the pLayers array.
-	const rlGameCanvas_GraphicsData *pData    // the data to be used for updating the canvas.
+typedef void (__stdcall *rlGameCanvas_DrawCallback)(
+		  rlGameCanvas              canvas,  // the canvas to be modified.
+	      rlGameCanvas_Layer       *pLayers, // array of the layers to be updated.
+	      rlGameCanvas_UInt         iLayers, // count of elements in the pLayers array.
+	const rlGameCanvas_GraphicsData pData    // the data to be used for updating the canvas.
+);
+
+
+
+typedef void (__stdcall *rlGameCanvas_UpdateCallback)(
+	rlGameCanvas              canvas,            /* the canvas to be updated.                     */
+	rlGameCanvas_GraphicsData pData,             /* the data to be written.                       */
+	double                    dSecsSinceLastCall /* number of seconds since last call.
+	                                                0 on the first call.                          */
 );
 
 
@@ -106,7 +115,7 @@ typedef struct
 
 typedef uint64_t rlGameCanvas_MsgParam;
 
-typedef void (*rlGameCanvas_MsgCallback)(
+typedef void (__stdcall *rlGameCanvas_MsgCallback)(
 	rlGameCanvas          canvas,
 	rlGameCanvas_UInt     iMsg,
 	rlGameCanvas_MsgParam iParam1,
@@ -133,26 +142,33 @@ typedef struct
 
 typedef struct
 {
-	rlGameCanvas_U8Char *szWindowCaption;   /* the (UTF-8) text that should appear in the titlebar.
-	                                           can be NULL.                                       */
-	HICON hIconSmall, hIconBig;             /* the icons for the titlebar and taskbar.
-	                                           can be NULL.                                       */
-	rlGameCanvas_UInt iMaximizeBtnAction;   /* behaviour when user clicks the maximize button.
-	                                           one of the RL_GAMECANVAS_MAX_[...] values.         */
-	rlGameCanvas_WinMsgCallback fnOnWinMsg; /* callback function for window messages.
-	                                           can be NULL.                                       */
-	rlGameCanvas_DrawCallback fnDraw;       /* callback function that updates the canvas.
-	                                           cannot be NULL.                                    */
-	rlGameCanvas_CreateData fnCreateData;   /* function that creates an rlGameCanvas_GraphicsData
-	                                            object.                                           */
-	rlGameCanvas_DestroyData fnDestroyData; /* function that destroys an rlGameCanvas_GraphicsData
-	                                            object.
-	                                           cannot be NULL.                                    */
-	rlGameCanvas_CopyData fnCopyData;       /* function that copies the contents of one
-	                                            rlGameCanvas_GraphicsData object into another one.
-	                                           cannot be NULL. */
-	rlGameCanvas_Config oInitialConfig;     /* the part of the configuration that can be changed at
-	                                            runtime.                                          */
+	const rlGameCanvas_U8Char *szWindowCaption; /* the (UTF-8) text that should appear in the
+	                                                titlebar.
+	                                               can be NULL.                                   */
+	HICON hIconSmall, hIconBig;                 /* the icons for the titlebar and taskbar.
+	                                               can be NULL.                                   */
+	rlGameCanvas_UInt iMaximizeBtnAction;       /* behaviour when user clicks the maximize button.
+	                                               one of the RL_GAMECANVAS_MAX_[...] values.     */
+	rlGameCanvas_UpdateCallback fnUpdate;       /* callback function for updating the graphics data
+	                                                (= the code for the main game loop).
+	                                               cannot be NULL.                                */
+	rlGameCanvas_MsgCallback fnOnMsg;           /* callback function for custom messages.
+	                                               can be NULL.                                   */
+	rlGameCanvas_WinMsgCallback fnOnWinMsg;     /* callback function for window messages.
+	                                               can be NULL.                                   */
+	rlGameCanvas_DrawCallback fnDraw;           /* callback function that updates the canvas.
+	                                               cannot be NULL.                                */
+	rlGameCanvas_CreateData fnCreateData;       /* function that creates an
+	                                                rlGameCanvas_GraphicsData object.             */
+	rlGameCanvas_DestroyData fnDestroyData;     /* function that destroys an
+	                                                rlGameCanvas_GraphicsData object.
+	                                               cannot be NULL.                                */
+	rlGameCanvas_CopyData fnCopyData;           /* function that copies the contents of one
+	                                                rlGameCanvas_GraphicsData object into another
+	                                                one.
+	                                               cannot be NULL.                                */
+	rlGameCanvas_Config oInitialConfig;         /* the part of the configuration that can be changed
+	                                                at runtime.                                   */
 } rlGameCanvas_StartupConfig;
 
 

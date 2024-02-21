@@ -30,12 +30,12 @@ namespace
 		but I prefer it this way as it's the "cleaner" C++-style way.
 	*/
 
-	constexpr inline rlGameCanvas PointerToHandle(lib::GameCanvas *pointer)
+	inline rlGameCanvas PointerToHandle(lib::GameCanvas *pointer)
 	{
 		return reinterpret_cast<rlGameCanvas>(pointer);
 	}
 
-	constexpr inline lib::GameCanvas *HandleToPointer(rlGameCanvas handle)
+	inline lib::GameCanvas *HandleToPointer(rlGameCanvas handle)
 	{
 		return reinterpret_cast<lib::GameCanvas *>(handle);
 	}

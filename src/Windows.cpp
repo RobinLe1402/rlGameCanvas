@@ -12,7 +12,7 @@ namespace rlGameCanvasLib
 
 		std::wstring sResult(iLen - 1, '\0');
 		MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, szAsChar, -1, sResult.data(),
-			sResult.length() + 1);
+			int(sResult.length() + 1));
 
 		return sResult;
 	}

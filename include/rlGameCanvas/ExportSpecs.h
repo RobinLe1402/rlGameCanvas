@@ -10,10 +10,13 @@
 #error Both RLGAMECANVAS_DYNAMIC and RLGAMECANVAS_STATIC were defined. Please only define one or the other.
 #endif
 
-#ifdef __cplusplus
+#ifdef __cplusplus // C++
 #define RLGAMECANVAS_API extern "C"
-#else
+#else // C
 #define RLGAMECANVAS_API extern
+#ifndef RLGAMECANVAS_DYNAMIC
+#define RLGAMECANVAS_DYNAMIC // C can only use the dynamic version of this library
+#endif
 #endif
 
 #if defined RLGAMECANVAS_COMPILE
