@@ -20,6 +20,8 @@ namespace rlGameCanvasLib
 
 	std::wstring UTF8toWindowsUnicode(const U8Char *szUTF8);
 
+	std::string WindowsLastErrorString(DWORD dwLastError);
+
 }
 
 

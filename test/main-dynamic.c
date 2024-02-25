@@ -1,4 +1,5 @@
 #include <rlGameCanvas/Core.h>
+#include <rlGameCanvas/Definitions.h>
 
 #include <malloc.h>
 #include <stdio.h>
@@ -17,6 +18,25 @@ void Update(
 	// todo: update data
 }
 
+void CanvasMsg(
+	rlGameCanvas          canvas,
+	rlGameCanvas_UInt     iMsg,
+	rlGameCanvas_MsgParam iParam1,
+	rlGameCanvas_MsgParam iParam2
+)
+{
+	switch (iMsg)
+	{
+	case RL_GAMECANVAS_MSG_CREATE:
+		printf("CREATE received\n");
+		break;
+
+	case RL_GAMECANVAS_MSG_DESTROY:
+		printf("DESTROY received\n");
+		break;
+	}
+}
+
 void Draw(
 	rlGameCanvas canvas,
 	rlGameCanvas_Layer* pLayers,
@@ -29,9 +49,9 @@ void Draw(
 	MessageBoxA(NULL, "Test", "LOL", MB_SYSTEMMODAL);
 }
 
-void CreateData(void* pData)
+void CreateData(void** pData)
 {
-	pData = malloc(sizeof(GraphicsData));
+	*pData = malloc(sizeof(GraphicsData));
 }
 
 void DestroyData(void* pData)
@@ -52,6 +72,7 @@ int main(int argc, char* argv[])
 
 	sc.szWindowCaption    = szTitle;
 	sc.iMaximizeBtnAction = RL_GAMECANVAS_MAX_NONE;
+	sc.fnOnMsg            = CanvasMsg;
 	sc.fnOnWinMsg         = 0;
 	sc.fnUpdate           = Update;
 	sc.fnDraw             = Draw;
@@ -62,7 +83,6 @@ int main(int argc, char* argv[])
 	sc.oInitialConfig.iWidth           = 256;
 	sc.oInitialConfig.iScaling         = 2;
 	sc.oInitialConfig.iMaximization    = RL_GAMECANVAS_MAX_NONE;
-	sc.oInitialConfig.bHideMouseCursor = 0;
 
 	rlGameCanvas canvas = rlGameCanvas_Create(&sc);
 	if (!canvas)

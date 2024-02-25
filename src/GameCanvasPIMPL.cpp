@@ -1,9 +1,26 @@
 #include "private/GameCanvasPIMPL.hpp"
+#include "private/Windows.hpp"
+#include <rlGameCanvas/Definitions.h>
 
 namespace rlGameCanvasLib
 {
+	namespace
+	{
+
+		[[noreturn]]
+		void ThrowWithLastError(const char *szMessage, DWORD dwLastError = GetLastError())
+		{
+			std::string sFullMessage = szMessage;
+			sFullMessage += '\n' + WindowsLastErrorString(dwLastError);
+
+			throw std::exception{ sFullMessage.c_str() };
+		}
+
+	}
+
 
 	std::map<HWND, GameCanvas::PIMPL*> GameCanvas::PIMPL::s_oInstances;
+	const HINSTANCE GameCanvas::PIMPL::s_hInstance = GetModuleHandle(NULL);
 
 	LRESULT CALLBACK GameCanvas::PIMPL::StaticWndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 		LPARAM lParam)
@@ -37,8 +54,27 @@ namespace rlGameCanvasLib
 		}
 	}
 
+	bool GameCanvas::PIMPL::RegisterWindowClass()
+	{
+		static bool bRegistered = false;
 
-	GameCanvas::PIMPL::PIMPL(const StartupConfig &config) : m_oConfig(config)
+		if (bRegistered)
+			return true;
+
+		WNDCLASSEXW wc = { sizeof(wc) };
+		wc.hInstance = s_hInstance;
+		wc.lpszClassName = s_szCLASSNAME;
+		wc.lpfnWndProc   = StaticWndProc;
+		wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
+		wc.style         = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
+
+		bRegistered = RegisterClassExW(&wc);
+		return bRegistered;
+	}
+
+
+	GameCanvas::PIMPL::PIMPL(const StartupConfig &config, rlGameCanvas oHandle) :
+		m_oConfig(config), m_oHandle(oHandle)
 	{
 		// check if the configuration is valid
 		if (config.fnUpdate      == nullptr ||
@@ -50,18 +86,12 @@ namespace rlGameCanvasLib
 			config.oInitialConfig.iMaximization > 2 ||
 			config.oInitialConfig.iWidth  == 0 ||
 			config.oInitialConfig.iHeight == 0)
-			throw std::exception{ "Invalid startup configuration" };
+			throw std::exception{ "Invalid startup configuration." };
 
 
 		// initialize the window caption string
 		if (config.szWindowCaption == nullptr) // default text
-		{
-#ifndef RLGAMECANVAS_NO_CHAR8
 			m_sWindowCaption = u8"rlGameCanvas";
-#else
-			m_sWindowCaption = "rlGameCanvas";
-#endif
-		}
 		else // custom text
 		{
 			m_sWindowCaption = config.szWindowCaption;
@@ -71,36 +101,86 @@ namespace rlGameCanvasLib
 			m_oConfig.szWindowCaption = nullptr;
 		}
 
+		// try to register the window class
+		if (!RegisterWindowClass())
+			ThrowWithLastError("Failed to register the window class.");
 
-		std::unique_lock<std::mutex> lock(m_mux);
+		// try to create the window
+		if (CreateWindowExW(
+				NULL,                                                   // dwExStyle
+				s_szCLASSNAME,                                          // lpClassName
+				UTF8toWindowsUnicode(m_sWindowCaption.c_str()).c_str(), // lpWindowName
+				WS_OVERLAPPEDWINDOW,                                    // dwStyle // TODO
+				CW_USEDEFAULT,                                          // X       // TODO
+				CW_USEDEFAULT,                                          // Y       // TODO
+				CW_USEDEFAULT,                                          // nWidth  // TODO
+				CW_USEDEFAULT,                                          // nHeight // TODO
+				NULL,                                                   // hWndParent
+				NULL,                                                   // hMenu
+				s_hInstance,                                            // hInstance
+				this                                                    // lpParam
+			) == NULL)
+			ThrowWithLastError("Failed to create the window.");
+
+
+		std::unique_lock lock(m_mux);
 		m_oGraphicsThread = std::thread(&GameCanvas::PIMPL::graphicsThreadProc, this);
-		m_cv.wait(lock); // wait for the graphics thread to finish the attempt to create the window.
+		m_cv.wait(lock); // wait for the graphics thread to finish the attempt to setup OpenGL.
 
-		if (m_hWnd == NULL) // window was not created --> error, join thread now.
+		if (m_hOpenGL == NULL) // OpenGL could not be initialized --> error, join thread now.
 		{
 			if (m_oGraphicsThread.joinable())
 				m_oGraphicsThread.join();
-			
+
+
 			lock.unlock();
-			throw std::exception{ "Failed to create window" };
+
+			if (m_hWnd != NULL) // to remove warning C6387: "might be "0""
+				DestroyWindow(m_hWnd);
+			
+			throw std::exception{ "Failed to initialize OpenGL." };
 		}
+
+		m_oConfig.fnCreateData(&m_pBuffers_Live[0]);
+		m_oConfig.fnCreateData(&m_pBuffers_Live[1]);
+		m_oConfig.fnCreateData(&m_pBuffer_Drawing);
 	}
 
 	GameCanvas::PIMPL::~PIMPL() { quit(); }
 
 	bool GameCanvas::PIMPL::run()
 	{
-		std::unique_lock<std::mutex> lock(m_mux);
+		std::unique_lock lock(m_mux);
 		if (m_eGraphicsThreadState != GraphicsThreadState::Waiting)
 			return false;
 
 		m_oMainThreadID = std::this_thread::get_id();
 
+		// TODO: force initialization of first frame before running graphics thread?
+
+		m_bRunning = true;
 		m_cv.notify_one(); // tell graphics thread to start working
 		lock.unlock();
 
-		logicThreadProc(); // run game logic
-		
+		ShowWindow(m_hWnd, SW_SHOW);
+		SetForegroundWindow(m_hWnd);
+
+		MSG msg{};
+		while (true)
+		{
+			while (PeekMessageW(&msg, m_hWnd, 0, 0, PM_REMOVE))
+			{
+				TranslateMessage(&msg);
+				DispatchMessageW(&msg);
+
+				if (!m_bRunning)
+					goto lbClose;
+			}
+
+			doUpdate();
+		}
+	lbClose:
+				
 		m_oMainThreadID = {};
 
 		if (m_oGraphicsThread.joinable())
@@ -114,7 +194,7 @@ namespace rlGameCanvasLib
 		if (m_eGraphicsThreadState != GraphicsThreadState::Running)
 			return;
 
-		std::unique_lock<std::mutex> lock(m_mux);
+		std::unique_lock lock(m_mux);
 		m_bStopRequested = true;
 	}
 
@@ -124,7 +204,7 @@ namespace rlGameCanvasLib
 		if (std::this_thread::get_id() != m_oMainThreadID)
 			return false;
 
-		std::unique_lock<std::mutex> lock(m_muxBetweenFrames);
+		std::unique_lock lock(m_muxConfig);
 		if (m_eGraphicsThreadState == GraphicsThreadState::Stopped)
 			return false;
 
@@ -138,40 +218,86 @@ namespace rlGameCanvasLib
 
 	LRESULT GameCanvas::PIMPL::localWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		// todo
+		// TODO: handle more messages
+		switch (uMsg)
+		{
+		case WM_CREATE:
+			m_hWnd = hWnd;
+			if (m_oConfig.fnOnMsg)
+				m_oConfig.fnOnMsg(m_oHandle, RL_GAMECANVAS_MSG_CREATE, 0, 0);
+			break;
+
+		case WM_CLOSE:
+		{
+			std::unique_lock lock(m_mux);
+			m_bRunning = false;
+			if (m_eGraphicsThreadState != GraphicsThreadState::Stopped)
+				m_cv.wait(lock);
+		}
+			DestroyWindow(m_hWnd);
+			return 0;
+
+		case WM_DESTROY:
+			if (m_oConfig.fnOnMsg)
+				m_oConfig.fnOnMsg(m_oHandle, RL_GAMECANVAS_MSG_DESTROY, 0, 0);
+
+			PostQuitMessage(0);
+			return 0;
+
+		case WM_QUIT:
+			return 0;
+		}
 
 		return DefWindowProcW(hWnd, uMsg, wParam, lParam);
 	}
 
 	void GameCanvas::PIMPL::graphicsThreadProc()
 	{
-		// todo: create window, initial graphics setup
-		if (m_hWnd == NULL)
+		// todo: setup OpenGL
+		if (m_hOpenGL == NULL)
 		{
-			std::unique_lock<std::mutex> lock(m_mux);
 			m_eGraphicsThreadState = GraphicsThreadState::Stopped;
-			m_cv.notify_one(); // notify main thread that initialization is done
+			m_cv.notify_one();
 			return;
 		}
 
-		std::unique_lock<std::mutex> lock(m_mux);
+		std::unique_lock lock(m_mux);
 		m_eGraphicsThreadState = GraphicsThreadState::Waiting;
 		m_cv.notify_one();
 		m_cv.wait(lock); // wait for run(), quit() or destructor
 		lock.unlock();
 
-		if (m_bRunning)
+		while (true)
 		{
-			// todo: Windows message loop with peek + graphics processing
+			lock.lock();
+			if (!m_bRunning)
+				break; // while --> unlock at end of function
+			lock.unlock();
+
+			// todo: graphics processing
 			// NOTE: graphics processing = lock mutex, copy data, unlock mutex, process copied data
 		}
+
+		// todo: destroy OpenGL
 
 		m_eGraphicsThreadState = GraphicsThreadState::Stopped;
 	}
 
-	void GameCanvas::PIMPL::logicThreadProc()
+	void GameCanvas::PIMPL::doUpdate()
 	{
-		// todo: core game loop framework, call to update callback (surrounded with lock)
+		std::unique_lock lockBuf(m_muxBuffers[m_iCurrentLiveBuffer]);
+
+		static std::chrono::system_clock::time_point tp2;
+		tp2 = std::chrono::system_clock::now();
+		static auto tp1 = tp2;
+
+		m_oConfig.fnUpdate(m_oHandle, m_pBuffers_Live[m_iCurrentLiveBuffer],
+			std::chrono::duration_cast<std::chrono::duration<double>>(tp2 - tp1).count());
+		tp1 = tp2;
+
+		// change buffer
+		std::unique_lock lockBufChange(m_muxBufferChange);
+		m_iCurrentLiveBuffer = ++m_iCurrentLiveBuffer % 2;
 	}
 
 }

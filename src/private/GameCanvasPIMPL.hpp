@@ -7,6 +7,7 @@
 
 #include <rlGameCanvas++/GameCanvas.hpp>
 
+#include <gl/GL.h>
 #include <map>
 #include <mutex>
 #include <thread>
@@ -33,16 +34,19 @@ namespace rlGameCanvasLib
 	private: // static methods
 
 		static LRESULT CALLBACK StaticWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+		static bool RegisterWindowClass();
 
 
 	private: // static variables
 
 		static std::map<HWND, GameCanvas::PIMPL*> s_oInstances;
+		static const HINSTANCE s_hInstance;
+		static constexpr wchar_t s_szCLASSNAME[] = L"rlGameCanvas";
 
 
 	public: // methods
 
-		PIMPL(const StartupConfig &config);
+		PIMPL(const StartupConfig &config, rlGameCanvas oHandle);
 		~PIMPL();
 
 		// interface methods =======================================================================
@@ -57,36 +61,40 @@ namespace rlGameCanvasLib
 		LRESULT localWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 		void graphicsThreadProc();
-		void logicThreadProc();
+
+		void doUpdate();
 
 
 	private: // variables
 
+		rlGameCanvas m_oHandle;
+
 		StartupConfig m_oConfig;
 
-#ifndef RLGAMECANVAS_NO_CHAR8
 		std::u8string m_sWindowCaption;
-#else
-		std::string m_sWindowCaption;
-#endif
+
+		HWND  m_hWnd    = NULL;
+		HGLRC m_hOpenGL = NULL;
 
 		std::thread::id     m_oMainThreadID;
 		std::thread         m_oGraphicsThread;
 		GraphicsThreadState m_eGraphicsThreadState = GraphicsThreadState::Waiting;
 		/* initialized with Waiting because thread will be started within the constructor.        */
 
-		std::mutex m_mux;
-		std::mutex m_muxBetweenFrames;
-		std::condition_variable m_cv;
-		bool m_bRunning       = false;
-		bool m_bStopRequested = false;
+		std::mutex              m_mux; // general-purpose.
+		std::condition_variable m_cv;  // general-purpose.
+		bool m_bRunning       = false; // is the game logic running?
+		bool m_bStopRequested = false; // user/game requested a stop.
 
-		bool   m_bNewConfig = false;
-		Config m_oNewConfig = {};
-		
-		HWND m_hWnd = NULL;
-		GraphicsData m_pGraphicsData_Live    = nullptr;
-		GraphicsData m_pGraphicsData_Drawing = nullptr;
+		std::mutex m_muxConfig;
+		bool       m_bNewConfig = false;
+		Config     m_oNewConfig = {};
+
+		std::mutex   m_muxBufferChange; // for when one buffer is done processing on either threads
+		unsigned     m_iCurrentLiveBuffer = 0;
+		std::mutex   m_muxBuffers[2]; 
+		GraphicsData m_pBuffers_Live[2] = {};
+		GraphicsData m_pBuffer_Drawing  = nullptr;
 	};
 
 }

@@ -17,4 +17,25 @@ namespace rlGameCanvasLib
 		return sResult;
 	}
 
+	std::string WindowsLastErrorString(DWORD dwLastError)
+	{
+		LPSTR pMsgBuf = nullptr;
+
+		size_t len = FormatMessageA(
+			FORMAT_MESSAGE_ALLOCATE_BUFFER |
+			FORMAT_MESSAGE_FROM_SYSTEM     |
+			FORMAT_MESSAGE_IGNORE_INSERTS,             // dwFlags
+			NULL,                                      // lpSource
+			dwLastError,                               // dwMessageId
+			MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), // dwLanguageId
+			(LPSTR)&pMsgBuf,                           // lpBuffer
+			0,                                         // nSize
+			NULL                                       // Arguments
+		);
+		std::string sResult(pMsgBuf, len);
+		LocalFree(pMsgBuf);
+
+		return sResult;
+	}
+
 }

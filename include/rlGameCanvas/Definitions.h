@@ -46,35 +46,36 @@
 // TODO: replace "<TBA>"
 /*
 	MESSAGE:           RL_GAMECANVAS_MSG_RESIZE
-	TRIGGER:           Client area size has changed (= fullscreen mode/maximization was toggled).
-	EXPECTED BEHAVIOR: Possibly adjust the viewport and layer resolutions via the <TBA> function.
+	TRIGGER:           Canvas size has changed.
+	EXPECTED BEHAVIOR: Respect the new size in all newly written data buffers.
 	PARAMETER 1:       [rlGameCanvas_ResizeParams*] Information about the resize.
 	                   Changes are ignored.
 	PARAMETER 2:       Not used.
 */
 #define RL_GAMECANVAS_MSG_RESIZE (0x00000005)
 
-/*
-	MESSAGE:           RL_GAMECANVAS_MSG_MOUSEMOVE
-	TRIGGER:           The mouse cursor has moved to a new position on the client area.
-	                   Only fired when the window has focus.
-	EXPECTED BEHAVIOR: Possibly move mouse cursor/change button highlighting.
-	PARAMETER 1:       [rlGameCanvas_Resolution*] The coordinates of the pixel the mouse cursor is
-	                   now on.
-	PARAMETER 2:       Not used.
-*/
-#define RL_GAMECANVAS_MSG_MOUSEMOVE (0x00000006)
-
-/*
-	MESSAGE:           RL_GAMECANVAS_MSG_MOUSELEAVE
-	TRIGGER:           a) The window has focus and the mouse cursor has moved to a new position
-	                      outside the client area.
-	                   b) The window has lost focus. Sent after RL_GAMECANVAS_MSG_LOSEFOCUS.
-	EXPECTED BEHAVIOR: Possibly move mouse cursor/change button highlighting.
-	PARAMETER 1:       Not used.
-	PARAMETER 2:       Not used.
-*/
-#define RL_GAMECANVAS_MSG_MOUSELEAVE (0x00000007)
+// TODO: make use of mouse movements?
+///*
+//	MESSAGE:           RL_GAMECANVAS_MSG_MOUSEMOVE
+//	TRIGGER:           The mouse cursor has moved to a new position on the client area.
+//	                   Only fired when the window has focus.
+//	EXPECTED BEHAVIOR: Possibly move mouse cursor/change button highlighting.
+//	PARAMETER 1:       [rlGameCanvas_Resolution*] The coordinates of the pixel the mouse cursor is
+//	                   now on.
+//	PARAMETER 2:       Not used.
+//*/
+//#define RL_GAMECANVAS_MSG_MOUSEMOVE (0x00000006)
+//
+///*
+//	MESSAGE:           RL_GAMECANVAS_MSG_MOUSELEAVE
+//	TRIGGER:           a) The window has focus and the mouse cursor has moved to a new position
+//	                      outside the client area.
+//	                   b) The window has lost focus. Sent after RL_GAMECANVAS_MSG_LOSEFOCUS.
+//	EXPECTED BEHAVIOR: Possibly move mouse cursor/change button highlighting.
+//	PARAMETER 1:       Not used.
+//	PARAMETER 2:       Not used.
+//*/
+//#define RL_GAMECANVAS_MSG_MOUSELEAVE (0x00000007)
 
 
 
@@ -117,7 +118,9 @@
 #define RL_GAMECANVAS_CFG_NOSCALE (0x00000002) /* ignore the iScaling value.                      */
 #define RL_GAMECANVAS_CFG_NOSIZE  (RL_GAMECANVAS_CFG_NORES | RL_GAMECANVAS_CFG_NOSCALE)
 #define RL_GAMECANVAS_CFG_NOMAX   (0x00000004) /* ignore the iMaximization value.                 */
-#define RL_GAMECANVAS_CFG_NOMOUSE (0x00000008) /* ignore the bHideMouseCursor value.              */
+
+// TODO: offer the option to hide the mouse cursor over the client area
+//#define RL_GAMECANVAS_CFG_NOMOUSE (0x00000008) /* ignore the bHideMouseCursor value.              */
 
 
 

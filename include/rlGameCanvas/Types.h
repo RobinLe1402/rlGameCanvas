@@ -45,11 +45,9 @@ typedef uint32_t rlGameCanvas_Pixel;
 
 typedef struct
 {
-	rlGameCanvas_UInt   iWidth, iHeight; /* the dimensions, in pixel, of the layer.
-	                                        modifications of these values will be ignored.        */
-	rlGameCanvas_Pixel *pData;           /* the pixel data - left to right, top to bottom.
-	                                        value at position (x,y) can be found at
-	                                         index [y * width + x].                               */
+	// TODO: add different layer sizes?
+	rlGameCanvas_Pixel *pData; /* the pixel data - left to right, top to bottom.
+	                              value at position (x,y) can be found at index [y * width + x]. */
 } rlGameCanvas_Layer;
 
 
@@ -61,9 +59,9 @@ typedef struct rlGameCanvas_OpaquePtrStruct
 
 
 
-typedef void (__stdcall *rlGameCanvas_CreateData )(rlGameCanvas_GraphicsData pData);
-typedef void (__stdcall *rlGameCanvas_DestroyData)(rlGameCanvas_GraphicsData pData);
-typedef void (__stdcall *rlGameCanvas_CopyData)(rlGameCanvas_GraphicsData pSrc,
+typedef void (__stdcall *rlGameCanvas_CreateData )(rlGameCanvas_GraphicsData *ppData);
+typedef void (__stdcall *rlGameCanvas_DestroyData)(rlGameCanvas_GraphicsData  pData);
+typedef void (__stdcall *rlGameCanvas_CopyData)(rlGameCanvas_GraphicsData     pSrc,
 	rlGameCanvas_GraphicsData pDest);
 
 typedef struct
@@ -103,12 +101,8 @@ typedef void (__stdcall *rlGameCanvas_UpdateCallback)(
 
 typedef struct
 {
-	rlGameCanvas_Bool bFullscreenMode;    /* zero    = Fullscreen/maximized mode was enabled.
-	                                         nonzero = Windowed mode was enabled.                 */
-	rlGameCanvas_Resolution  oOldRes;     /* the old size, in pixels, of the client area.         */
-	rlGameCanvas_Resolution  oNewRes;     /* the new size, in pixels, of the client area.         */
-	rlGameCanvas_Resolution *pLayerSizes; /* the sizes, in pixels, of the layers.                 */
-	rlGameCanvas_UInt        iLayerCount; /* the size of the pLayerSizes array.                   */
+	rlGameCanvas_Resolution oOldRes; /* the old size, in pixels, of the canvas.                   */
+	rlGameCanvas_Resolution oNewRes; /* the new size, in pixels, of the canvas.                   */
 } rlGameCanvas_ResizeParams;
 
 
@@ -134,8 +128,10 @@ typedef struct
 	rlGameCanvas_UInt iScaling;         /* the factor for up-"scaling". 0 = maximum.              */
 	rlGameCanvas_UInt iMaximization;    /* maximization state.
 	                                       one of the RL_GAMECANVAS_MAX_[...] values.             */
-	rlGameCanvas_Bool bHideMouseCursor; /* should the mouse cursor be hidden on the client area when
-	                                        the window has focus?                                 */
+
+	// TODO: offer option to hide mouse cursor over client area?
+	//rlGameCanvas_Bool bHideMouseCursor; /* should the mouse cursor be hidden on the client area when
+	//                                        the window has focus?                                 */
 } rlGameCanvas_Config;
 
 
