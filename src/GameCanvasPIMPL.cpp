@@ -281,6 +281,7 @@ namespace rlGameCanvasLib
 		// todo: destroy OpenGL
 
 		m_eGraphicsThreadState = GraphicsThreadState::Stopped;
+		m_cv.notify_one();
 	}
 
 	void GameCanvas::PIMPL::doUpdate()
