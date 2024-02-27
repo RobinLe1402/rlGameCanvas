@@ -124,10 +124,13 @@ typedef void (__stdcall *rlGameCanvas_MsgCallback)(
 */
 typedef struct
 {
-	rlGameCanvas_UInt iWidth, iHeight;  /* size, in pixels, of the canvas.                        */
-	rlGameCanvas_UInt iScaling;         /* the factor for up-"scaling". 0 = maximum.              */
-	rlGameCanvas_UInt iMaximization;    /* maximization state.
-	                                       one of the RL_GAMECANVAS_MAX_[...] values.             */
+	rlGameCanvas_Resolution oResolution;  /* size, in pixels, of the canvas.                      */
+	rlGameCanvas_Resolution oPixelSize;   /* the size, in actual pixels, for up-"scaling".
+	                                         if exactly one of the values is zero, it will be set
+	                                          to the other, nonzero value.                        */
+	rlGameCanvas_UInt iMaximization;      /* maximization state.
+	                                         one of the RL_GAMECANVAS_MAX_[...] values.           */
+	rlGameCanvas_Pixel pxBackgroundColor; /* the color the background should be filled with.      */
 
 	// TODO: offer option to hide mouse cursor over client area?
 	//rlGameCanvas_Bool bHideMouseCursor; /* should the mouse cursor be hidden on the client area when

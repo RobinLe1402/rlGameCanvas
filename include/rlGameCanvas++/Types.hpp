@@ -13,6 +13,8 @@
 #define RLGAMECANVAS_NO_CHAR8
 #endif
 
+#include "Pixel.hpp"
+
 namespace rlGameCanvasLib
 {
 
@@ -20,8 +22,6 @@ namespace rlGameCanvasLib
 	using UInt         = rlGameCanvas_UInt;
 	using GraphicsData = rlGameCanvas_GraphicsData;
 	using U8Char       = rlGameCanvas_U8Char;
-
-	using Pixel = rlGameCanvas_Pixel;
 
 	using Layer = rlGameCanvas_Layer;
 

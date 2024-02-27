@@ -19,6 +19,8 @@
 
 #define RLGAMECANVAS_MAKEPIXEL_RGB(r, g, b) RLGAMECANVAS_MAKEPIXEL(r, g, b, 255)
 
+#define RLGAMECANVAS_MAKEPIXELOPAQUE(px) (px | 0xFF000000)
+
 const rlGameCanvas_Pixel rlGameCanvas_Color_Blank = RLGAMECANVAS_MAKEPIXEL(0, 0, 0, 0);
 const rlGameCanvas_Pixel rlGameCanvas_Color_Black = RLGAMECANVAS_MAKEPIXEL_RGB(0, 0, 0);
 const rlGameCanvas_Pixel rlGameCanvas_Color_White = RLGAMECANVAS_MAKEPIXEL_RGB(255, 255, 255);

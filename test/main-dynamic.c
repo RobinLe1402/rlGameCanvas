@@ -1,5 +1,6 @@
 #include <rlGameCanvas/Core.h>
 #include <rlGameCanvas/Definitions.h>
+#include <rlGameCanvas/Pixel.h>
 
 #include <malloc.h>
 #include <stdio.h>
@@ -45,8 +46,9 @@ void Draw(
 {
 	const GraphicsData* pDataTyped = pData;
 
+	Sleep(10);
+
 	// todo: draw something
-	MessageBoxA(NULL, "Test", "LOL", MB_SYSTEMMODAL);
 }
 
 void CreateData(void** pData)
@@ -79,10 +81,11 @@ int main(int argc, char* argv[])
 	sc.fnCreateData       = CreateData;
 	sc.fnDestroyData      = DestroyData;
 	sc.fnCopyData         = CopyData;
-	sc.oInitialConfig.iHeight          = 240;
-	sc.oInitialConfig.iWidth           = 256;
-	sc.oInitialConfig.iScaling         = 2;
-	sc.oInitialConfig.iMaximization    = RL_GAMECANVAS_MAX_NONE;
+	sc.oInitialConfig.oResolution.x     = 240;
+	sc.oInitialConfig.oResolution.y     = 256;
+	sc.oInitialConfig.oPixelSize.x      = 2;
+	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_NONE;
+	sc.oInitialConfig.pxBackgroundColor = rlGameCanvas_Color_White;
 
 	rlGameCanvas canvas = rlGameCanvas_Create(&sc);
 	if (!canvas)

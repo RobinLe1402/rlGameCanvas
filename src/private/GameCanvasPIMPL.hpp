@@ -75,6 +75,7 @@ namespace rlGameCanvasLib
 
 		HWND  m_hWnd    = NULL;
 		HGLRC m_hOpenGL = NULL;
+		HDC   m_hDC     = NULL;
 
 		std::thread::id     m_oMainThreadID;
 		std::thread         m_oGraphicsThread;

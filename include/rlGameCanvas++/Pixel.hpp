@@ -29,7 +29,7 @@ namespace rlGameCanvasLib
 			rgba({ r, g, b, a })
 		{}
 
-		constexpr Pixel(rlGameCanvas_Pixel val) : val(val) {}
+		constexpr Pixel(rlGameCanvas_Pixel val = rlGameCanvas_Color_Blank) : val(val) {}
 
 
 		operator rlGameCanvas_Pixel() const { return val; }

@@ -2,6 +2,8 @@
 #include "private/Windows.hpp"
 #include <rlGameCanvas/Definitions.h>
 
+#pragma comment(lib, "Opengl32.lib")
+
 namespace rlGameCanvasLib
 {
 	namespace
@@ -84,9 +86,16 @@ namespace rlGameCanvasLib
 			config.fnCopyData    == nullptr ||
 			config.iMaximizeBtnAction           > 2 ||
 			config.oInitialConfig.iMaximization > 2 ||
-			config.oInitialConfig.iWidth  == 0 ||
-			config.oInitialConfig.iHeight == 0)
+			config.oInitialConfig.oResolution.x == 0 ||
+			config.oInitialConfig.oResolution.y == 0 ||
+			(config.oInitialConfig.oPixelSize.x == 0 && config.oInitialConfig.oPixelSize.y == 0)
+		)
 			throw std::exception{ "Invalid startup configuration." };
+
+		if (config.oInitialConfig.oPixelSize.x == 0)
+			m_oConfig.oInitialConfig.oPixelSize.x = m_oConfig.oInitialConfig.oPixelSize.y;
+		else if (config.oInitialConfig.oPixelSize.y == 0)
+			m_oConfig.oInitialConfig.oPixelSize.y = m_oConfig.oInitialConfig.oPixelSize.x;
 
 
 		// initialize the window caption string
@@ -110,7 +119,7 @@ namespace rlGameCanvasLib
 				NULL,                                                   // dwExStyle
 				s_szCLASSNAME,                                          // lpClassName
 				UTF8toWindowsUnicode(m_sWindowCaption.c_str()).c_str(), // lpWindowName
-				WS_OVERLAPPEDWINDOW,                                    // dwStyle // TODO
+				WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX,                      // dwStyle // TODO
 				CW_USEDEFAULT,                                          // X       // TODO
 				CW_USEDEFAULT,                                          // Y       // TODO
 				CW_USEDEFAULT,                                          // nWidth  // TODO
@@ -223,6 +232,7 @@ namespace rlGameCanvasLib
 		{
 		case WM_CREATE:
 			m_hWnd = hWnd;
+			m_hDC  = GetDC(m_hWnd);
 			if (m_oConfig.fnOnMsg)
 				m_oConfig.fnOnMsg(m_oHandle, RL_GAMECANVAS_MSG_CREATE, 0, 0);
 			break;
@@ -253,12 +263,58 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::graphicsThreadProc()
 	{
-		// todo: setup OpenGL
-		if (m_hOpenGL == NULL)
+		Pixel pxBG;
 		{
-			m_eGraphicsThreadState = GraphicsThreadState::Stopped;
-			m_cv.notify_one();
-			return;
+			bool bSuccess = false;
+
+			PIXELFORMATDESCRIPTOR pfd =
+			{
+				sizeof(PIXELFORMATDESCRIPTOR), 1,
+				PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+				PFD_TYPE_RGBA, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				PFD_MAIN_PLANE, 0, 0, 0, 0
+			};
+			int pf = ChoosePixelFormat(m_hDC, &pfd);
+			if (!SetPixelFormat(m_hDC, pf, &pfd))
+				goto lbEnd;
+
+			m_hOpenGL = wglCreateContext(m_hDC);
+			if (m_hOpenGL == NULL)
+				goto lbEnd;
+			if (!wglMakeCurrent(m_hDC, m_hOpenGL))
+			{
+				wglDeleteContext(m_hOpenGL);
+				m_hOpenGL = 0;
+				goto lbEnd;
+			}
+
+			glViewport(
+				0, // x
+				0, // y
+				m_oConfig.oInitialConfig.oResolution.x * m_oConfig.oInitialConfig.oPixelSize.x,
+				m_oConfig.oInitialConfig.oResolution.y * m_oConfig.oInitialConfig.oPixelSize.y
+			);
+			pxBG = m_oConfig.oInitialConfig.pxBackgroundColor;
+			glClearColor(
+				pxBG.rgba.r / 255.0f,
+				pxBG.rgba.g / 255.0f,
+				pxBG.rgba.b / 255.0f,
+				1.0f
+			);
+
+			glEnable(GL_TEXTURE_2D);
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+			bSuccess = true;
+
+		lbEnd:
+			if (!bSuccess)
+			{
+				m_eGraphicsThreadState = GraphicsThreadState::Stopped;
+				m_cv.notify_one();
+				return;
+			}
 		}
 
 		std::unique_lock lock(m_mux);
@@ -274,11 +330,26 @@ namespace rlGameCanvasLib
 				break; // while --> unlock at end of function
 			lock.unlock();
 
-			// todo: graphics processing
-			// NOTE: graphics processing = lock mutex, copy data, unlock mutex, process copied data
+			// copy live data
+			{
+				std::unique_lock lockBufChoice(m_muxBufferChange);
+				const auto iBuf = 1 - m_iCurrentLiveBuffer;
+				std::unique_lock lockBuf(m_muxBuffers[iBuf]);
+				lockBufChoice.unlock();
+				m_oConfig.fnCopyData(m_pBuffers_Live[iBuf], m_pBuffer_Drawing);
+				lockBuf.unlock();
+			}
+
+			// update the canvas
+			m_oConfig.fnDraw(m_oHandle, nullptr /* TODO */, 0 /* TODO */, m_pBuffer_Drawing);
+
+			glClear(GL_COLOR_BUFFER_BIT);
+			// TODO: draw layers
+			SwapBuffers(GetDC(m_hWnd));
 		}
 
 		// todo: destroy OpenGL
+		wglDeleteContext(m_hOpenGL);
 
 		m_eGraphicsThreadState = GraphicsThreadState::Stopped;
 		m_cv.notify_one();
