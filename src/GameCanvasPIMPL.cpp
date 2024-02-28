@@ -306,6 +306,17 @@ namespace rlGameCanvasLib
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+			if (!m_oLayers.create(
+				1 + m_oConfig.iExtraLayerCount,         // iLayerCount
+				m_oConfig.oInitialConfig.oResolution.x, // iWidth
+				m_oConfig.oInitialConfig.oResolution.y  // iHeight
+			))
+			{
+				wglDeleteContext(m_hOpenGL);
+				m_hOpenGL = 0;
+				goto lbEnd;
+			}
+
 			bSuccess = true;
 
 		lbEnd:
@@ -322,6 +333,15 @@ namespace rlGameCanvasLib
 		m_cv.notify_one();
 		m_cv.wait(lock); // wait for run(), quit() or destructor
 		lock.unlock();
+
+		auto oLayers     = std::make_unique<Layer[]>(size_t(1) + m_oConfig.iExtraLayerCount);
+		auto oLayersCopy = std::make_unique<Layer[]>(size_t(1) + m_oConfig.iExtraLayerCount);
+
+		for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
+		{
+			oLayers[i].pData = reinterpret_cast<rlGameCanvas_Pixel *>(m_oLayers.scanline(i, 0));
+		}
+		const size_t iDataSize = sizeof(oLayers[0]) * m_oLayers.layerCount();
 
 		while (true)
 		{
@@ -341,14 +361,31 @@ namespace rlGameCanvasLib
 			}
 
 			// update the canvas
-			m_oConfig.fnDraw(m_oHandle, nullptr /* TODO */, 0 /* TODO */, m_pBuffer_Drawing);
+			memcpy_s(oLayersCopy.get(), iDataSize, oLayers.get(), iDataSize);
+			m_oConfig.fnDraw(m_oHandle, oLayersCopy.get(), m_oLayers.layerCount(),
+				m_pBuffer_Drawing);
 
 			glClear(GL_COLOR_BUFFER_BIT);
-			// TODO: draw layers
+			for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
+			{
+				m_oLayers.uploadLayer(i);
+				glBindTexture(GL_TEXTURE_2D, m_oLayers.textureID(i));
+
+				// draw texture (full width and height, but upside down)
+				glBegin(GL_QUADS);
+				{
+					glTexCoord2f(0.0, 1.0);	glVertex3f(-1.0f, -1.0f, 0.0f);
+					glTexCoord2f(0.0, 0.0);	glVertex3f(-1.0f,  1.0f, 0.0f);
+					glTexCoord2f(1.0, 0.0);	glVertex3f( 1.0f,  1.0f, 0.0f);
+					glTexCoord2f(1.0, 1.0);	glVertex3f( 1.0f, -1.0f, 0.0f);
+				}
+				glEnd();
+			}
 			SwapBuffers(GetDC(m_hWnd));
 		}
 
 		// todo: destroy OpenGL
+		m_oLayers.destroy();
 		wglDeleteContext(m_hOpenGL);
 
 		m_eGraphicsThreadState = GraphicsThreadState::Stopped;

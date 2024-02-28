@@ -7,6 +7,8 @@
 
 #include <rlGameCanvas++/GameCanvas.hpp>
 
+#include "MultiLayerBitmap.hpp"
+
 #include <gl/GL.h>
 #include <map>
 #include <mutex>
@@ -96,6 +98,8 @@ namespace rlGameCanvasLib
 		std::mutex   m_muxBuffers[2]; 
 		GraphicsData m_pBuffers_Live[2] = {};
 		GraphicsData m_pBuffer_Drawing  = nullptr;
+
+		MultiLayerBitmap m_oLayers;
 	};
 
 }

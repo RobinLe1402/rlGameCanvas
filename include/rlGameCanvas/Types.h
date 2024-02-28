@@ -166,6 +166,8 @@ typedef struct
 	                                                rlGameCanvas_GraphicsData object into another
 	                                                one.
 	                                               cannot be NULL.                                */
+	rlGameCanvas_UInt   iExtraLayerCount;       /* the count of additional layers to create, in
+	                                                addition to the base layer.                   */
 	rlGameCanvas_Config oInitialConfig;         /* the part of the configuration that can be changed
 	                                                at runtime.                                   */
 } rlGameCanvas_StartupConfig;

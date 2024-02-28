@@ -5,10 +5,17 @@
 #include <malloc.h>
 #include <stdio.h>
 
+#define WIDTH  256
+#define HEIGHT 240
+
 typedef struct
 {
-	int iUnused; // todo: use graphics data
+	unsigned iAnimFrame;
+	double   dFrameTime;
 } GraphicsData;
+
+const double dSecsPerFrame = 1.0 / 15;
+const unsigned iFrameCount = 2;
 
 void Update(
 	rlGameCanvas              canvas,
@@ -16,7 +23,15 @@ void Update(
 	double                    dSecsSinceLastCall
 )
 {
-	// todo: update data
+	GraphicsData *pDataT = pData;
+
+	pDataT->dFrameTime += dSecsSinceLastCall;
+
+	const unsigned iPassedFrames = pDataT->dFrameTime / dSecsPerFrame;
+	pDataT->dFrameTime -= iPassedFrames * dSecsPerFrame;
+	pDataT->iAnimFrame += iPassedFrames;
+
+	pDataT->iAnimFrame %= iFrameCount;
 }
 
 void CanvasMsg(
@@ -44,16 +59,45 @@ void Draw(
 	rlGameCanvas_UInt iLayers,
 	const rlGameCanvas_GraphicsData pData)
 {
-	const GraphicsData* pDataTyped = pData;
+	const GraphicsData* pDataT = pData;
 
-	Sleep(10);
+	//Sleep(10);
+
+	const rlGameCanvas_Pixel pxRed = RLGAMECANVAS_MAKEPIXEL_RGB(255, 0, 0);
+
+	rlGameCanvas_Pixel pxOverlay;
+	if (pDataT->iAnimFrame == 0)
+		pxOverlay = rlGameCanvas_Color_Blank;
+	else
+		pxOverlay = rlGameCanvas_Color_Black;
+	pLayers[1].pData[0] = pxOverlay;
+
+	for (size_t x = 1; x < WIDTH - 1; ++x)
+	{
+		pLayers[0].pData[x] = pxRed;
+	}
+	for (size_t y = 0; y < HEIGHT; ++y)
+	{
+		pLayers[0].pData[ y      * WIDTH    ] = pxRed;
+		pLayers[0].pData[(y + 1) * WIDTH - 1] = pxRed;
+	}
+	for (size_t x = 1; x < WIDTH - 1; ++x)
+	{
+		pLayers[0].pData[(HEIGHT - 1) * WIDTH + x] = RLGAMECANVAS_MAKEPIXEL_RGB(200, 0, 255);
+	}
 
 	// todo: draw something
 }
 
 void CreateData(void** pData)
 {
-	*pData = malloc(sizeof(GraphicsData));
+	GraphicsData *pDataT = *pData = malloc(sizeof(GraphicsData));
+
+	if (pDataT)
+	{
+		pDataT->iAnimFrame = 0;
+		pDataT->dFrameTime = 0.0;
+	}
 }
 
 void DestroyData(void* pData)
@@ -81,8 +125,9 @@ int main(int argc, char* argv[])
 	sc.fnCreateData       = CreateData;
 	sc.fnDestroyData      = DestroyData;
 	sc.fnCopyData         = CopyData;
-	sc.oInitialConfig.oResolution.x     = 240;
-	sc.oInitialConfig.oResolution.y     = 256;
+	sc.iExtraLayerCount   = 1;
+	sc.oInitialConfig.oResolution.x     = WIDTH;
+	sc.oInitialConfig.oResolution.y     = HEIGHT;
 	sc.oInitialConfig.oPixelSize.x      = 2;
 	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_NONE;
 	sc.oInitialConfig.pxBackgroundColor = rlGameCanvas_Color_White;
