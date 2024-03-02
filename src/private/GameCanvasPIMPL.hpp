@@ -93,11 +93,10 @@ namespace rlGameCanvasLib
 		bool       m_bNewConfig = false;
 		Config     m_oNewConfig = {};
 
-		std::mutex   m_muxBufferChange; // for when one buffer is done processing on either threads
-		unsigned     m_iCurrentLiveBuffer = 0;
-		std::mutex   m_muxBuffers[2]; 
-		GraphicsData m_pBuffers_Live[2] = {};
-		GraphicsData m_pBuffer_Drawing  = nullptr;
+		std::mutex   m_muxBuffer; 
+		GraphicsData m_pBuffer_Updating = nullptr; // for access in update callback
+		GraphicsData m_pBuffer_Shared   = nullptr; // ready to be drawn
+		GraphicsData m_pBuffer_Drawing  = nullptr; // for access in draw callback
 
 		MultiLayerBitmap m_oLayers;
 	};

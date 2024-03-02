@@ -150,8 +150,8 @@ namespace rlGameCanvasLib
 			throw std::exception{ "Failed to initialize OpenGL." };
 		}
 
-		m_oConfig.fnCreateData(&m_pBuffers_Live[0]);
-		m_oConfig.fnCreateData(&m_pBuffers_Live[1]);
+		m_oConfig.fnCreateData(&m_pBuffer_Updating);
+		m_oConfig.fnCreateData(&m_pBuffer_Shared);
 		m_oConfig.fnCreateData(&m_pBuffer_Drawing);
 	}
 
@@ -352,11 +352,8 @@ namespace rlGameCanvasLib
 
 			// copy live data
 			{
-				std::unique_lock lockBufChoice(m_muxBufferChange);
-				const auto iBuf = 1 - m_iCurrentLiveBuffer;
-				std::unique_lock lockBuf(m_muxBuffers[iBuf]);
-				lockBufChoice.unlock();
-				m_oConfig.fnCopyData(m_pBuffers_Live[iBuf], m_pBuffer_Drawing);
+				std::unique_lock lockBuf(m_muxBuffer);
+				m_oConfig.fnCopyData(m_pBuffer_Shared, m_pBuffer_Drawing);
 				lockBuf.unlock();
 			}
 
@@ -394,19 +391,17 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::doUpdate()
 	{
-		std::unique_lock lockBuf(m_muxBuffers[m_iCurrentLiveBuffer]);
-
-		static std::chrono::system_clock::time_point tp2;
+				static std::chrono::system_clock::time_point tp2;
 		tp2 = std::chrono::system_clock::now();
 		static auto tp1 = tp2;
 
-		m_oConfig.fnUpdate(m_oHandle, m_pBuffers_Live[m_iCurrentLiveBuffer],
+		m_oConfig.fnUpdate(m_oHandle, m_pBuffer_Updating,
 			std::chrono::duration_cast<std::chrono::duration<double>>(tp2 - tp1).count());
 		tp1 = tp2;
 
-		// change buffer
-		std::unique_lock lockBufChange(m_muxBufferChange);
-		m_iCurrentLiveBuffer = ++m_iCurrentLiveBuffer % 2;
+		// copy to shared buffer
+		std::unique_lock lockBuf(m_muxBuffer);
+		m_oConfig.fnCopyData(m_pBuffer_Updating, m_pBuffer_Shared);
 	}
 
 }

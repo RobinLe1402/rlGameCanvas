@@ -107,9 +107,6 @@ void Draw(
 		for (unsigned x = 0; x < WIDTH; ++x)
 		{
 			pLayers[1].pData[iY * WIDTH + x] = px;
-			
-			if (x == 1)
-				break; // tmp
 		}
 
 		if ((unsigned)dOffset == 0)
