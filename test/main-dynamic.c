@@ -14,8 +14,14 @@ typedef struct
 	double   dFrameTime;
 } GraphicsData;
 
-const double dSecsPerFrame = 1.0 / 15;
-const unsigned iFrameCount = 2;
+const unsigned iFrameCount = 18;
+const double dYFactor = 0.6;
+
+const double dSecsPerFrame = 1.0 / 30;
+
+const unsigned iStartDist = 10;
+const double dAdditionalDistPerLine = 0.7;
+const double dAdditionalWidthPerLine = 0.25;
 
 void Update(
 	rlGameCanvas              canvas,
@@ -61,6 +67,56 @@ void Draw(
 {
 	const GraphicsData* pDataT = pData;
 
+	static int bInit = 0;
+
+	const rlGameCanvas_Pixel px = RLGAMECANVAS_MAKEPIXEL_RGB(255, 0, 255);
+	if (!bInit)
+	{
+		const unsigned iOffset = HEIGHT / 2;
+		const unsigned iMaxXOffset = WIDTH / 2;
+
+
+		for (unsigned iY = 0; iOffset + iY < HEIGHT; ++iY)
+		{
+			pLayers[0].pData[(iOffset + iY) * WIDTH + (WIDTH / 2)] = px; // center line
+
+			const double dXOffset = iY * dAdditionalDistPerLine;
+
+			unsigned iLine = 1;
+			while (1)
+			{
+				double dXDist = iLine * (iStartDist + dXOffset);
+				if (WIDTH / 2 + (unsigned)dXDist >= WIDTH)
+					break;
+
+				pLayers[0].pData[(iOffset + iY) * WIDTH + (WIDTH / 2) + (unsigned)dXDist] = px;
+				pLayers[0].pData[(iOffset + iY) * WIDTH + (WIDTH / 2) - (unsigned)dXDist] = px;
+
+				++iLine;
+			}
+		}
+	}
+
+	memset(pLayers[1].pData, 0, sizeof(rlGameCanvas_Pixel) * WIDTH * HEIGHT);
+
+	double dOffset = (HEIGHT / 2) - iFrameCount + pDataT->iAnimFrame;
+	while (1)
+	{
+		const unsigned iY = HEIGHT / 2 + (unsigned)dOffset - 1;
+
+		for (unsigned x = 0; x < WIDTH; ++x)
+		{
+			pLayers[1].pData[iY * WIDTH + x] = px;
+			
+			if (x == 1)
+				break; // tmp
+		}
+
+		if ((unsigned)dOffset == 0)
+			break;
+		dOffset *= dYFactor;
+	}
+
 	//Sleep(10);
 
 	const rlGameCanvas_Pixel pxRed = RLGAMECANVAS_MAKEPIXEL_RGB(255, 0, 0);
@@ -83,7 +139,7 @@ void Draw(
 	}
 	for (size_t x = 1; x < WIDTH - 1; ++x)
 	{
-		pLayers[0].pData[(HEIGHT - 1) * WIDTH + x] = RLGAMECANVAS_MAKEPIXEL_RGB(200, 0, 255);
+		pLayers[0].pData[(HEIGHT - 1) * WIDTH + x] = pxRed;
 	}
 
 	// todo: draw something
@@ -130,7 +186,7 @@ int main(int argc, char* argv[])
 	sc.oInitialConfig.oResolution.y     = HEIGHT;
 	sc.oInitialConfig.oPixelSize.x      = 2;
 	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_NONE;
-	sc.oInitialConfig.pxBackgroundColor = rlGameCanvas_Color_White;
+	sc.oInitialConfig.pxBackgroundColor = rlGameCanvas_Color_Black;
 
 	rlGameCanvas canvas = rlGameCanvas_Create(&sc);
 	if (!canvas)
