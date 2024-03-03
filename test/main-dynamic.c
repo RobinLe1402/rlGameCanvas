@@ -73,25 +73,48 @@ void Draw(
 		const unsigned iOffset = HEIGHT / 2;
 		const unsigned iMaxXOffset = WIDTH / 2;
 
+		double dXOffsetOld = 0;
+
+		const unsigned iLineCenterOffset = WIDTH / 2;
+		unsigned iLineOffset = iOffset * WIDTH + iLineCenterOffset;
 
 		for (unsigned iY = 0; iOffset + iY < HEIGHT; ++iY)
 		{
-			pLayers[0].pData[(iOffset + iY) * WIDTH + (WIDTH / 2)] = px; // center line
+			pLayers[0].pData[iLineOffset] = px; // center line
 
 			const double dXOffset = iY * DIST_ADD_PER_LINE;
 
 			unsigned iLine = 1;
 			while (1)
 			{
-				double dXDist = iLine * (DIST_START + dXOffset);
-				if (WIDTH / 2 + (unsigned)dXDist >= WIDTH)
-					break;
+				const double dXDist    = iLine * (DIST_START + dXOffset);
+				const double dXDistOld = iLine * (DIST_START + dXOffsetOld);
 
-				pLayers[0].pData[(iOffset + iY) * WIDTH + (WIDTH / 2) + (unsigned)dXDist] = px;
-				pLayers[0].pData[(iOffset + iY) * WIDTH + (WIDTH / 2) - (unsigned)dXDist] = px;
+				int bOutOfBounds = 0;
+				for (unsigned iOffset = (unsigned)dXDistOld; iOffset <= dXDist; ++iOffset)
+				{
+					//if (iOffset == dXDistOld && dXDist != dXDistOld)
+					//	continue; // avoid line repeats on same column
+
+					if (iLineCenterOffset + iOffset >= WIDTH)
+					{
+						bOutOfBounds = 1;
+						break;
+					}
+
+					pLayers[0].pData[iLineOffset + iOffset] = px;
+					pLayers[0].pData[iLineOffset - iOffset] = px;
+				}
+
+				if (bOutOfBounds)
+					break;
 
 				++iLine;
 			}
+
+			dXOffsetOld = dXOffset;
+
+			iLineOffset += WIDTH;
 		}
 	}
 
