@@ -14,14 +14,12 @@ typedef struct
 	double   dFrameTime;
 } GraphicsData;
 
-const unsigned iFrameCount = 18;
-const double dYFactor = 0.6;
-
-const double dSecsPerFrame = 1.0 / 30;
-
-const unsigned iStartDist = 10;
-const double dAdditionalDistPerLine = 0.7;
-const double dAdditionalWidthPerLine = 0.25;
+#define YFACTOR (0.6)
+#define FRAMESPERSEC (30)
+#define SECSPERFRAME (1.0 / FRAMESPERSEC)
+#define DIST_START (10)
+#define DIST_ADD_PER_LINE (0.7)
+#define FRAMECOUNT ((HEIGHT / 2) - (unsigned)((HEIGHT / 2) * YFACTOR - 1))
 
 void Update(
 	rlGameCanvas              canvas,
@@ -33,11 +31,11 @@ void Update(
 
 	pDataT->dFrameTime += dSecsSinceLastCall;
 
-	const unsigned iPassedFrames = pDataT->dFrameTime / dSecsPerFrame;
-	pDataT->dFrameTime -= iPassedFrames * dSecsPerFrame;
+	const unsigned iPassedFrames = (unsigned)(pDataT->dFrameTime / SECSPERFRAME);
+	pDataT->dFrameTime -= iPassedFrames * SECSPERFRAME;
 	pDataT->iAnimFrame += iPassedFrames;
 
-	pDataT->iAnimFrame %= iFrameCount;
+	pDataT->iAnimFrame %= FRAMECOUNT;
 }
 
 void CanvasMsg(
@@ -80,12 +78,12 @@ void Draw(
 		{
 			pLayers[0].pData[(iOffset + iY) * WIDTH + (WIDTH / 2)] = px; // center line
 
-			const double dXOffset = iY * dAdditionalDistPerLine;
+			const double dXOffset = iY * DIST_ADD_PER_LINE;
 
 			unsigned iLine = 1;
 			while (1)
 			{
-				double dXDist = iLine * (iStartDist + dXOffset);
+				double dXDist = iLine * (DIST_START + dXOffset);
 				if (WIDTH / 2 + (unsigned)dXDist >= WIDTH)
 					break;
 
@@ -99,19 +97,26 @@ void Draw(
 
 	memset(pLayers[1].pData, 0, sizeof(rlGameCanvas_Pixel) * WIDTH * HEIGHT);
 
-	double dOffset = (HEIGHT / 2) - iFrameCount + pDataT->iAnimFrame;
+	double dOffset = (HEIGHT / 2) - FRAMECOUNT + pDataT->iAnimFrame;
+	double dOldOffset = dOffset + 2;
 	while (1)
 	{
 		const unsigned iY = HEIGHT / 2 + (unsigned)dOffset - 1;
 
-		for (unsigned x = 0; x < WIDTH; ++x)
+		if ((unsigned)dOldOffset != (unsigned)dOffset + 1)
 		{
-			pLayers[1].pData[iY * WIDTH + x] = px;
+			for (unsigned x = 0; x < WIDTH; ++x)
+			{
+				pLayers[1].pData[iY * WIDTH + x] = px;
+			}
 		}
+
 
 		if ((unsigned)dOffset == 0)
 			break;
-		dOffset *= dYFactor;
+
+		dOldOffset = dOffset;
+		dOffset *= YFACTOR;
 	}
 
 	//Sleep(10);
@@ -136,7 +141,7 @@ void Draw(
 	}
 	for (size_t x = 1; x < WIDTH - 1; ++x)
 	{
-		pLayers[0].pData[(HEIGHT - 1) * WIDTH + x] = pxRed;
+		pLayers[0].pData[(size_t)(HEIGHT - 1) * WIDTH + x] = pxRed;
 	}
 
 	// todo: draw something
