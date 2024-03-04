@@ -146,13 +146,6 @@ void Draw(
 
 	const rlGameCanvas_Pixel pxRed = RLGAMECANVAS_MAKEPIXEL_RGB(255, 0, 0);
 
-	rlGameCanvas_Pixel pxOverlay;
-	if (pDataT->iAnimFrame == 0)
-		pxOverlay = rlGameCanvas_Color_Blank;
-	else
-		pxOverlay = rlGameCanvas_Color_Black;
-	pLayers[1].pData[0] = pxOverlay;
-
 	for (size_t x = 1; x < WIDTH - 1; ++x)
 	{
 		pLayers[0].pData[x] = pxRed;

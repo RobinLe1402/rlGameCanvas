@@ -359,7 +359,7 @@ namespace rlGameCanvasLib
 
 			// update the canvas
 			memcpy_s(oLayersCopy.get(), iDataSize, oLayers.get(), iDataSize);
-			m_oConfig.fnDraw(m_oHandle, oLayersCopy.get(), m_oLayers.layerCount(),
+			m_oConfig.fnDraw(m_oHandle, oLayersCopy.get(), (UInt)m_oLayers.layerCount(),
 				m_pBuffer_Drawing);
 
 			glClear(GL_COLOR_BUFFER_BIT);
@@ -369,12 +369,26 @@ namespace rlGameCanvasLib
 				glBindTexture(GL_TEXTURE_2D, m_oLayers.textureID(i));
 
 				// draw texture (full width and height, but upside down)
-				glBegin(GL_QUADS);
+				glBegin(GL_TRIANGLE_STRIP);
 				{
-					glTexCoord2f(0.0, 1.0);	glVertex3f(-1.0f, -1.0f, 0.0f);
-					glTexCoord2f(0.0, 0.0);	glVertex3f(-1.0f,  1.0f, 0.0f);
-					glTexCoord2f(1.0, 0.0);	glVertex3f( 1.0f,  1.0f, 0.0f);
-					glTexCoord2f(1.0, 1.0);	glVertex3f( 1.0f, -1.0f, 0.0f);
+					// first triangle
+					//
+					// +--+
+					// | /
+					// |/
+					
+					glTexCoord2f(0.0, 1.0);  glVertex3f(-1.0f, -1.0f, 0.0f);
+					glTexCoord2f(0.0, 0.0);  glVertex3f(-1.0f,  1.0f, 0.0f);
+					glTexCoord2f(1.0, 1.0);  glVertex3f( 1.0f, -1.0f, 0.0f);
+
+
+					// second triangle (sharing an edge with the first one)
+					//
+					//   /|
+					//  / |
+					// +--+
+
+					glTexCoord2f(1.0, 0.0);  glVertex3f( 1.0f,  1.0f, 0.0f);
 				}
 				glEnd();
 			}
@@ -391,7 +405,7 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::doUpdate()
 	{
-				static std::chrono::system_clock::time_point tp2;
+		static std::chrono::system_clock::time_point tp2;
 		tp2 = std::chrono::system_clock::now();
 		static auto tp1 = tp2;
 
