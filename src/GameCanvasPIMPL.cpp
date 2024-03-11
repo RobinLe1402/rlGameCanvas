@@ -186,6 +186,10 @@ namespace rlGameCanvasLib
 					goto lbClose;
 			}
 
+			lock.lock();
+			m_cv.wait(lock); // wait until graphics thread is ready for new data
+			lock.unlock();
+
 			doUpdate();
 		}
 	lbClose:
@@ -356,6 +360,10 @@ namespace rlGameCanvasLib
 				m_oConfig.fnCopyData(m_pBuffer_Shared, m_pBuffer_Drawing);
 				lockBuf.unlock();
 			}
+
+			lock.lock();
+			m_cv.notify_one(); // notify logic thread that the graphics thread is ready for new data
+			lock.unlock();
 
 			// update the canvas
 			memcpy_s(oLayersCopy.get(), iDataSize, oLayers.get(), iDataSize);
