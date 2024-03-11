@@ -400,7 +400,7 @@ namespace rlGameCanvasLib
 				}
 				glEnd();
 			}
-			SwapBuffers(GetDC(m_hWnd));
+			SwapBuffers(m_hDC);
 		}
 
 		// todo: destroy OpenGL
