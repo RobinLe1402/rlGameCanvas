@@ -2,6 +2,8 @@
 #include "private/Windows.hpp"
 #include <rlGameCanvas/Definitions.h>
 
+#include "private/OpenGL.hpp"
+
 #pragma comment(lib, "Opengl32.lib")
 
 namespace rlGameCanvasLib
@@ -332,6 +334,13 @@ namespace rlGameCanvasLib
 			}
 		}
 
+		m_upOpenGL = std::make_unique<OpenGL>();
+#ifndef NDEBUG
+		printf("> OpenGL Version String: \"%s\"\n", m_upOpenGL->versionStr().c_str());
+		printf("> OpenGL framebuffers available: %s\n",
+			m_upOpenGL->glGenFramebuffers != nullptr ? "Yes" : "No");
+#endif // NDEBUG
+
 		std::unique_lock lock(m_mux);
 		m_eGraphicsThreadState = GraphicsThreadState::Waiting;
 		m_cv.notify_one();
@@ -403,7 +412,7 @@ namespace rlGameCanvasLib
 			SwapBuffers(m_hDC);
 		}
 
-		// todo: destroy OpenGL
+		m_upOpenGL.release();
 		m_oLayers.destroy();
 		wglDeleteContext(m_hOpenGL);
 

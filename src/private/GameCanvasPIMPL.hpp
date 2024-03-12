@@ -8,6 +8,7 @@
 #include <rlGameCanvas++/GameCanvas.hpp>
 
 #include "MultiLayerBitmap.hpp"
+#include "OpenGL.hpp"
 
 #include <gl/GL.h>
 #include <map>
@@ -78,6 +79,8 @@ namespace rlGameCanvasLib
 		HWND  m_hWnd    = NULL;
 		HGLRC m_hOpenGL = NULL;
 		HDC   m_hDC     = NULL;
+
+		std::unique_ptr<OpenGL> m_upOpenGL; // extended OpenGL interface
 
 		std::thread::id     m_oMainThreadID;
 		std::thread         m_oGraphicsThread;

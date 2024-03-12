@@ -143,6 +143,7 @@
     <ClInclude Include="..\include\rlGameCanvas\Types.h" />
     <ClInclude Include="private\GameCanvasPIMPL.hpp" />
     <ClInclude Include="private\MultiLayerBitmap.hpp" />
+    <ClInclude Include="private\OpenGL.hpp" />
     <ClInclude Include="private\Windows.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -150,6 +151,7 @@
     <ClCompile Include="GameCanvas.cpp" />
     <ClCompile Include="GameCanvasPIMPL.cpp" />
     <ClCompile Include="MultiLayerBitmap.cpp" />
+    <ClCompile Include="OpenGL.cpp" />
     <ClCompile Include="Windows.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

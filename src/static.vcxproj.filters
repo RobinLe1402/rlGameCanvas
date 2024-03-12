@@ -30,6 +30,9 @@
     <ClCompile Include="MultiLayerBitmap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="OpenGL.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\rlGameCanvas++\GameCanvas.hpp">
@@ -48,6 +51,9 @@
       <Filter>Header Files\Private</Filter>
     </ClInclude>
     <ClInclude Include="private\MultiLayerBitmap.hpp">
+      <Filter>Header Files\Private</Filter>
+    </ClInclude>
+    <ClInclude Include="private\OpenGL.hpp">
       <Filter>Header Files\Private</Filter>
     </ClInclude>
   </ItemGroup>
