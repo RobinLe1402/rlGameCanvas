@@ -141,26 +141,6 @@ void Draw(
 		dOldOffset = dOffset;
 		dOffset *= YFACTOR;
 	}
-
-	//Sleep(10);
-
-	const rlGameCanvas_Pixel pxRed = RLGAMECANVAS_MAKEPIXEL_RGB(255, 0, 0);
-
-	for (size_t x = 1; x < WIDTH - 1; ++x)
-	{
-		pLayers[0].pData[x] = pxRed;
-	}
-	for (size_t y = 0; y < HEIGHT; ++y)
-	{
-		pLayers[0].pData[ y      * WIDTH    ] = pxRed;
-		pLayers[0].pData[(y + 1) * WIDTH - 1] = pxRed;
-	}
-	for (size_t x = 1; x < WIDTH - 1; ++x)
-	{
-		pLayers[0].pData[(size_t)(HEIGHT - 1) * WIDTH + x] = pxRed;
-	}
-
-	// todo: draw something
 }
 
 void CreateData(void** pData)
@@ -191,7 +171,7 @@ int main(int argc, char* argv[])
 	const char szTitle[] = "rlGameCanvas test in C";
 
 	sc.szWindowCaption    = szTitle;
-	sc.iMaximizeBtnAction = RL_GAMECANVAS_MAX_NONE;
+	sc.iMaximizeBtnAction = RL_GAMECANVAS_MAX_FULLSCREEN;
 	sc.fnOnMsg            = CanvasMsg;
 	sc.fnOnWinMsg         = 0;
 	sc.fnUpdate           = Update;
@@ -203,7 +183,7 @@ int main(int argc, char* argv[])
 	sc.oInitialConfig.oResolution.x     = WIDTH;
 	sc.oInitialConfig.oResolution.y     = HEIGHT;
 	sc.oInitialConfig.oPixelSize.x      = 2;
-	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_NONE;
+	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_FULLSCREEN;
 	sc.oInitialConfig.pxBackgroundColor = rlGameCanvas_Color_Black;
 
 	rlGameCanvas canvas = rlGameCanvas_Create(&sc);

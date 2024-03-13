@@ -90,7 +90,10 @@ namespace rlGameCanvasLib
 			config.oInitialConfig.iMaximization > 2 ||
 			config.oInitialConfig.oResolution.x == 0 ||
 			config.oInitialConfig.oResolution.y == 0 ||
-			(config.oInitialConfig.oPixelSize.x == 0 && config.oInitialConfig.oPixelSize.y == 0)
+			(config.oInitialConfig.oPixelSize.x == 0 && config.oInitialConfig.oPixelSize.y == 0) ||
+			// initially maximized, but maximization is not available:
+			(config.oInitialConfig.iMaximization == RL_GAMECANVAS_MAX_MAXIMIZE &&
+				config.iMaximizeBtnAction != RL_GAMECANVAS_MAX_MAXIMIZE)
 		)
 			throw std::exception{ "Invalid startup configuration." };
 
@@ -116,16 +119,92 @@ namespace rlGameCanvasLib
 		if (!RegisterWindowClass())
 			ThrowWithLastError("Failed to register the window class.");
 
+
+
+		int iWinX = CW_USEDEFAULT;
+		int iWinY = CW_USEDEFAULT;
+		int iWinWidth  = CW_USEDEFAULT;
+		int iWinHeight = CW_USEDEFAULT;
+
+		DWORD dwStyle;
+		switch (m_oConfig.oInitialConfig.iMaximization)
+		{
+		case RL_GAMECANVAS_MAX_FULLSCREEN:
+		{
+			dwStyle = WS_POPUP;
+
+			iWinX = 0;
+			iWinY = 0;
+
+			const HMONITOR hMonitor = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
+			MONITORINFO mi{ sizeof(mi) };
+			if (!GetMonitorInfoW(hMonitor, &mi))
+				ThrowWithLastError("Monitor info could not be retreived.");
+			iWinWidth  = mi.rcMonitor.right - mi.rcMonitor.left + 1; // "+ 1" on purpose
+			iWinHeight = mi.rcMonitor.bottom - mi.rcMonitor.top;
+			break;
+		}
+
+		case RL_GAMECANVAS_MAX_MAXIMIZE:
+			dwStyle = (WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX) | WS_MAXIMIZE;
+			// todo: size calculation?
+			break;
+
+		case RL_GAMECANVAS_MAX_NONE:
+			{
+				dwStyle = WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX;
+				if (m_oConfig.iMaximizeBtnAction == RL_GAMECANVAS_MAX_NONE)
+					dwStyle &= ~WS_MAXIMIZEBOX;
+
+				HMONITOR hMonitor;
+
+				const HWND hWndForeground = GetForegroundWindow();
+				if (hWndForeground != NULL)
+					hMonitor = MonitorFromWindow(hWndForeground, MONITOR_DEFAULTTONEAREST);
+				else
+					hMonitor = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
+
+				MONITORINFO mi{ sizeof(mi) };
+				if (GetMonitorInfoW(hMonitor, &mi))
+				{
+					const int iWorkWidth  = mi.rcWork.right  - mi.rcWork.left;
+					const int iWorkHeight = mi.rcWork.bottom - mi.rcWork.top;
+
+					RECT rcBorder{};
+					AdjustWindowRect(&rcBorder, dwStyle, FALSE); // TODO: error handling
+
+					iWinWidth =
+						m_oConfig.oInitialConfig.oResolution.x *
+						m_oConfig.oInitialConfig.oPixelSize.x + (rcBorder.right - rcBorder.left);
+					iWinHeight =
+						m_oConfig.oInitialConfig.oResolution.y *
+						m_oConfig.oInitialConfig.oPixelSize.y + (rcBorder.bottom - rcBorder.top);
+
+					iWinX = mi.rcWork.left + (iWorkWidth  / 2 - iWinWidth  / 2);
+					iWinY = mi.rcWork.top  + (iWorkHeight / 2 - iWinHeight / 2);
+				}
+				break;
+			}
+
+		default:
+			throw std::exception{ "Unknown initial maximization state." };
+		}
+
+
+		
+
+		// windowed mode --> center on currently active monitor
+
 		// try to create the window
 		if (CreateWindowExW(
 				NULL,                                                   // dwExStyle
 				s_szCLASSNAME,                                          // lpClassName
 				UTF8toWindowsUnicode(m_sWindowCaption.c_str()).c_str(), // lpWindowName
-				WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX,                      // dwStyle // TODO
-				CW_USEDEFAULT,                                          // X       // TODO
-				CW_USEDEFAULT,                                          // Y       // TODO
-				CW_USEDEFAULT,                                          // nWidth  // TODO
-				CW_USEDEFAULT,                                          // nHeight // TODO
+				dwStyle,                                                // dwStyle
+				iWinX,                                                  // X
+				iWinY,                                                  // Y
+				iWinWidth,                                              // nWidth
+				iWinHeight,                                             // nHeight
 				NULL,                                                   // hWndParent
 				NULL,                                                   // hMenu
 				s_hInstance,                                            // hInstance
