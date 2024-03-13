@@ -16,6 +16,9 @@
     <Filter Include="Header Files\Private">
       <UniqueIdentifier>{785959ce-5ca0-44d2-b528-55a3041a50d3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Private\ThirdParty">
+      <UniqueIdentifier>{b59d4f41-4a1d-4ec5-8326-af5b824c384e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\rlGameCanvas\Types.h">
@@ -44,6 +47,12 @@
     </ClInclude>
     <ClInclude Include="private\OpenGL.hpp">
       <Filter>Header Files\Private</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\KHR\khrplatform.h">
+      <Filter>Header Files\Private\ThirdParty</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\gl\glext.h">
+      <Filter>Header Files\Private\ThirdParty</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
