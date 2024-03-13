@@ -102,6 +102,9 @@ namespace rlGameCanvasLib
 		GraphicsData m_pBuffer_Drawing  = nullptr; // for access in draw callback
 
 		MultiLayerBitmap m_oLayers;
+
+		GLuint m_iIntScaledBufferFBO     = 0;
+		GLuint m_iIntScaledBufferTexture = 0;
 	};
 
 }

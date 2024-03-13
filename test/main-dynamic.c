@@ -183,7 +183,7 @@ int main(int argc, char* argv[])
 	sc.oInitialConfig.oResolution.x     = WIDTH;
 	sc.oInitialConfig.oResolution.y     = HEIGHT;
 	sc.oInitialConfig.oPixelSize.x      = 2;
-	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_FULLSCREEN;
+	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_NONE;
 	sc.oInitialConfig.pxBackgroundColor = rlGameCanvas_Color_Black;
 
 	rlGameCanvas canvas = rlGameCanvas_Create(&sc);

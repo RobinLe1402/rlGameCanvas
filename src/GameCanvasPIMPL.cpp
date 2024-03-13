@@ -4,6 +4,8 @@
 
 #include "private/OpenGL.hpp"
 
+#include <gl/glext.h>
+
 #pragma comment(lib, "Opengl32.lib")
 
 namespace rlGameCanvasLib
@@ -420,6 +422,21 @@ namespace rlGameCanvasLib
 			m_upOpenGL->glGenFramebuffers != nullptr ? "Yes" : "No");
 #endif // NDEBUG
 
+		if (m_upOpenGL->glGenFramebuffers)
+		{
+			auto &gl = *m_upOpenGL;
+			const auto &cfg = m_oConfig.oInitialConfig;
+
+			gl.glGenFramebuffers(1, &m_iIntScaledBufferFBO);
+			glGenTextures(1, &m_iIntScaledBufferTexture);
+
+			glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cfg.oResolution.x * cfg.oPixelSize.x,
+				cfg.oResolution.y * cfg.oPixelSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		}
+
 		std::unique_lock lock(m_mux);
 		m_eGraphicsThreadState = GraphicsThreadState::Waiting;
 		m_cv.notify_one();
@@ -458,6 +475,26 @@ namespace rlGameCanvasLib
 			m_oConfig.fnDraw(m_oHandle, oLayersCopy.get(), (UInt)m_oLayers.layerCount(),
 				m_pBuffer_Drawing);
 
+
+
+			if (m_iIntScaledBufferFBO)
+			{
+				// set up rendering to texture
+
+				auto &gl = *m_upOpenGL;
+
+				gl.glBindFramebuffer(GL_FRAMEBUFFER, m_iIntScaledBufferFBO);
+				glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
+				gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+					m_iIntScaledBufferTexture, 0);
+
+				// check FBO completeness
+				if (gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+					// TODO: handle framebuffer error
+					fprintf(stderr, "Framebuffer is not complete!\n");
+				}
+			}
+
 			glClear(GL_COLOR_BUFFER_BIT);
 			for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
 			{
@@ -469,9 +506,10 @@ namespace rlGameCanvasLib
 				{
 					// first triangle
 					//
-					// +--+
+					// 1--3
 					// | /
 					// |/
+					// 2
 					
 					glTexCoord2f(0.0, 1.0);  glVertex3f(-1.0f, -1.0f, 0.0f);
 					glTexCoord2f(0.0, 0.0);  glVertex3f(-1.0f,  1.0f, 0.0f);
@@ -480,15 +518,65 @@ namespace rlGameCanvasLib
 
 					// second triangle (sharing an edge with the first one)
 					//
+					//    3
 					//   /|
 					//  / |
-					// +--+
+					// 2--4
 
 					glTexCoord2f(1.0, 0.0);  glVertex3f( 1.0f,  1.0f, 0.0f);
 				}
 				glEnd();
 			}
+
+			if (m_iIntScaledBufferFBO)
+			{
+				// render to screen
+
+				auto &gl = *m_upOpenGL;
+
+				gl.glBindFramebuffer(GL_FRAMEBUFFER, 0); // bind default framebuffer (screen buffer)
+				glClear(GL_COLOR_BUFFER_BIT);
+				glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
+
+				// draw texture (full width and height)
+				glBegin(GL_TRIANGLE_STRIP);
+				{
+					// first triangle
+					//
+					// 2
+					// |\
+					// | \
+					// 1--3
+
+					glTexCoord2f(0.0, 0.0);  glVertex3f(-1.0f, -1.0f, 0.0f);
+					glTexCoord2f(0.0, 1.0);  glVertex3f(-1.0f,  1.0f, 0.0f);
+					glTexCoord2f(1.0, 0.0);  glVertex3f( 1.0f, -1.0f, 0.0f);
+
+
+					// second triangle (sharing an edge with the first one)
+					//
+					// 2--4
+					//  \ |
+					//   \|
+					//    3
+
+					glTexCoord2f(1.0, 1.0);  glVertex3f(1.0f, 1.0f, 0.0f);
+				}
+				glEnd();
+			}
+
+
+
 			SwapBuffers(m_hDC);
+		}
+
+		if (m_iIntScaledBufferFBO)
+		{
+			m_upOpenGL->glDeleteFramebuffers(1, &m_iIntScaledBufferFBO);
+			glDeleteTextures(1, &m_iIntScaledBufferTexture);
+
+			m_iIntScaledBufferFBO     = 0;
+			m_iIntScaledBufferTexture = 0;
 		}
 
 		m_upOpenGL.release();

@@ -10,6 +10,8 @@
 #include <Windows.h>
 #include <gl/GL.h>
 
+#include <gl/glext.h>
+
 
 
 namespace rlGameCanvasLib
@@ -131,17 +133,11 @@ namespace rlGameCanvasLib
 
 	public: // variables
 
-		const std::function<void(GLsizei n, GLuint *ids)> glGenFramebuffers;
-		const std::function<void(GLsizei n, GLuint *framebuffers)> glDeleteFramebuffers;
-		const std::function<void(GLenum target, GLuint framebuffer)> glBindFramebuffer;
-		const std::function<void(
-			GLenum target,
-			GLenum attachment,
-			GLenum textarget,
-			GLuint texture,
-			GLint level
-		)> glFramebufferTexture2D;
-		const std::function<GLenum(GLenum target)> glCheckFramebufferStatus;
+		const PFNGLGENFRAMEBUFFERSPROC        glGenFramebuffers;
+		const PFNGLDELETEFRAMEBUFFERSPROC     glDeleteFramebuffers;
+		const PFNGLBINDFRAMEBUFFERPROC        glBindFramebuffer;
+		const PFNGLFRAMEBUFFERTEXTURE2DPROC   glFramebufferTexture2D;
+		const PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatus;
 
 
 	public: // methods
