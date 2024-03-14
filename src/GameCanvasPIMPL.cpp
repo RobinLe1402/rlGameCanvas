@@ -92,17 +92,14 @@ namespace rlGameCanvasLib
 			config.oInitialConfig.iMaximization > 2 ||
 			config.oInitialConfig.oResolution.x == 0 ||
 			config.oInitialConfig.oResolution.y == 0 ||
-			(config.oInitialConfig.oPixelSize.x == 0 && config.oInitialConfig.oPixelSize.y == 0) ||
 			// initially maximized, but maximization is not available:
 			(config.oInitialConfig.iMaximization == RL_GAMECANVAS_MAX_MAXIMIZE &&
 				config.iMaximizeBtnAction != RL_GAMECANVAS_MAX_MAXIMIZE)
 		)
 			throw std::exception{ "Invalid startup configuration." };
 
-		if (config.oInitialConfig.oPixelSize.x == 0)
-			m_oConfig.oInitialConfig.oPixelSize.x = m_oConfig.oInitialConfig.oPixelSize.y;
-		else if (config.oInitialConfig.oPixelSize.y == 0)
-			m_oConfig.oInitialConfig.oPixelSize.y = m_oConfig.oInitialConfig.oPixelSize.x;
+		if (config.oInitialConfig.iPixelSize == 0)
+			m_oConfig.oInitialConfig.iPixelSize = 1; // TODO: automatic pixel size
 
 
 		// initialize the window caption string
@@ -123,8 +120,8 @@ namespace rlGameCanvasLib
 
 
 
-		int iWinX = CW_USEDEFAULT;
-		int iWinY = CW_USEDEFAULT;
+		int iWinX      = CW_USEDEFAULT;
+		int iWinY      = CW_USEDEFAULT;
 		int iWinWidth  = CW_USEDEFAULT;
 		int iWinHeight = CW_USEDEFAULT;
 
@@ -133,7 +130,8 @@ namespace rlGameCanvasLib
 		{
 		case RL_GAMECANVAS_MAX_FULLSCREEN:
 		{
-			dwStyle = WS_POPUP;
+			m_eWindowState = WindowState::Fullscreen;
+			dwStyle        = WS_POPUP;
 
 			iWinX = 0;
 			iWinY = 0;
@@ -148,13 +146,16 @@ namespace rlGameCanvasLib
 		}
 
 		case RL_GAMECANVAS_MAX_MAXIMIZE:
-			dwStyle = (WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX) | WS_MAXIMIZE;
+			m_eWindowState = WindowState::Maximized;
+
+			dwStyle        = (WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX) | WS_MAXIMIZE;
 			// todo: size calculation?
 			break;
 
 		case RL_GAMECANVAS_MAX_NONE:
 			{
-				dwStyle = WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX;
+				m_eWindowState = WindowState::Restored;
+				dwStyle        = WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX;
 				if (m_oConfig.iMaximizeBtnAction == RL_GAMECANVAS_MAX_NONE)
 					dwStyle &= ~WS_MAXIMIZEBOX;
 
@@ -177,10 +178,10 @@ namespace rlGameCanvasLib
 
 					iWinWidth =
 						m_oConfig.oInitialConfig.oResolution.x *
-						m_oConfig.oInitialConfig.oPixelSize.x + (rcBorder.right - rcBorder.left);
+						m_oConfig.oInitialConfig.iPixelSize + (rcBorder.right - rcBorder.left);
 					iWinHeight =
 						m_oConfig.oInitialConfig.oResolution.y *
-						m_oConfig.oInitialConfig.oPixelSize.y + (rcBorder.bottom - rcBorder.top);
+						m_oConfig.oInitialConfig.iPixelSize + (rcBorder.bottom - rcBorder.top);
 
 					iWinX = mi.rcWork.left + (iWorkWidth  / 2 - iWinWidth  / 2);
 					iWinY = mi.rcWork.top  + (iWorkHeight / 2 - iWinHeight / 2);
@@ -214,6 +215,86 @@ namespace rlGameCanvasLib
 			) == NULL)
 			ThrowWithLastError("Failed to create the window.");
 
+		// for compiler: C687 - "could be zero"
+		if (m_hWnd == NULL)
+			throw std::exception{ "Failed to create the window: No handle." };
+
+		// get client area size
+		{
+			RECT rcBorder{};
+			AdjustWindowRect(&rcBorder, dwStyle, FALSE); // TODO: error handling?
+
+			RECT rcWindow{};
+			GetWindowRect(m_hWnd, &rcWindow); // TODO: error handling?
+
+			m_oClientSize.x = (rcWindow.right  - rcBorder.right ) - (rcWindow.left - rcBorder.left);
+			m_oClientSize.y = (rcWindow.bottom - rcBorder.bottom) - (rcWindow.top  - rcBorder.top );
+
+			if (m_eWindowState == WindowState::Fullscreen)
+				--m_oClientSize.x;
+
+
+
+			// calculate drawing rectangle
+
+			const auto  &res    = m_oConfig.oInitialConfig.oResolution;
+			const double dRatio = (double)res.x / res.y;
+
+			UInt iDisplayWidth  = 0;
+			UInt iDisplayHeight = 0;
+
+			// calculate the biggest possible size that keeps the aspect ratio
+			{
+				iDisplayWidth  = m_oClientSize.x;
+				iDisplayHeight = UInt(iDisplayWidth * dRatio);
+
+				if (iDisplayHeight > m_oClientSize.y)
+				{
+					iDisplayHeight = m_oClientSize.y;
+					iDisplayWidth  = UInt(iDisplayHeight / dRatio);
+
+					if (iDisplayWidth > m_oClientSize.x)
+						iDisplayWidth = m_oClientSize.x;
+				}
+			}
+
+			// client area smaller than canvas size --> downscale
+			if (m_oClientSize.x < res.x || m_oClientSize.y < res.y)
+			{
+				m_iPixelSize = 1;
+				// keep the pre-calculated size
+			}
+
+			// canvas fits into client area at least once
+			else
+			{
+				m_iPixelSize = std::min(m_oClientSize.x / res.x, m_oClientSize.y / res.y);
+				if (m_oConfig.bOversample &&
+					m_oClientSize.x > res.x * m_iPixelSize &&
+					m_oClientSize.y > res.y * m_iPixelSize)
+				{
+					++m_iPixelSize;
+					// keep the pre-calculated size
+				}
+				else
+				{
+					iDisplayWidth  = res.x * m_iPixelSize;
+					iDisplayHeight = res.y * m_iPixelSize;
+				}
+			}
+
+			// calculate the actual drawing rectangle
+			m_oDrawRect.iLeft   = (m_oClientSize.x - iDisplayWidth) / 2;
+			m_oDrawRect.iRight  = m_oDrawRect.iLeft + iDisplayWidth;
+			m_oDrawRect.iTop    = (m_oClientSize.y - iDisplayHeight) / 2;
+			m_oDrawRect.iBottom = m_oDrawRect.iTop + iDisplayHeight;
+
+			m_oDrawRectF.fLeft   = (m_oDrawRect.iLeft * 2.0f) / m_oClientSize.x - 1.0f;
+			m_oDrawRectF.fRight  = (m_oDrawRect.iRight * 2.0f) / m_oClientSize.x - 1.0f;
+			m_oDrawRectF.fTop    = ((m_oClientSize.y - m_oDrawRect.iTop   ) * 2.0f) / m_oClientSize.y - 1.0f;
+			m_oDrawRectF.fBottom = ((m_oClientSize.y - m_oDrawRect.iBottom) * 2.0f) / m_oClientSize.y - 1.0f;
+		}
+
 
 		std::unique_lock lock(m_mux);
 		m_oGraphicsThread = std::thread(&GameCanvas::PIMPL::graphicsThreadProc, this);
@@ -226,9 +307,7 @@ namespace rlGameCanvasLib
 
 
 			lock.unlock();
-
-			if (m_hWnd != NULL) // to remove warning C6387: "might be "0""
-				DestroyWindow(m_hWnd);
+			DestroyWindow(m_hWnd);
 			
 			throw std::exception{ "Failed to initialize OpenGL." };
 		}
@@ -324,6 +403,43 @@ namespace rlGameCanvasLib
 				m_oConfig.fnOnMsg(m_oHandle, RL_GAMECANVAS_MSG_CREATE, 0, 0);
 			break;
 
+		case WM_SIZE:
+		{
+			if (m_eGraphicsThreadState == GraphicsThreadState::NotStarted)
+				break;
+
+			// TODO: this could cause problems with fullscreen mode later.
+			//       maybe reset m_eWindowState whenever entering/exiting fullscreen mode.
+			switch (wParam)
+			{
+			case SIZE_MAXIMIZED:
+				if (m_eWindowState == WindowState::Maximized)
+					return 0;
+				m_eWindowState = WindowState::Maximized;
+				// TODO: handle maximization
+				break;
+
+			case SIZE_MINIMIZED:
+				if (m_eWindowState == WindowState::Minimized)
+					return 0;
+				m_eWindowState = WindowState::Minimized;
+				// TODO: handle minimization
+				return 0;
+
+			case SIZE_RESTORED:
+				if (m_eWindowState == WindowState::Restored)
+					return 0;
+				m_eWindowState = WindowState::Restored;
+				// TODO: handle window restoration
+				break;
+
+			default:
+				return 0;
+			}
+			handleResize(LOWORD(lParam), HIWORD(lParam));
+			break;
+		}
+
 		case WM_CLOSE:
 		{
 			std::unique_lock lock(m_mux);
@@ -350,6 +466,7 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::graphicsThreadProc()
 	{
+		m_eGraphicsThreadState = GraphicsThreadState::Waiting;
 		Pixel pxBG;
 		{
 			bool bSuccess = false;
@@ -376,11 +493,12 @@ namespace rlGameCanvasLib
 			}
 
 			glViewport(
-				0, // x
-				0, // y
-				m_oConfig.oInitialConfig.oResolution.x * m_oConfig.oInitialConfig.oPixelSize.x,
-				m_oConfig.oInitialConfig.oResolution.y * m_oConfig.oInitialConfig.oPixelSize.y
+				0,               // x
+				0,               // y
+				m_oClientSize.x, // width
+				m_oClientSize.y  // height
 			);
+
 			pxBG = m_oConfig.oInitialConfig.pxBackgroundColor;
 			glClearColor(
 				pxBG.rgba.r / 255.0f,
@@ -431,8 +549,8 @@ namespace rlGameCanvasLib
 			glGenTextures(1, &m_iIntScaledBufferTexture);
 
 			glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cfg.oResolution.x * cfg.oPixelSize.x,
-				cfg.oResolution.y * cfg.oPixelSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cfg.oResolution.x * m_iPixelSize,
+				cfg.oResolution.y * m_iPixelSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		}
@@ -477,12 +595,14 @@ namespace rlGameCanvasLib
 
 
 
+			m_oLayers.uploadAll();
+
+			// use FBO
 			if (m_iIntScaledBufferFBO)
 			{
-				// set up rendering to texture
-
 				auto &gl = *m_upOpenGL;
 
+				// set up rendering to texture
 				gl.glBindFramebuffer(GL_FRAMEBUFFER, m_iIntScaledBufferFBO);
 				glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
 				gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
@@ -493,52 +613,57 @@ namespace rlGameCanvasLib
 					// TODO: handle framebuffer error
 					fprintf(stderr, "Framebuffer is not complete!\n");
 				}
-			}
 
-			glClear(GL_COLOR_BUFFER_BIT);
-			for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
-			{
-				m_oLayers.uploadLayer(i);
-				glBindTexture(GL_TEXTURE_2D, m_oLayers.textureID(i));
-
-				// draw texture (full width and height, but upside down)
-				glBegin(GL_TRIANGLE_STRIP);
+				// draw to texture
+				glViewport(0, 0, m_oConfig.oInitialConfig.oResolution.x * m_iPixelSize,
+					m_oConfig.oInitialConfig.oResolution.y * m_iPixelSize);
+				glClear(GL_COLOR_BUFFER_BIT);
+				for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
 				{
-					// first triangle
-					//
-					// 1--3
-					// | /
-					// |/
-					// 2
-					
-					glTexCoord2f(0.0, 1.0);  glVertex3f(-1.0f, -1.0f, 0.0f);
-					glTexCoord2f(0.0, 0.0);  glVertex3f(-1.0f,  1.0f, 0.0f);
-					glTexCoord2f(1.0, 1.0);  glVertex3f( 1.0f, -1.0f, 0.0f);
+					glBindTexture(GL_TEXTURE_2D, m_oLayers.textureID(i));
+
+					// draw texture (full width and height, but upside down)
+					glBegin(GL_TRIANGLE_STRIP);
+					{
+						// first triangle
+						//
+						// SCREEN:  TEXTURE:
+						//  1--3     2
+						//  | /      |\
+						//  |/       | \
+						//  2        1--3
+
+						glTexCoord2f(0.0, 1.0);  glVertex3f(-1.0f, -1.0f, 0.0f);
+						glTexCoord2f(0.0, 0.0);  glVertex3f(-1.0f,  1.0f, 0.0f);
+						glTexCoord2f(1.0, 1.0);  glVertex3f( 1.0f, -1.0f, 0.0f);
 
 
-					// second triangle (sharing an edge with the first one)
-					//
-					//    3
-					//   /|
-					//  / |
-					// 2--4
+						// second triangle (sharing an edge with the first one)
+						//
+						// SCREEN:  TEXTURE:
+						//     3     2--4
+						//    /|      \ |
+						//   / |       \|
+						//  2--4        3
 
-					glTexCoord2f(1.0, 0.0);  glVertex3f( 1.0f,  1.0f, 0.0f);
+						glTexCoord2f(1.0, 0.0);  glVertex3f(1.0f, 1.0f, 0.0f);
+					}
+					glEnd();
 				}
-				glEnd();
-			}
 
-			if (m_iIntScaledBufferFBO)
-			{
 				// render to screen
 
-				auto &gl = *m_upOpenGL;
-
 				gl.glBindFramebuffer(GL_FRAMEBUFFER, 0); // bind default framebuffer (screen buffer)
+				glViewport(
+					0,               // x
+					0,               // y
+					m_oClientSize.x, // width
+					m_oClientSize.y  // height
+				);
 				glClear(GL_COLOR_BUFFER_BIT);
 				glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
 
-				// draw texture (full width and height)
+				// draw texture
 				glBegin(GL_TRIANGLE_STRIP);
 				{
 					// first triangle
@@ -548,9 +673,17 @@ namespace rlGameCanvasLib
 					// | \
 					// 1--3
 
-					glTexCoord2f(0.0, 0.0);  glVertex3f(-1.0f, -1.0f, 0.0f);
-					glTexCoord2f(0.0, 1.0);  glVertex3f(-1.0f,  1.0f, 0.0f);
-					glTexCoord2f(1.0, 0.0);  glVertex3f( 1.0f, -1.0f, 0.0f);
+					// 1
+					glTexCoord2f(0.0, 0.0);
+					glVertex3f(m_oDrawRectF.fLeft, m_oDrawRectF.fBottom, 0.0f);
+					
+					// 2
+					glTexCoord2f(0.0, 1.0);
+					glVertex3f(m_oDrawRectF.fLeft, m_oDrawRectF.fTop, 0.0f);
+					
+					// 3
+					glTexCoord2f(1.0, 0.0);
+					glVertex3f(m_oDrawRectF.fRight, m_oDrawRectF.fBottom, 0.0f);
 
 
 					// second triangle (sharing an edge with the first one)
@@ -560,9 +693,59 @@ namespace rlGameCanvasLib
 					//   \|
 					//    3
 
-					glTexCoord2f(1.0, 1.0);  glVertex3f(1.0f, 1.0f, 0.0f);
+					// 4
+					glTexCoord2f(1.0, 1.0);
+					glVertex3f(m_oDrawRectF.fRight, m_oDrawRectF.fTop, 0.0f);
 				}
 				glEnd();
+			}
+
+			// draw directly
+			else
+			{
+				glClear(GL_COLOR_BUFFER_BIT);
+				for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
+				{
+					glBindTexture(GL_TEXTURE_2D, m_oLayers.textureID(i));
+
+					// draw texture (full width and height, but upside down)
+					glBegin(GL_TRIANGLE_STRIP);
+					{
+						// first triangle
+						//
+						// SCREEN:  TEXTURE:
+						//  1--3     2
+						//  | /      |\
+						//  |/       | \
+						//  2        1--3
+
+						// 1
+						glTexCoord2f(0.0, 1.0);
+						glVertex3f(m_oDrawRectF.fLeft, m_oDrawRectF.fBottom, 0.0f);
+
+						// 2
+						glTexCoord2f(0.0, 0.0);
+						glVertex3f(m_oDrawRectF.fLeft, m_oDrawRectF.fTop, 0.0f);
+
+						// 3
+						glTexCoord2f(1.0, 1.0);
+						glVertex3f(m_oDrawRectF.fRight, m_oDrawRectF.fBottom, 0.0f);
+
+
+						// second triangle (sharing an edge with the first one)
+						//
+						// SCREEN:  TEXTURE:
+						//     3     2--4
+						//    /|      \ |
+						//   / |       \|
+						//  2--4        3
+
+						// 4
+						glTexCoord2f(1.0, 0.0);
+						glVertex3f(m_oDrawRectF.fRight, m_oDrawRectF.fTop, 0);
+					}
+					glEnd();
+				}
 			}
 
 
@@ -600,6 +783,13 @@ namespace rlGameCanvasLib
 		// copy to shared buffer
 		std::unique_lock lockBuf(m_muxBuffer);
 		m_oConfig.fnCopyData(m_pBuffer_Updating, m_pBuffer_Shared);
+	}
+
+	void GameCanvas::PIMPL::handleResize(unsigned iClientWidth, unsigned iClientHeight)
+	{
+#ifndef NDEBUG
+		printf("> Resize: %u x %u pixels\n", iClientWidth, iClientHeight);
+#endif // NDEBUG
 	}
 
 }

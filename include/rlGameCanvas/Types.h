@@ -125,9 +125,8 @@ typedef void (__stdcall *rlGameCanvas_MsgCallback)(
 typedef struct
 {
 	rlGameCanvas_Resolution oResolution;  /* size, in pixels, of the canvas.                      */
-	rlGameCanvas_Resolution oPixelSize;   /* the size, in actual pixels, for up-"scaling".
-	                                         if exactly one of the values is zero, it will be set
-	                                          to the other, nonzero value.                        */
+	rlGameCanvas_UInt       iPixelSize;   /* the size, in actual pixels, for up-"scaling" when
+	                                          the window is in restored mode.                     */
 	rlGameCanvas_UInt iMaximization;      /* maximization state.
 	                                         one of the RL_GAMECANVAS_MAX_[...] values.           */
 	rlGameCanvas_Pixel pxBackgroundColor; /* the color the background should be filled with.      */
@@ -168,6 +167,7 @@ typedef struct
 	                                               cannot be NULL.                                */
 	rlGameCanvas_UInt   iExtraLayerCount;       /* the count of additional layers to create, in
 	                                                addition to the base layer.                   */
+	rlGameCanvas_Bool bOversample;              /* should the image be oversampled?               */
 	rlGameCanvas_Config oInitialConfig;         /* the part of the configuration that can be changed
 	                                                at runtime.                                   */
 } rlGameCanvas_StartupConfig;

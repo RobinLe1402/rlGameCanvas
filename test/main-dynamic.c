@@ -171,7 +171,7 @@ int main(int argc, char* argv[])
 	const char szTitle[] = "rlGameCanvas test in C";
 
 	sc.szWindowCaption    = szTitle;
-	sc.iMaximizeBtnAction = RL_GAMECANVAS_MAX_FULLSCREEN;
+	sc.iMaximizeBtnAction = RL_GAMECANVAS_MAX_MAXIMIZE;
 	sc.fnOnMsg            = CanvasMsg;
 	sc.fnOnWinMsg         = 0;
 	sc.fnUpdate           = Update;
@@ -180,10 +180,11 @@ int main(int argc, char* argv[])
 	sc.fnDestroyData      = DestroyData;
 	sc.fnCopyData         = CopyData;
 	sc.iExtraLayerCount   = 1;
+	sc.bOversample        = 0;
 	sc.oInitialConfig.oResolution.x     = WIDTH;
 	sc.oInitialConfig.oResolution.y     = HEIGHT;
-	sc.oInitialConfig.oPixelSize.x      = 2;
-	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_NONE;
+	sc.oInitialConfig.iPixelSize        = 2;
+	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_FULLSCREEN;
 	sc.oInitialConfig.pxBackgroundColor = rlGameCanvas_Color_Black;
 
 	rlGameCanvas canvas = rlGameCanvas_Create(&sc);

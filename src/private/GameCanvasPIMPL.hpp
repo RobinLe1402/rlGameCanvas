@@ -24,9 +24,35 @@ namespace rlGameCanvasLib
 
 		enum class GraphicsThreadState
 		{
-			Waiting, // window was created, graphics thread is waiting to be activated.
-			Running, // run() was called, graphics thread is working.
-			Stopped  // graphics thread was stopped after working.
+			NotStarted, // graphics thread hasn't been created yet
+			Waiting,    // window was created, graphics thread is waiting to be activated.
+			Running,    // run() was called, graphics thread is working.
+			Stopped     // graphics thread was stopped after working.
+		};
+
+		enum class WindowState
+		{
+			Unknown,
+			Restored,
+			Maximized,
+			Fullscreen,
+			Minimized
+		};
+
+		struct Rect
+		{
+			UInt iLeft;
+			UInt iTop;
+			UInt iRight;
+			UInt iBottom;
+		};
+
+		struct RectF
+		{
+			float fLeft;
+			float fTop;
+			float fRight;
+			float fBottom;
 		};
 
 	}
@@ -66,15 +92,21 @@ namespace rlGameCanvasLib
 		void graphicsThreadProc();
 
 		void doUpdate();
+		void handleResize(unsigned iClientWidth, unsigned iClientHeight);
 
 
 	private: // variables
 
-		rlGameCanvas m_oHandle;
+		rlGameCanvas  m_oHandle;
+		std::u8string m_sWindowCaption;
+		WindowState   m_eWindowState = WindowState::Unknown;
+
+		Resolution m_oClientSize = {};
+		UInt       m_iPixelSize  = 0;
+		Rect       m_oDrawRect   = {};
+		RectF      m_oDrawRectF  = {};
 
 		StartupConfig m_oConfig;
-
-		std::u8string m_sWindowCaption;
 
 		HWND  m_hWnd    = NULL;
 		HGLRC m_hOpenGL = NULL;
@@ -84,8 +116,7 @@ namespace rlGameCanvasLib
 
 		std::thread::id     m_oMainThreadID;
 		std::thread         m_oGraphicsThread;
-		GraphicsThreadState m_eGraphicsThreadState = GraphicsThreadState::Waiting;
-		/* initialized with Waiting because thread will be started within the constructor.        */
+		GraphicsThreadState m_eGraphicsThreadState = GraphicsThreadState::NotStarted;
 
 		std::mutex              m_mux; // general-purpose.
 		std::condition_variable m_cv;  // general-purpose.
