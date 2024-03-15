@@ -288,11 +288,6 @@ namespace rlGameCanvasLib
 			m_oDrawRect.iRight  = m_oDrawRect.iLeft + iDisplayWidth;
 			m_oDrawRect.iTop    = (m_oClientSize.y - iDisplayHeight) / 2;
 			m_oDrawRect.iBottom = m_oDrawRect.iTop + iDisplayHeight;
-
-			m_oDrawRectF.fLeft   = (m_oDrawRect.iLeft * 2.0f) / m_oClientSize.x - 1.0f;
-			m_oDrawRectF.fRight  = (m_oDrawRect.iRight * 2.0f) / m_oClientSize.x - 1.0f;
-			m_oDrawRectF.fTop    = ((m_oClientSize.y - m_oDrawRect.iTop   ) * 2.0f) / m_oClientSize.y - 1.0f;
-			m_oDrawRectF.fBottom = ((m_oClientSize.y - m_oDrawRect.iBottom) * 2.0f) / m_oClientSize.y - 1.0f;
 		}
 
 
@@ -509,6 +504,8 @@ namespace rlGameCanvasLib
 				m_oClientSize.y  // height
 			);
 
+			glMatrixMode(GL_PROJECTION);
+
 			pxBG = m_oConfig.oInitialConfig.pxBackgroundColor;
 			glClearColor(
 				pxBG.rgba.r / 255.0f,
@@ -670,49 +667,59 @@ namespace rlGameCanvasLib
 					m_oClientSize.x, // width
 					m_oClientSize.y  // height
 				);
-				glClear(GL_COLOR_BUFFER_BIT);
-				glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
-
-				// draw texture
-				glBegin(GL_TRIANGLE_STRIP);
+				
+				glPushMatrix();
+				glLoadIdentity();
+				glOrtho(0, m_oClientSize.x, m_oClientSize.y, 0, 0.0f, 1.0f);
 				{
-					// first triangle
-					//
-					// 2
-					// |\
-					// | \
-					// 1--3
+					glClear(GL_COLOR_BUFFER_BIT);
+					glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
 
-					// 1
-					glTexCoord2f(0.0, 0.0);
-					glVertex3f(m_oDrawRectF.fLeft, m_oDrawRectF.fBottom, 0.0f);
-					
-					// 2
-					glTexCoord2f(0.0, 1.0);
-					glVertex3f(m_oDrawRectF.fLeft, m_oDrawRectF.fTop, 0.0f);
-					
-					// 3
-					glTexCoord2f(1.0, 0.0);
-					glVertex3f(m_oDrawRectF.fRight, m_oDrawRectF.fBottom, 0.0f);
+					// draw texture
+					glBegin(GL_TRIANGLE_STRIP);
+					{
+						// first triangle
+						//
+						// 2
+						// |\
+						// | \
+						// 1--3
+
+						// 1
+						glTexCoord2f(0.0, 0.0);
+						glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iBottom, 0);
+
+						// 2
+						glTexCoord2f(0.0, 1.0);
+						glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iTop, 0);
+
+						// 3
+						glTexCoord2f(1.0, 0.0);
+						glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iBottom, 0);
 
 
-					// second triangle (sharing an edge with the first one)
-					//
-					// 2--4
-					//  \ |
-					//   \|
-					//    3
+						// second triangle (sharing an edge with the first one)
+						//
+						// 2--4
+						//  \ |
+						//   \|
+						//    3
 
-					// 4
-					glTexCoord2f(1.0, 1.0);
-					glVertex3f(m_oDrawRectF.fRight, m_oDrawRectF.fTop, 0.0f);
+						// 4
+						glTexCoord2f(1.0, 1.0);
+						glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iTop, 0);
+					}
+					glEnd();
 				}
-				glEnd();
+				glPopMatrix();
 			}
 
 			// draw directly
 			else
 			{
+				glLoadIdentity();
+				glOrtho(0, m_oClientSize.x, m_oClientSize.y, 0, 0.0f, 1.0f);
+
 				glClear(GL_COLOR_BUFFER_BIT);
 				for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
 				{
@@ -731,15 +738,15 @@ namespace rlGameCanvasLib
 
 						// 1
 						glTexCoord2f(0.0, 1.0);
-						glVertex3f(m_oDrawRectF.fLeft, m_oDrawRectF.fBottom, 0.0f);
+						glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iBottom, 0);
 
 						// 2
 						glTexCoord2f(0.0, 0.0);
-						glVertex3f(m_oDrawRectF.fLeft, m_oDrawRectF.fTop, 0.0f);
+						glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iTop, 0);
 
 						// 3
 						glTexCoord2f(1.0, 1.0);
-						glVertex3f(m_oDrawRectF.fRight, m_oDrawRectF.fBottom, 0.0f);
+						glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iBottom, 0);
 
 
 						// second triangle (sharing an edge with the first one)
@@ -752,7 +759,7 @@ namespace rlGameCanvasLib
 
 						// 4
 						glTexCoord2f(1.0, 0.0);
-						glVertex3f(m_oDrawRectF.fRight, m_oDrawRectF.fTop, 0);
+						glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iTop, 0);
 					}
 					glEnd();
 				}
