@@ -21,7 +21,7 @@ typedef struct
 #define DIST_ADD_PER_LINE (0.7)
 #define FRAMECOUNT ((HEIGHT / 2) - (unsigned)((HEIGHT / 2) * YFACTOR - 1))
 
-void Update(
+void __stdcall Update(
 	rlGameCanvas              canvas,
 	rlGameCanvas_GraphicsData pData,
 	double                    dSecsSinceLastCall
@@ -38,7 +38,7 @@ void Update(
 	pDataT->iAnimFrame %= FRAMECOUNT;
 }
 
-void CanvasMsg(
+void __stdcall CanvasMsg(
 	rlGameCanvas          canvas,
 	rlGameCanvas_UInt     iMsg,
 	rlGameCanvas_MsgParam iParam1,
@@ -65,7 +65,17 @@ void CanvasMsg(
 	}
 }
 
-void Draw(
+void __stdcall WinMsg(
+	rlGameCanvas canvas,
+	UINT         uMsg,
+	WPARAM       wParam,
+	LPARAM       lParam
+)
+{
+
+}
+
+void __stdcall Draw(
 	rlGameCanvas canvas,
 	rlGameCanvas_Layer* pLayers,
 	rlGameCanvas_UInt iLayers,
@@ -151,7 +161,7 @@ void Draw(
 	}
 }
 
-void CreateData(void** pData)
+void __stdcall CreateData(void** pData)
 {
 	GraphicsData *pDataT = *pData = malloc(sizeof(GraphicsData));
 
@@ -162,12 +172,12 @@ void CreateData(void** pData)
 	}
 }
 
-void DestroyData(void* pData)
+void __stdcall DestroyData(void* pData)
 {
 	free(pData);
 }
 
-void CopyData(const void* pSrc, void* pDest)
+void __stdcall CopyData(const void* pSrc, void* pDest)
 {
 	memcpy_s(pDest, sizeof(GraphicsData), pSrc, sizeof(GraphicsData));
 }
@@ -181,7 +191,7 @@ int main(int argc, char* argv[])
 	sc.szWindowCaption    = szTitle;
 	sc.iMaximizeBtnAction = RL_GAMECANVAS_MAX_MAXIMIZE;
 	sc.fnOnMsg            = CanvasMsg;
-	sc.fnOnWinMsg         = 0;
+	sc.fnOnWinMsg         = WinMsg;
 	sc.fnUpdate           = Update;
 	sc.fnDraw             = Draw;
 	sc.fnCreateData       = CreateData;
@@ -192,7 +202,7 @@ int main(int argc, char* argv[])
 	sc.oInitialConfig.oResolution.x     = WIDTH;
 	sc.oInitialConfig.oResolution.y     = HEIGHT;
 	sc.oInitialConfig.iPixelSize        = 2;
-	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_FULLSCREEN;
+	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_NONE;
 	sc.oInitialConfig.pxBackgroundColor = rlGameCanvas_Color_Black;
 
 	rlGameCanvas canvas = rlGameCanvas_Create(&sc);
