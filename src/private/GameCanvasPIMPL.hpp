@@ -11,6 +11,8 @@
 #include "OpenGL.hpp"
 
 #include <gl/GL.h>
+
+#include <chrono>
 #include <map>
 #include <mutex>
 #include <thread>
@@ -105,6 +107,8 @@ namespace rlGameCanvasLib
 		UInt       m_iPixelSize  = 0;
 		Rect       m_oDrawRect   = {};
 		RectF      m_oDrawRectF  = {};
+
+		std::chrono::system_clock::time_point m_tp1, m_tp2;
 
 		StartupConfig m_oConfig;
 

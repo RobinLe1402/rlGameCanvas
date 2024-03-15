@@ -772,13 +772,13 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::doUpdate()
 	{
-		static std::chrono::system_clock::time_point tp2;
-		tp2 = std::chrono::system_clock::now();
-		static auto tp1 = tp2;
+		m_tp2 = std::chrono::system_clock::now();
+		if (m_tp1 == decltype(m_tp2){}) // not initialized?
+			m_tp1 = m_tp2;
 
 		m_oConfig.fnUpdate(m_oHandle, m_pBuffer_Updating,
-			std::chrono::duration_cast<std::chrono::duration<double>>(tp2 - tp1).count());
-		tp1 = tp2;
+			std::chrono::duration_cast<std::chrono::duration<double>>(m_tp2 - m_tp1).count());
+		m_tp1 = m_tp2;
 
 		// copy to shared buffer
 		std::unique_lock lockBuf(m_muxBuffer);
