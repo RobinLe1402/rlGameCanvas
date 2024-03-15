@@ -54,6 +54,14 @@ void CanvasMsg(
 	case RL_GAMECANVAS_MSG_DESTROY:
 		printf("DESTROY received\n");
 		break;
+
+	case RL_GAMECANVAS_MSG_LOSEFOCUS:
+		printf("LOSEFOCUS received\n");
+		break;
+
+	case RL_GAMECANVAS_MSG_GAINFOCUS:
+		printf("GAINFOCUS received\n");
+		break;
 	}
 }
 

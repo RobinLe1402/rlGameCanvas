@@ -440,6 +440,16 @@ namespace rlGameCanvasLib
 			break;
 		}
 
+		case WM_KILLFOCUS:
+			if (m_oConfig.fnOnMsg)
+				m_oConfig.fnOnMsg(m_oHandle, RL_GAMECANVAS_MSG_LOSEFOCUS, 0, 0);
+			break;
+
+		case WM_SETFOCUS:
+			if (m_oConfig.fnOnMsg)
+				m_oConfig.fnOnMsg(m_oHandle, RL_GAMECANVAS_MSG_GAINFOCUS, 0, 0);
+			break;
+
 		case WM_CLOSE:
 		{
 			std::unique_lock lock(m_mux);
