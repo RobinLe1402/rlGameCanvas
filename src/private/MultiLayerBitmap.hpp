@@ -29,9 +29,9 @@ public: // methods
 	bool create(lib::UInt iLayerCount, GLsizei iWidth, GLsizei iHeight);
 	void destroy();
 
-	size_t width     () const { return m_iWidth      ; }
-	size_t height    () const { return m_iHeight     ; }
-	size_t layerCount() const { return m_oData.size(); }
+	lib::UInt width     () const { return m_iWidth      ; }
+	lib::UInt height    () const { return m_iHeight     ; }
+	size_t    layerCount() const { return m_oData.size(); }
 
 	      lib::Pixel *scanline(size_t iLayer, size_t iY)
 	{
