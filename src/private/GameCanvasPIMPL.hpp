@@ -92,6 +92,7 @@ namespace rlGameCanvasLib
 		rlGameCanvas  m_oHandle;
 		std::u8string m_sWindowCaption;
 		bool          m_bMinimized = false;
+		bool          m_bMinimized_Waiting = false;
 
 		Resolution m_oClientSize = {};
 		UInt       m_iPixelSize  = 0;

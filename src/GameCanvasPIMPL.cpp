@@ -419,6 +419,26 @@ namespace rlGameCanvasLib
 
 				if (!m_bRunning)
 					goto lbClose;
+
+				if (m_bMinimized)
+				{
+					std::unique_lock lock(m_mux);
+					m_bMinimized_Waiting = true;
+					m_cv.wait(lock);
+					while (m_bMinimized)
+					{
+						if (GetMessageW(&msg, m_hWnd, 0, 0) == 0)
+							break; // while
+						TranslateMessage(&msg);
+						DispatchMessageW(&msg);
+					}
+					m_bMinimized         = false;
+					m_bMinimized_Waiting = false;
+					m_cv.notify_one(); // continue graphics thread
+
+					if (!m_bRunning)
+						goto lbClose;
+				}
 			}
 
 			std::unique_lock lock(m_mux);
@@ -528,8 +548,12 @@ namespace rlGameCanvasLib
 				return 0;
 			}
 			if (m_bMinimized && wParam != SIZE_MINIMIZED)
+			{
+				m_bMinimized = false;
 				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 0, 0);
-			handleResize(LOWORD(lParam), HIWORD(lParam));
+			}
+			else
+				handleResize(LOWORD(lParam), HIWORD(lParam));
 			return 0;
 		}
 
@@ -575,6 +599,11 @@ namespace rlGameCanvasLib
 				std::unique_lock lock(m_mux);
 				if (!m_bRunning)
 					break; // while
+				if (m_bMinimized_Waiting)
+				{
+					m_cv.notify_one(); // notify logic thread that minimization state was entered
+					m_cv.wait(lock); // wait for logic thread to wake up graphics thread
+				}
 			}
 
 			// handle request for control over OpenGL
