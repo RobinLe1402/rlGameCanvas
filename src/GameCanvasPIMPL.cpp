@@ -481,16 +481,23 @@ namespace rlGameCanvasLib
 		if (std::this_thread::get_id() != m_oMainThreadID)
 			return false;
 
-		std::unique_lock lock(m_muxConfig);
-		if (m_eGraphicsThreadState == GraphicsThreadState::Stopped)
-			return false;
+		// check if running
+		{
+			std::unique_lock lock(m_mux); // todo: make m_eGraphicsThreadState std::atomic instead?
+			if (m_eGraphicsThreadState != GraphicsThreadState::Running)
+				return false;
+		}
 
-		m_bNewConfig = true;
-		m_oNewConfig = oConfig;
-		m_cv.notify_one(); // TODO: maybe split up into multiple CVs and/or Mutexes?
-		m_cv.wait(lock); // wait for thread to apply new settings
+		std::unique_lock lock(m_muxOpenGL);
+		m_bOpenGLRequest = true;
+		m_cvOpenGL.wait(lock); // wait for graphics thread to give up control
+		wglMakeCurrent(m_hDC, m_hOpenGL);
 
-		return !m_bNewConfig;
+		// ToDo: adjust settings
+
+		wglMakeCurrent(NULL, NULL);
+		m_cvOpenGL.notify_one(); // hand back control to the graphics thread
+		return true;
 	}
 
 	LRESULT GameCanvas::PIMPL::localWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -582,10 +589,23 @@ namespace rlGameCanvasLib
 
 		while (true)
 		{
+			// check if still running
 			{
 				std::unique_lock lock(m_mux);
 				if (!m_bRunning)
 					break; // while
+			}
+
+			// handle request for control over OpenGL
+			{
+				std::unique_lock lock(m_muxOpenGL);
+				if (m_bOpenGLRequest)
+				{
+					wglMakeCurrent(NULL, NULL);
+					m_cvOpenGL.notify_one();
+					m_cvOpenGL.wait(lock);
+					wglMakeCurrent(m_hDC, m_hOpenGL);
+				}
 			}
 
 			drawFrame();

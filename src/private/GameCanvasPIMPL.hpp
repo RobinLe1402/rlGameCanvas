@@ -119,9 +119,9 @@ namespace rlGameCanvasLib
 		bool m_bRunning       = false; // is the game logic running?
 		bool m_bStopRequested = false; // user/game requested a stop.
 
-		std::mutex m_muxConfig; // todo: use!
-		bool       m_bNewConfig = false;
-		Config     m_oNewConfig = {};
+		std::mutex              m_muxOpenGL;
+		std::condition_variable m_cvOpenGL;
+		bool                    m_bOpenGLRequest = false;
 
 		std::mutex   m_muxBuffer;
 		GraphicsData m_pBuffer_Updating = nullptr; // for access in update callback
