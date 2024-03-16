@@ -24,7 +24,7 @@ namespace rlGameCanvasLib
 
 		bool operator!=(const Resolution &o1, const Resolution &o2)
 		{
-			return memcmp(&o1, &o2, sizeof(Resolution)) == 0;
+			return memcmp(&o1, &o2, sizeof(Resolution)) != 0;
 		}
 
 		
@@ -393,7 +393,7 @@ namespace rlGameCanvasLib
 		m_oLayersForCallback_Copy = std::make_unique<Layer[]>(iLayerCount);
 
 
-		setResolution(m_oConfig.oInitialConfig.oResolution);
+		setResolution(m_oConfig.oInitialConfig.oResolution, true);
 	}
 
 	GameCanvas::PIMPL::~PIMPL() { quit(); }
@@ -863,10 +863,7 @@ namespace rlGameCanvasLib
 			if (rop.oResolution.y == 0)
 				rop.oResolution.y = oOldRes.y;
 
-			if (rop.oResolution != oOldRes)
-			{
-				setResolution(rop.oResolution);
-			}
+			setResolution(rop.oResolution, rop.oResolution != oOldRes);
 		}
 
 		doUpdate();
@@ -882,25 +879,28 @@ namespace rlGameCanvasLib
 	// * recalculate m_iPixelSize and m_oDrawRect
 	// WHAT THIS FUNCTION DOESN'T DO
 	// * draw to the screen
-	void GameCanvas::PIMPL::setResolution(const Resolution &oNewRes)
+	void GameCanvas::PIMPL::setResolution(const Resolution &oNewRes, bool bResize)
 	{
-		if (!m_oLayers.create(
-			1 + m_oConfig.iExtraLayerCount,         // iLayerCount
-			m_oConfig.oInitialConfig.oResolution.x, // iWidth
-			m_oConfig.oInitialConfig.oResolution.y  // iHeight
-		))
+		if (bResize)
 		{
-			// TODO: error handling?
-			fprintf(stderr, "Error resizing the canvas!\n");
-			return;
-		}
+			if (!m_oLayers.create(
+				1 + m_oConfig.iExtraLayerCount, // iLayerCount
+				oNewRes.x,                      // iWidth
+				oNewRes.y                       // iHeight
+			))
+			{
+				// TODO: error handling?
+				fprintf(stderr, "Error resizing the canvas!\n");
+				return;
+			}
 
-		for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
-		{
-			m_oLayersForCallback[i].pData =
-				reinterpret_cast<rlGameCanvas_Pixel *>(m_oLayers.scanline(i, 0));
+			for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
+			{
+				m_oLayersForCallback[i].pData =
+					reinterpret_cast<rlGameCanvas_Pixel *>(m_oLayers.scanline(i, 0));
+			}
+			m_iLayersForCallback_Size = sizeof(Layer) * m_oLayers.layerCount();
 		}
-		m_iLayersForCallback_Size = sizeof(Layer) * m_oLayers.layerCount();
 
 
 		// calculate drawing rectangle
@@ -912,16 +912,16 @@ namespace rlGameCanvasLib
 
 		// calculate the biggest possible size that keeps the aspect ratio
 		{
-			iDisplayWidth  = m_oClientSize.x;
-			iDisplayHeight = UInt(iDisplayWidth * dRatio);
+			iDisplayHeight = m_oClientSize.y;
+			iDisplayWidth  = UInt(iDisplayHeight * dRatio);
 
-			if (iDisplayHeight > m_oClientSize.y)
+			if (iDisplayWidth > m_oClientSize.x)
 			{
-				iDisplayHeight = m_oClientSize.y;
-				iDisplayWidth  = UInt(iDisplayHeight / dRatio);
+				iDisplayWidth  = m_oClientSize.x;
+				iDisplayHeight = UInt(iDisplayWidth / dRatio);
 
-				if (iDisplayWidth > m_oClientSize.x)
-					iDisplayWidth = m_oClientSize.x;
+				if (iDisplayHeight > m_oClientSize.y)
+					iDisplayHeight = m_oClientSize.y;
 			}
 		}
 

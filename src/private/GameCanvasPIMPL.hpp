@@ -88,7 +88,7 @@ namespace rlGameCanvasLib
 		void drawFrame();
 		void doUpdate();
 		void handleResize(unsigned iClientWidth, unsigned iClientHeight);
-		void setResolution(const Resolution &oNewRes);
+		void setResolution(const Resolution &oNewRes, bool bResize);
 
 
 	private: // variables
