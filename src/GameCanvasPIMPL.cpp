@@ -198,11 +198,9 @@ namespace rlGameCanvasLib
 		{
 		case RL_GAMECANVAS_MAX_FULLSCREEN:
 		{
-			m_eWindowState = WindowState::Fullscreen;
-			dwStyle        = WS_POPUP;
-
-			iWinX = 0;
-			iWinY = 0;
+			dwStyle = WS_POPUP;
+			iWinX   = 0;
+			iWinY   = 0;
 
 			const HMONITOR hMonitor = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
 			MONITORINFO mi{ sizeof(mi) };
@@ -214,16 +212,13 @@ namespace rlGameCanvasLib
 		}
 
 		case RL_GAMECANVAS_MAX_MAXIMIZE:
-			m_eWindowState = WindowState::Maximized;
-
-			dwStyle        = (WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX) | WS_MAXIMIZE;
+			dwStyle = (WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX) | WS_MAXIMIZE;
 			// todo: size calculation?
 			break;
 
 		case RL_GAMECANVAS_MAX_NONE:
 			{
-				m_eWindowState = WindowState::Restored;
-				dwStyle        = WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX;
+				dwStyle = WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX;
 				if (m_oConfig.iMaximizeBtnAction == RL_GAMECANVAS_MAX_NONE)
 					dwStyle &= ~WS_MAXIMIZEBOX;
 
@@ -298,7 +293,7 @@ namespace rlGameCanvasLib
 			m_oClientSize.x = (rcWindow.right  - rcBorder.right ) - (rcWindow.left - rcBorder.left);
 			m_oClientSize.y = (rcWindow.bottom - rcBorder.bottom) - (rcWindow.top  - rcBorder.top );
 
-			if (m_eWindowState == WindowState::Fullscreen)
+			if (m_oConfig.oInitialConfig.iMaximization == RL_GAMECANVAS_MAX_FULLSCREEN)
 				--m_oClientSize.x;
 		}
 
@@ -502,8 +497,7 @@ namespace rlGameCanvasLib
 		case WM_CREATE:
 			m_hWnd = hWnd;
 			m_hDC  = GetDC(m_hWnd);
-			if (m_oConfig.fnOnMsg)
-				m_oConfig.fnOnMsg(m_oHandle, RL_GAMECANVAS_MSG_CREATE, 0, 0);
+			sendMessage(RL_GAMECANVAS_MSG_CREATE, 0, 0);
 			break;
 
 		case WM_SIZE:
@@ -511,46 +505,40 @@ namespace rlGameCanvasLib
 			if (m_eGraphicsThreadState == GraphicsThreadState::NotStarted)
 				break;
 
-			// TODO: this could cause problems with fullscreen mode later.
-			//       maybe reset m_eWindowState whenever entering/exiting fullscreen mode.
 			switch (wParam)
 			{
 			case SIZE_MAXIMIZED:
-				if (m_eWindowState == WindowState::Maximized)
-					return 0;
-				m_eWindowState = WindowState::Maximized;
+				m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_MAXIMIZE;
 				// TODO: handle maximization
 				break;
 
 			case SIZE_MINIMIZED:
-				if (m_eWindowState == WindowState::Minimized)
+				if (m_bMinimized)
 					return 0;
-				m_eWindowState = WindowState::Minimized;
-				// TODO: handle minimization
+				m_bMinimized = true;
+				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 1, 0);
 				return 0;
 
 			case SIZE_RESTORED:
-				if (m_eWindowState == WindowState::Restored)
-					return 0;
-				m_eWindowState = WindowState::Restored;
+				m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_NONE;
 				// TODO: handle window restoration
 				break;
 
 			default:
 				return 0;
 			}
+			if (m_bMinimized && wParam != SIZE_MINIMIZED)
+				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 0, 0);
 			handleResize(LOWORD(lParam), HIWORD(lParam));
-			break;
+			return 0;
 		}
 
 		case WM_KILLFOCUS:
-			if (m_oConfig.fnOnMsg)
-				m_oConfig.fnOnMsg(m_oHandle, RL_GAMECANVAS_MSG_LOSEFOCUS, 0, 0);
+			sendMessage(RL_GAMECANVAS_MSG_LOSEFOCUS, 0, 0);
 			break;
 
 		case WM_SETFOCUS:
-			if (m_oConfig.fnOnMsg)
-				m_oConfig.fnOnMsg(m_oHandle, RL_GAMECANVAS_MSG_GAINFOCUS, 0, 0);
+			sendMessage(RL_GAMECANVAS_MSG_GAINFOCUS, 0, 0);
 			break;
 
 		case WM_CLOSE:
@@ -564,8 +552,7 @@ namespace rlGameCanvasLib
 			return 0;
 
 		case WM_DESTROY:
-			if (m_oConfig.fnOnMsg)
-				m_oConfig.fnOnMsg(m_oHandle, RL_GAMECANVAS_MSG_DESTROY, 0, 0);
+			sendMessage(RL_GAMECANVAS_MSG_DESTROY, 0, 0);
 
 			PostQuitMessage(0);
 			return 0;
@@ -845,7 +832,7 @@ namespace rlGameCanvasLib
 				.oOldRes = oOldClientSize,
 				.oNewRes = m_oClientSize
 			};
-			const Resolution oOldRes = { m_oLayers.width(), m_oLayers.height() };
+			const Resolution oOldRes = m_oConfig.oInitialConfig.oResolution;
 			ResizeOutputParams rop =
 			{
 				.oResolution = oOldRes
@@ -883,6 +870,8 @@ namespace rlGameCanvasLib
 	{
 		if (bResize)
 		{
+			m_oConfig.oInitialConfig.oResolution = oNewRes;
+
 			if (!m_oLayers.create(
 				1 + m_oConfig.iExtraLayerCount, // iLayerCount
 				oNewRes.x,                      // iWidth
@@ -962,6 +951,16 @@ namespace rlGameCanvasLib
 			m_oConfig.oInitialConfig.oResolution.x * m_iPixelSize,
 			m_oConfig.oInitialConfig.oResolution.y * m_iPixelSize,
 			0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	}
+
+	void GameCanvas::PIMPL::sendMessage(
+			rlGameCanvas_UInt     iMsg,
+			rlGameCanvas_MsgParam iParam1,
+			rlGameCanvas_MsgParam iParam2
+	)
+	{
+		if (m_oConfig.fnOnMsg)
+			m_oConfig.fnOnMsg(m_oHandle, iMsg, iParam1, iParam2);
 	}
 
 }

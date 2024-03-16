@@ -54,6 +54,16 @@
 */
 #define RL_GAMECANVAS_MSG_RESIZE (0x00000005)
 
+/*
+	MESSAGE:           RL_GAMECANVAS_MSG_MINIMIZE
+	TRIGGER:           Window is minimized/restored from minimization.
+	EXPECTED BEHAVIOR: Mute audio altogether/continue regular execution.
+	PARAMETER 1:       [rlGameCanvas_Bool] Nonzero: The window was minimized.
+	                                       Zero:    The window was restored from minimization.
+	PARAMETER 2:       Not used.
+*/
+#define RL_GAMECANVAS_MSG_MINIMIZE (0x00000006)
+
 // TODO: make use of mouse movements?
 ///*
 //	MESSAGE:           RL_GAMECANVAS_MSG_MOUSEMOVE
@@ -64,7 +74,7 @@
 //	                   now on.
 //	PARAMETER 2:       Not used.
 //*/
-//#define RL_GAMECANVAS_MSG_MOUSEMOVE (0x00000006)
+//#define RL_GAMECANVAS_MSG_MOUSEMOVE (0x00000007)
 //
 ///*
 //	MESSAGE:           RL_GAMECANVAS_MSG_MOUSELEAVE
@@ -75,7 +85,7 @@
 //	PARAMETER 1:       Not used.
 //	PARAMETER 2:       Not used.
 //*/
-//#define RL_GAMECANVAS_MSG_MOUSELEAVE (0x00000007)
+//#define RL_GAMECANVAS_MSG_MOUSELEAVE (0x00000008)
 
 
 

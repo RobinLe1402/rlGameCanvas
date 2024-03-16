@@ -3,11 +3,13 @@
 #include <rlGameCanvas/Pixel.h>
 
 #include <malloc.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #define WIDTH  256
 #define HEIGHT 240
 
+bool bPaused = false;
 typedef struct
 {
 	unsigned iAnimFrame;
@@ -76,6 +78,12 @@ void __stdcall CanvasMsg(
 
 		break;
 	}
+		
+	case RL_GAMECANVAS_MSG_MINIMIZE:
+		printf("MINIMIZE received\n");
+		bPaused = iParam1;
+		printf("  %s minimization\n", bPaused ? "Entered" : "Exited");
+		break;
 	}
 }
 
@@ -95,9 +103,12 @@ void __stdcall Draw(
 	rlGameCanvas_UInt iLayers,
 	const rlGameCanvas_GraphicsData pData)
 {
+	if (bPaused)
+		return;
+
 	const GraphicsData* pDataT = pData;
 
-	static int bInit = 0;
+	static bool bInit = false;
 
 	const rlGameCanvas_Pixel px = RLGAMECANVAS_MAKEPIXEL_RGB(255, 0, 255);
 	if (!bInit)
@@ -149,7 +160,7 @@ void __stdcall Draw(
 			iLineOffset += WIDTH;
 		}
 
-		bInit = 1;
+		bInit = true;
 	}
 
 	memset(pLayers[1].pData, 0, sizeof(rlGameCanvas_Pixel) * WIDTH * HEIGHT);

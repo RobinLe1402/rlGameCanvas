@@ -27,18 +27,8 @@ namespace rlGameCanvasLib
 		enum class GraphicsThreadState
 		{
 			NotStarted, // graphics thread hasn't been created yet
-			Waiting,    // window was created, graphics thread is waiting to be activated.
 			Running,    // run() was called, graphics thread is working.
 			Stopped     // graphics thread was stopped after working.
-		};
-
-		enum class WindowState
-		{
-			Unknown,
-			Restored,
-			Maximized,
-			Fullscreen,
-			Minimized
 		};
 
 		struct Rect
@@ -90,12 +80,18 @@ namespace rlGameCanvasLib
 		void handleResize(unsigned iClientWidth, unsigned iClientHeight);
 		void setResolution(const Resolution &oNewRes, bool bResize);
 
+		void sendMessage(
+			rlGameCanvas_UInt     iMsg,
+			rlGameCanvas_MsgParam iParam1,
+			rlGameCanvas_MsgParam iParam2
+		);
+
 
 	private: // variables
 
 		rlGameCanvas  m_oHandle;
 		std::u8string m_sWindowCaption;
-		WindowState   m_eWindowState = WindowState::Unknown;
+		bool          m_bMinimized = false;
 
 		Resolution m_oClientSize = {};
 		UInt       m_iPixelSize  = 0;
