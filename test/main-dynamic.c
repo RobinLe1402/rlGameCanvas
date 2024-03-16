@@ -62,6 +62,20 @@ void __stdcall CanvasMsg(
 	case RL_GAMECANVAS_MSG_GAINFOCUS:
 		printf("GAINFOCUS received\n");
 		break;
+
+	case RL_GAMECANVAS_MSG_RESIZE:
+	{
+		printf("RESIZE received\n");
+		const rlGameCanvas_ResizeInputParams *rip =
+			(const rlGameCanvas_ResizeInputParams*)(iParam1);
+		rlGameCanvas_ResizeOutputParams* rop =
+			(rlGameCanvas_ResizeOutputParams*)(iParam2);
+
+		printf("  Old canvas size: [%ux%u], new canvas size: [%ux%u]\n",
+			rip->oOldRes.x, rip->oOldRes.y, rip->oNewRes.x, rip->oNewRes.y);
+
+		break;
+	}
 	}
 }
 
@@ -72,7 +86,7 @@ void __stdcall WinMsg(
 	LPARAM       lParam
 )
 {
-
+	
 }
 
 void __stdcall Draw(
@@ -134,6 +148,8 @@ void __stdcall Draw(
 
 			iLineOffset += WIDTH;
 		}
+
+		bInit = 1;
 	}
 
 	memset(pLayers[1].pData, 0, sizeof(rlGameCanvas_Pixel) * WIDTH * HEIGHT);
@@ -198,7 +214,7 @@ int main(int argc, char* argv[])
 	sc.fnDestroyData      = DestroyData;
 	sc.fnCopyData         = CopyData;
 	sc.iExtraLayerCount   = 1;
-	sc.bOversample        = 0;
+	sc.bOversample        = 1;
 	sc.oInitialConfig.oResolution.x     = WIDTH;
 	sc.oInitialConfig.oResolution.y     = HEIGHT;
 	sc.oInitialConfig.iPixelSize        = 2;
