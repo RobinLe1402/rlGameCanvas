@@ -405,9 +405,8 @@ namespace rlGameCanvasLib
 
 		m_bRunning = true;
 		
-		drawFrame();
-
 		ShowWindow(m_hWnd, SW_SHOW);
+		drawFrame(); // draw first frame immediately
 		SetForegroundWindow(m_hWnd);
 
 		wglMakeCurrent(NULL, NULL); // give up control over OpenGL
