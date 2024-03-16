@@ -557,7 +557,7 @@ namespace rlGameCanvasLib
 		{
 			std::unique_lock lock(m_mux);
 			m_bRunning = false;
-			if (m_eGraphicsThreadState != GraphicsThreadState::Stopped)
+			if (m_eGraphicsThreadState == GraphicsThreadState::Running)
 				m_cv.wait(lock);
 		}
 			DestroyWindow(m_hWnd);
@@ -592,6 +592,7 @@ namespace rlGameCanvasLib
 			drawFrame();
 		}
 
+		std::unique_lock lock(m_mux);
 		m_eGraphicsThreadState = GraphicsThreadState::Stopped;
 		wglMakeCurrent(NULL, NULL);
 		m_cv.notify_one(); // notify main thread that the graphics thread is now terminating
