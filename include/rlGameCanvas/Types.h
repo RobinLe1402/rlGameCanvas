@@ -103,7 +103,15 @@ typedef struct
 {
 	rlGameCanvas_Resolution oOldRes; /* the old size, in pixels, of the canvas.                   */
 	rlGameCanvas_Resolution oNewRes; /* the new size, in pixels, of the canvas.                   */
-} rlGameCanvas_ResizeParams;
+} rlGameCanvas_ResizeInputParams;
+
+typedef struct
+{
+	rlGameCanvas_Resolution oResolution;  /* new size, in pixels, of the canvas.
+	                                         if one of the values is zero, that size will remain
+	                                         unchanged.                                           */
+	// todo: add iPixelSize for windowed?
+} rlGameCanvas_ResizeOutputParams;
 
 
 
@@ -151,7 +159,10 @@ typedef struct
 	                                                (= the code for the main game loop).
 	                                               cannot be NULL.                                */
 	rlGameCanvas_MsgCallback fnOnMsg;           /* callback function for custom messages.
-	                                               can be NULL.                                   */
+	                                               can be NULL.
+	                                               do NOT call rlGameCanvas_UpdateConfig within
+	                                                this callback. Instead, use the parameters, when
+	                                                available.                                    */
 	rlGameCanvas_WinMsgCallback fnOnWinMsg;     /* callback function for window messages.
 	                                               can be NULL.                                   */
 	rlGameCanvas_DrawCallback fnDraw;           /* callback function that updates the canvas.

@@ -88,6 +88,7 @@ namespace rlGameCanvasLib
 		void drawFrame();
 		void doUpdate();
 		void handleResize(unsigned iClientWidth, unsigned iClientHeight);
+		void setResolution(const Resolution &oNewRes);
 
 
 	private: // variables
@@ -133,6 +134,7 @@ namespace rlGameCanvasLib
 		std::unique_ptr<Layer[]> m_oLayersForCallback_Copy;
 		size_t m_iLayersForCallback_Size;
 
+		bool   m_bFBO                    = false;
 		GLuint m_iIntScaledBufferFBO     = 0;
 		GLuint m_iIntScaledBufferTexture = 0;
 	};

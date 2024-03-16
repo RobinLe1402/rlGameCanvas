@@ -22,6 +22,74 @@ namespace rlGameCanvasLib
 			throw std::exception{ sFullMessage.c_str() };
 		}
 
+		bool operator!=(const Resolution &o1, const Resolution &o2)
+		{
+			return memcmp(&o1, &o2, sizeof(Resolution)) == 0;
+		}
+
+		
+		// To be used whenever a thread that's not the graphics thread needs control over OpenGL.
+		// Implementation is closely linked to GameCanvas::PIMPL.
+		class OpenGLLock final
+		{
+		public: // methods
+
+			OpenGLLock(std::mutex &mux, std::condition_variable &cv, bool &bRequested, HDC hDC,
+				HGLRC hOpenGL)
+				:
+				m_mux(mux),
+				m_cv(cv),
+				m_bRequested(bRequested),
+				m_hDC(hDC),
+				m_hOpenGL(hOpenGL),
+				m_lock(m_mux, std::defer_lock)
+			{
+				lock();
+			}
+
+			~OpenGLLock() { unlock(); }
+
+			void lock()
+			{
+				if (m_bLocked)
+					return;
+
+				m_lock.lock();
+				m_bRequested = true;
+				m_cv.wait(m_lock);
+				wglMakeCurrent(m_hDC, m_hOpenGL);
+
+				m_bLocked = true;
+			}
+
+			void unlock()
+			{
+				if (!m_bLocked)
+					return;
+
+				wglMakeCurrent(NULL, NULL);
+				m_bRequested = false;
+				m_cv.notify_one();
+#pragma warning(suppress : 26110) // C26110: caller failed to hold lock (false positive)
+				m_lock.unlock();
+
+				m_bLocked = false;
+			}
+
+
+		private: // variables
+
+			std::mutex &m_mux;
+			std::condition_variable &m_cv;
+			bool &m_bRequested;
+			HDC   m_hDC;
+			HGLRC m_hOpenGL;
+
+			std::unique_lock<std::mutex> m_lock;
+			bool m_bLocked = false;
+
+		};
+
 	}
 
 
@@ -232,62 +300,6 @@ namespace rlGameCanvasLib
 
 			if (m_eWindowState == WindowState::Fullscreen)
 				--m_oClientSize.x;
-
-
-
-			// calculate drawing rectangle
-
-			const auto  &res    = m_oConfig.oInitialConfig.oResolution;
-			const double dRatio = (double)res.x / res.y;
-
-			UInt iDisplayWidth  = 0;
-			UInt iDisplayHeight = 0;
-
-			// calculate the biggest possible size that keeps the aspect ratio
-			{
-				iDisplayWidth  = m_oClientSize.x;
-				iDisplayHeight = UInt(iDisplayWidth * dRatio);
-
-				if (iDisplayHeight > m_oClientSize.y)
-				{
-					iDisplayHeight = m_oClientSize.y;
-					iDisplayWidth  = UInt(iDisplayHeight / dRatio);
-
-					if (iDisplayWidth > m_oClientSize.x)
-						iDisplayWidth = m_oClientSize.x;
-				}
-			}
-
-			// client area smaller than canvas size --> downscale
-			if (m_oClientSize.x < res.x || m_oClientSize.y < res.y)
-			{
-				m_iPixelSize = 1;
-				// keep the pre-calculated size
-			}
-
-			// canvas fits into client area at least once
-			else
-			{
-				m_iPixelSize = std::min(m_oClientSize.x / res.x, m_oClientSize.y / res.y);
-				if (m_oConfig.bOversample &&
-					m_oClientSize.x > res.x * m_iPixelSize &&
-					m_oClientSize.y > res.y * m_iPixelSize)
-				{
-					++m_iPixelSize;
-					// keep the pre-calculated size
-				}
-				else
-				{
-					iDisplayWidth  = res.x * m_iPixelSize;
-					iDisplayHeight = res.y * m_iPixelSize;
-				}
-			}
-
-			// calculate the actual drawing rectangle
-			m_oDrawRect.iLeft   = (m_oClientSize.x - iDisplayWidth) / 2;
-			m_oDrawRect.iRight  = m_oDrawRect.iLeft + iDisplayWidth;
-			m_oDrawRect.iTop    = (m_oClientSize.y - iDisplayHeight) / 2;
-			m_oDrawRect.iBottom = m_oDrawRect.iTop + iDisplayHeight;
 		}
 
 
@@ -335,13 +347,6 @@ namespace rlGameCanvasLib
 				glEnable(GL_TEXTURE_2D);
 				glEnable(GL_BLEND);
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-				if (!m_oLayers.create(
-					1 + m_oConfig.iExtraLayerCount,         // iLayerCount
-					m_oConfig.oInitialConfig.oResolution.x, // iWidth
-					m_oConfig.oInitialConfig.oResolution.y  // iHeight
-				))
-					throw std::exception{ "Could not create the canvas bitmaps." };
 			}
 			catch (...)
 			{
@@ -360,13 +365,13 @@ namespace rlGameCanvasLib
 
 
 		m_upOpenGL = std::make_unique<OpenGL>();
+		m_bFBO     = m_upOpenGL->glGenFramebuffers;
 #ifndef NDEBUG
 		printf("> OpenGL Version String: \"%s\"\n", m_upOpenGL->versionStr().c_str());
-		printf("> OpenGL framebuffers available: %s\n",
-			m_upOpenGL->glGenFramebuffers != nullptr ? "Yes" : "No");
+		printf("> OpenGL framebuffers available: %s\n", m_bFBO ? "Yes" : "No");
 #endif // NDEBUG
 
-		if (m_upOpenGL->glGenFramebuffers)
+		if (m_bFBO)
 		{
 			auto &gl = *m_upOpenGL;
 			const auto &cfg = m_oConfig.oInitialConfig;
@@ -375,8 +380,6 @@ namespace rlGameCanvasLib
 			glGenTextures(1, &m_iIntScaledBufferTexture);
 
 			glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cfg.oResolution.x * m_iPixelSize,
-				cfg.oResolution.y * m_iPixelSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		}
@@ -389,12 +392,8 @@ namespace rlGameCanvasLib
 		m_oLayersForCallback      = std::make_unique<Layer[]>(iLayerCount);
 		m_oLayersForCallback_Copy = std::make_unique<Layer[]>(iLayerCount);
 
-		for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
-		{
-			m_oLayersForCallback[i].pData =
-				reinterpret_cast<rlGameCanvas_Pixel *>(m_oLayers.scanline(i, 0));
-		}
-		m_iLayersForCallback_Size = sizeof(Layer) * m_oLayers.layerCount();
+
+		setResolution(m_oConfig.oInitialConfig.oResolution);
 	}
 
 	GameCanvas::PIMPL::~PIMPL() { quit(); }
@@ -447,7 +446,7 @@ namespace rlGameCanvasLib
 
 		// destroy OpenGL
 
-		if (m_iIntScaledBufferFBO)
+		if (m_bFBO)
 		{
 			m_upOpenGL->glDeleteFramebuffers(1, &m_iIntScaledBufferFBO);
 			glDeleteTextures(1, &m_iIntScaledBufferTexture);
@@ -488,15 +487,10 @@ namespace rlGameCanvasLib
 				return false;
 		}
 
-		std::unique_lock lock(m_muxOpenGL);
-		m_bOpenGLRequest = true;
-		m_cvOpenGL.wait(lock); // wait for graphics thread to give up control
-		wglMakeCurrent(m_hDC, m_hOpenGL);
+		OpenGLLock lock(m_muxOpenGL, m_cvOpenGL, m_bOpenGLRequest, m_hDC, m_hOpenGL);
 
 		// ToDo: adjust settings
 
-		wglMakeCurrent(NULL, NULL);
-		m_cvOpenGL.notify_one(); // hand back control to the graphics thread
 		return true;
 	}
 
@@ -647,7 +641,7 @@ namespace rlGameCanvasLib
 		m_oLayers.uploadAll();
 
 		// use FBO
-		if (m_iIntScaledBufferFBO)
+		if (m_bFBO)
 		{
 			auto &gl = *m_upOpenGL;
 
@@ -658,7 +652,8 @@ namespace rlGameCanvasLib
 				m_iIntScaledBufferTexture, 0);
 
 			// check FBO completeness
-			if (gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			const auto tmpStatus = gl.glCheckFramebufferStatus(GL_FRAMEBUFFER);
+			if (tmpStatus != GL_FRAMEBUFFER_COMPLETE) {
 				// TODO: handle framebuffer error
 				fprintf(stderr, "Framebuffer is not complete!\n");
 			}
@@ -832,6 +827,141 @@ namespace rlGameCanvasLib
 #ifndef NDEBUG
 		printf("> Resize: %u x %u pixels\n", iClientWidth, iClientHeight);
 #endif // NDEBUG
+
+		OpenGLLock lock(m_muxOpenGL, m_cvOpenGL, m_bOpenGLRequest, m_hDC, m_hOpenGL);
+
+		const Resolution oOldClientSize = m_oClientSize;
+
+		m_oClientSize.x = iClientWidth;
+		m_oClientSize.y = iClientHeight;
+
+		if (!m_bFBO)
+			glViewport(0, 0, iClientWidth, iClientHeight);
+
+		if (m_oConfig.fnOnMsg)
+		{
+			ResizeInputParams rip =
+			{
+				.oOldRes = oOldClientSize,
+				.oNewRes = m_oClientSize
+			};
+			const Resolution oOldRes = { m_oLayers.width(), m_oLayers.height() };
+			ResizeOutputParams rop =
+			{
+				.oResolution = oOldRes
+			};
+
+			m_oConfig.fnOnMsg(
+				m_oHandle,                        // canvas
+				RL_GAMECANVAS_MSG_RESIZE,         // iMsg
+				reinterpret_cast<MsgParam>(&rip), // iParam1
+				reinterpret_cast<MsgParam>(&rop)  // iParam2
+			);
+
+			if (rop.oResolution.x == 0)
+				rop.oResolution.x = oOldRes.x;
+			if (rop.oResolution.y == 0)
+				rop.oResolution.y = oOldRes.y;
+
+			if (rop.oResolution != oOldRes)
+			{
+				setResolution(rop.oResolution);
+			}
+		}
+
+		doUpdate();
+		drawFrame();
+	}
+
+	// WARNING:
+	// This function should only be called if...
+	// * the calling thread has control over OpenGL
+	// * there is currently no rendering in progress
+	// * m_oClientSize is up to date
+	// WHAT THIS FUNCTION DOES
+	// * recalculate m_iPixelSize and m_oDrawRect
+	// WHAT THIS FUNCTION DOESN'T DO
+	// * draw to the screen
+	void GameCanvas::PIMPL::setResolution(const Resolution &oNewRes)
+	{
+		if (!m_oLayers.create(
+			1 + m_oConfig.iExtraLayerCount,         // iLayerCount
+			m_oConfig.oInitialConfig.oResolution.x, // iWidth
+			m_oConfig.oInitialConfig.oResolution.y  // iHeight
+		))
+		{
+			// TODO: error handling?
+			fprintf(stderr, "Error resizing the canvas!\n");
+			return;
+		}
+
+		for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
+		{
+			m_oLayersForCallback[i].pData =
+				reinterpret_cast<rlGameCanvas_Pixel *>(m_oLayers.scanline(i, 0));
+		}
+		m_iLayersForCallback_Size = sizeof(Layer) * m_oLayers.layerCount();
+
+
+		// calculate drawing rectangle
+
+		const double dRatio = (double)oNewRes.x / oNewRes.y;
+
+		UInt iDisplayWidth  = 0;
+		UInt iDisplayHeight = 0;
+
+		// calculate the biggest possible size that keeps the aspect ratio
+		{
+			iDisplayWidth  = m_oClientSize.x;
+			iDisplayHeight = UInt(iDisplayWidth * dRatio);
+
+			if (iDisplayHeight > m_oClientSize.y)
+			{
+				iDisplayHeight = m_oClientSize.y;
+				iDisplayWidth  = UInt(iDisplayHeight / dRatio);
+
+				if (iDisplayWidth > m_oClientSize.x)
+					iDisplayWidth = m_oClientSize.x;
+			}
+		}
+
+		// client area smaller than canvas size --> downscale
+		if (m_oClientSize.x < oNewRes.x || m_oClientSize.y < oNewRes.y)
+		{
+			m_iPixelSize = 1;
+			// keep the pre-calculated size
+		}
+
+		// canvas fits into client area at least once
+		else
+		{
+			m_iPixelSize = std::min(m_oClientSize.x / oNewRes.x, m_oClientSize.y / oNewRes.y);
+			if (m_oConfig.bOversample &&
+				m_oClientSize.x > oNewRes.x * m_iPixelSize &&
+				m_oClientSize.y > oNewRes.y * m_iPixelSize)
+			{
+				++m_iPixelSize;
+				// keep the pre-calculated size
+			}
+			else
+			{
+				iDisplayWidth  = oNewRes.x * m_iPixelSize;
+				iDisplayHeight = oNewRes.y * m_iPixelSize;
+			}
+		}
+
+		// calculate the actual drawing rectangle
+		m_oDrawRect.iLeft   = (m_oClientSize.x  - iDisplayWidth) / 2;
+		m_oDrawRect.iRight  = m_oDrawRect.iLeft + iDisplayWidth;
+		m_oDrawRect.iTop    = (m_oClientSize.y - iDisplayHeight) / 2;
+		m_oDrawRect.iBottom = m_oDrawRect.iTop + iDisplayHeight;
+
+
+		glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+			m_oConfig.oInitialConfig.oResolution.x * m_iPixelSize,
+			m_oConfig.oInitialConfig.oResolution.y * m_iPixelSize,
+			0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 
 }

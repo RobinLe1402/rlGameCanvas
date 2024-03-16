@@ -43,14 +43,14 @@
 */
 #define RL_GAMECANVAS_MSG_GAINFOCUS (0x00000004)
 
-// TODO: replace "<TBA>"
 /*
 	MESSAGE:           RL_GAMECANVAS_MSG_RESIZE
 	TRIGGER:           Canvas size has changed.
 	EXPECTED BEHAVIOR: Respect the new size in all newly written data buffers.
-	PARAMETER 1:       [rlGameCanvas_ResizeParams*] Information about the resize.
+	PARAMETER 1:       [rlGameCanvas_ResizeInputParams*] Information about the resize.
 	                   Changes are ignored.
-	PARAMETER 2:       Not used.
+	PARAMETER 2:       [rlGameCanvas_ResizeOutputParams*] Select settings that can be changed right
+	                    now.
 */
 #define RL_GAMECANVAS_MSG_RESIZE (0x00000005)
 

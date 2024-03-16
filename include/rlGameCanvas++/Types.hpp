@@ -34,7 +34,8 @@ namespace rlGameCanvasLib
 	using WinMsgCallback = rlGameCanvas_WinMsgCallback;
 	using DrawCallback   = rlGameCanvas_DrawCallback;
 
-	using ResizeParams = rlGameCanvas_ResizeParams;
+	using ResizeInputParams  = rlGameCanvas_ResizeInputParams;
+	using ResizeOutputParams = rlGameCanvas_ResizeOutputParams;
 
 	using MsgParam = rlGameCanvas_MsgParam;
 
