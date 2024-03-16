@@ -291,45 +291,130 @@ namespace rlGameCanvasLib
 		}
 
 
-		std::unique_lock lock(m_mux);
-		m_oGraphicsThread = std::thread(&GameCanvas::PIMPL::graphicsThreadProc, this);
-		m_cv.wait(lock); // wait for the graphics thread to finish the attempt to setup OpenGL.
 
-		if (m_hOpenGL == NULL) // OpenGL could not be initialized --> error, join thread now.
+		// set up OpenGL
+
+		try
 		{
-			if (m_oGraphicsThread.joinable())
-				m_oGraphicsThread.join();
+			PIXELFORMATDESCRIPTOR pfd =
+			{
+				sizeof(PIXELFORMATDESCRIPTOR), 1,
+				PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+				PFD_TYPE_RGBA, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				PFD_MAIN_PLANE, 0, 0, 0, 0
+			};
+			int pf = ChoosePixelFormat(m_hDC, &pfd);
+			if (!SetPixelFormat(m_hDC, pf, &pfd))
+				ThrowWithLastError("Call to SetPixelFormat failed.");
 
+			m_hOpenGL = wglCreateContext(m_hDC);
+			if (m_hOpenGL == NULL)
+				ThrowWithLastError("Call to SetPixelFormat failed.");
+			try
+			{
+				if (!wglMakeCurrent(m_hDC, m_hOpenGL))
+					ThrowWithLastError("Call to wglMakeCurrent failed.");
 
-			lock.unlock();
+				glViewport(
+					0,               // x
+					0,               // y
+					m_oClientSize.x, // width
+					m_oClientSize.y  // height
+				);
+
+				glMatrixMode(GL_PROJECTION);
+
+				const Pixel pxBG = m_oConfig.oInitialConfig.pxBackgroundColor;
+				glClearColor(
+					pxBG.rgba.r / 255.0f,
+					pxBG.rgba.g / 255.0f,
+					pxBG.rgba.b / 255.0f,
+					1.0f
+				);
+
+				glEnable(GL_TEXTURE_2D);
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+				if (!m_oLayers.create(
+					1 + m_oConfig.iExtraLayerCount,         // iLayerCount
+					m_oConfig.oInitialConfig.oResolution.x, // iWidth
+					m_oConfig.oInitialConfig.oResolution.y  // iHeight
+				))
+					throw std::exception{ "Could not create the canvas bitmaps." };
+			}
+			catch (...)
+			{
+				wglMakeCurrent(NULL, NULL);
+				wglDeleteContext(m_hOpenGL);
+				throw;
+			}
+		}
+		catch (...)
+		{
 			DestroyWindow(m_hWnd);
-			
-			throw std::exception{ "Failed to initialize OpenGL." };
+			throw;
+		}
+		
+
+
+
+		m_upOpenGL = std::make_unique<OpenGL>();
+#ifndef NDEBUG
+		printf("> OpenGL Version String: \"%s\"\n", m_upOpenGL->versionStr().c_str());
+		printf("> OpenGL framebuffers available: %s\n",
+			m_upOpenGL->glGenFramebuffers != nullptr ? "Yes" : "No");
+#endif // NDEBUG
+
+		if (m_upOpenGL->glGenFramebuffers)
+		{
+			auto &gl = *m_upOpenGL;
+			const auto &cfg = m_oConfig.oInitialConfig;
+
+			gl.glGenFramebuffers(1, &m_iIntScaledBufferFBO);
+			glGenTextures(1, &m_iIntScaledBufferTexture);
+
+			glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cfg.oResolution.x * m_iPixelSize,
+				cfg.oResolution.y * m_iPixelSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		}
 
 		m_oConfig.fnCreateData(&m_pBuffer_Updating);
 		m_oConfig.fnCreateData(&m_pBuffer_Shared);
 		m_oConfig.fnCreateData(&m_pBuffer_Drawing);
+
+		const size_t iLayerCount = (size_t)1 + m_oConfig.iExtraLayerCount;
+		m_oLayersForCallback      = std::make_unique<Layer[]>(iLayerCount);
+		m_oLayersForCallback_Copy = std::make_unique<Layer[]>(iLayerCount);
+
+		for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
+		{
+			m_oLayersForCallback[i].pData =
+				reinterpret_cast<rlGameCanvas_Pixel *>(m_oLayers.scanline(i, 0));
+		}
+		m_iLayersForCallback_Size = sizeof(Layer) * m_oLayers.layerCount();
 	}
 
 	GameCanvas::PIMPL::~PIMPL() { quit(); }
 
 	bool GameCanvas::PIMPL::run()
 	{
-		std::unique_lock lock(m_mux);
-		if (m_eGraphicsThreadState != GraphicsThreadState::Waiting)
-			return false;
-
 		m_oMainThreadID = std::this_thread::get_id();
 
-		// TODO: force initialization of first frame before running graphics thread?
-
 		m_bRunning = true;
-		m_cv.notify_one(); // tell graphics thread to start working
-		lock.unlock();
+		
+		drawFrame();
 
 		ShowWindow(m_hWnd, SW_SHOW);
 		SetForegroundWindow(m_hWnd);
+
+		wglMakeCurrent(NULL, NULL); // give up control over OpenGL
+
+		// TODO: do in WM_CREATE or WM_SHOW instead?
+		m_eGraphicsThreadState = GraphicsThreadState::Running;
+		m_oGraphicsThread = std::thread(&GameCanvas::PIMPL::graphicsThreadProc, this);
 
 		MSG msg{};
 		while (true)
@@ -343,7 +428,7 @@ namespace rlGameCanvasLib
 					goto lbClose;
 			}
 
-			lock.lock();
+			std::unique_lock lock(m_mux);
 			m_cv.wait(lock); // wait until graphics thread is ready for new data
 			lock.unlock();
 
@@ -353,8 +438,31 @@ namespace rlGameCanvasLib
 				
 		m_oMainThreadID = {};
 
+		// TODO: might cause problems when closing the window. maybe move to WM_DESTROY.
+
 		if (m_oGraphicsThread.joinable())
 			m_oGraphicsThread.join();
+
+		wglMakeCurrent(m_hDC, m_hOpenGL);
+
+
+		// destroy OpenGL
+
+		if (m_iIntScaledBufferFBO)
+		{
+			m_upOpenGL->glDeleteFramebuffers(1, &m_iIntScaledBufferFBO);
+			glDeleteTextures(1, &m_iIntScaledBufferTexture);
+
+			m_iIntScaledBufferFBO     = 0;
+			m_iIntScaledBufferTexture = 0;
+		}
+
+		m_upOpenGL.release();
+		m_oLayers.destroy();
+		wglMakeCurrent(NULL, NULL);
+		wglDeleteContext(m_hOpenGL);
+
+
 
 		return true;
 	}
@@ -471,32 +579,110 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::graphicsThreadProc()
 	{
-		m_eGraphicsThreadState = GraphicsThreadState::Waiting;
-		Pixel pxBG;
+		wglMakeCurrent(m_hDC, m_hOpenGL);
+
+		while (true)
 		{
-			bool bSuccess = false;
-
-			PIXELFORMATDESCRIPTOR pfd =
 			{
-				sizeof(PIXELFORMATDESCRIPTOR), 1,
-				PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
-				PFD_TYPE_RGBA, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				PFD_MAIN_PLANE, 0, 0, 0, 0
-			};
-			int pf = ChoosePixelFormat(m_hDC, &pfd);
-			if (!SetPixelFormat(m_hDC, pf, &pfd))
-				goto lbEnd;
-
-			m_hOpenGL = wglCreateContext(m_hDC);
-			if (m_hOpenGL == NULL)
-				goto lbEnd;
-			if (!wglMakeCurrent(m_hDC, m_hOpenGL))
-			{
-				wglDeleteContext(m_hOpenGL);
-				m_hOpenGL = 0;
-				goto lbEnd;
+				std::unique_lock lock(m_mux);
+				if (!m_bRunning)
+					break; // while
 			}
 
+			drawFrame();
+		}
+
+		m_eGraphicsThreadState = GraphicsThreadState::Stopped;
+		wglMakeCurrent(NULL, NULL);
+		m_cv.notify_one(); // notify main thread that the graphics thread is now terminating
+	}
+
+	void GameCanvas::PIMPL::drawFrame()
+	{
+		// copy live data
+		{
+			std::unique_lock lockBuf(m_muxBuffer);
+			m_oConfig.fnCopyData(m_pBuffer_Shared, m_pBuffer_Drawing);
+			lockBuf.unlock();
+		}
+
+		// notify logic thread that the graphics thread is ready for new data
+		if (std::this_thread::get_id() == m_oGraphicsThread.get_id())
+		{
+			std::unique_lock lock(m_mux);
+			m_cv.notify_one();
+			lock.unlock();
+		}
+
+		// update the canvas
+		memcpy_s(
+			m_oLayersForCallback_Copy.get(), m_iLayersForCallback_Size,
+			m_oLayersForCallback     .get(), m_iLayersForCallback_Size
+		);
+		m_oConfig.fnDraw(m_oHandle, m_oLayersForCallback_Copy.get(), (UInt)m_oLayers.layerCount(),
+			m_pBuffer_Drawing);
+
+
+
+		m_oLayers.uploadAll();
+
+		// use FBO
+		if (m_iIntScaledBufferFBO)
+		{
+			auto &gl = *m_upOpenGL;
+
+			// set up rendering to texture
+			gl.glBindFramebuffer(GL_FRAMEBUFFER, m_iIntScaledBufferFBO);
+			glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
+			gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+				m_iIntScaledBufferTexture, 0);
+
+			// check FBO completeness
+			if (gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+				// TODO: handle framebuffer error
+				fprintf(stderr, "Framebuffer is not complete!\n");
+			}
+
+			// draw to texture
+			glViewport(0, 0, m_oConfig.oInitialConfig.oResolution.x * m_iPixelSize,
+				m_oConfig.oInitialConfig.oResolution.y * m_iPixelSize);
+			glClear(GL_COLOR_BUFFER_BIT);
+			for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
+			{
+				glBindTexture(GL_TEXTURE_2D, m_oLayers.textureID(i));
+
+				// draw texture (full width and height, but upside down)
+				glBegin(GL_TRIANGLE_STRIP);
+				{
+					// first triangle
+					//
+					// SCREEN:  TEXTURE:
+					//  1--3     2
+					//  | /      |\
+						//  |/       | \
+						//  2        1--3
+
+					glTexCoord2f(0.0, 1.0);  glVertex3f(-1.0f, -1.0f, 0.0f);
+					glTexCoord2f(0.0, 0.0);  glVertex3f(-1.0f, 1.0f, 0.0f);
+					glTexCoord2f(1.0, 1.0);  glVertex3f(1.0f, -1.0f, 0.0f);
+
+
+					// second triangle (sharing an edge with the first one)
+					//
+					// SCREEN:  TEXTURE:
+					//     3     2--4
+					//    /|      \ |
+					//   / |       \|
+					//  2--4        3
+
+					glTexCoord2f(1.0, 0.0);  glVertex3f(1.0f, 1.0f, 0.0f);
+				}
+				glEnd();
+			}
+
+			// render to screen
+
+			gl.glBindFramebuffer(GL_FRAMEBUFFER, 0); // bind default framebuffer (screen buffer)
 			glViewport(
 				0,               // x
 				0,               // y
@@ -504,287 +690,106 @@ namespace rlGameCanvasLib
 				m_oClientSize.y  // height
 			);
 
-			glMatrixMode(GL_PROJECTION);
-
-			pxBG = m_oConfig.oInitialConfig.pxBackgroundColor;
-			glClearColor(
-				pxBG.rgba.r / 255.0f,
-				pxBG.rgba.g / 255.0f,
-				pxBG.rgba.b / 255.0f,
-				1.0f
-			);
-
-			glEnable(GL_TEXTURE_2D);
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-			if (!m_oLayers.create(
-				1 + m_oConfig.iExtraLayerCount,         // iLayerCount
-				m_oConfig.oInitialConfig.oResolution.x, // iWidth
-				m_oConfig.oInitialConfig.oResolution.y  // iHeight
-			))
+			glPushMatrix();
+			glLoadIdentity();
+			glOrtho(0, m_oClientSize.x, m_oClientSize.y, 0, 0.0f, 1.0f);
 			{
-				wglDeleteContext(m_hOpenGL);
-				m_hOpenGL = 0;
-				goto lbEnd;
-			}
-
-			bSuccess = true;
-
-		lbEnd:
-			if (!bSuccess)
-			{
-				m_eGraphicsThreadState = GraphicsThreadState::Stopped;
-				m_cv.notify_one();
-				return;
-			}
-		}
-
-		m_upOpenGL = std::make_unique<OpenGL>();
-#ifndef NDEBUG
-		printf("> OpenGL Version String: \"%s\"\n", m_upOpenGL->versionStr().c_str());
-		printf("> OpenGL framebuffers available: %s\n",
-			m_upOpenGL->glGenFramebuffers != nullptr ? "Yes" : "No");
-#endif // NDEBUG
-
-		if (m_upOpenGL->glGenFramebuffers)
-		{
-			auto &gl = *m_upOpenGL;
-			const auto &cfg = m_oConfig.oInitialConfig;
-
-			gl.glGenFramebuffers(1, &m_iIntScaledBufferFBO);
-			glGenTextures(1, &m_iIntScaledBufferTexture);
-
-			glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cfg.oResolution.x * m_iPixelSize,
-				cfg.oResolution.y * m_iPixelSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		}
-
-		std::unique_lock lock(m_mux);
-		m_eGraphicsThreadState = GraphicsThreadState::Waiting;
-		m_cv.notify_one();
-		m_cv.wait(lock); // wait for run(), quit() or destructor
-		lock.unlock();
-
-		auto oLayers     = std::make_unique<Layer[]>(size_t(1) + m_oConfig.iExtraLayerCount);
-		auto oLayersCopy = std::make_unique<Layer[]>(size_t(1) + m_oConfig.iExtraLayerCount);
-
-		for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
-		{
-			oLayers[i].pData = reinterpret_cast<rlGameCanvas_Pixel *>(m_oLayers.scanline(i, 0));
-		}
-		const size_t iDataSize = sizeof(oLayers[0]) * m_oLayers.layerCount();
-
-		while (true)
-		{
-			lock.lock();
-			if (!m_bRunning)
-				break; // while --> unlock at end of function
-			lock.unlock();
-
-			// copy live data
-			{
-				std::unique_lock lockBuf(m_muxBuffer);
-				m_oConfig.fnCopyData(m_pBuffer_Shared, m_pBuffer_Drawing);
-				lockBuf.unlock();
-			}
-
-			lock.lock();
-			m_cv.notify_one(); // notify logic thread that the graphics thread is ready for new data
-			lock.unlock();
-
-			// update the canvas
-			memcpy_s(oLayersCopy.get(), iDataSize, oLayers.get(), iDataSize);
-			m_oConfig.fnDraw(m_oHandle, oLayersCopy.get(), (UInt)m_oLayers.layerCount(),
-				m_pBuffer_Drawing);
-
-
-
-			m_oLayers.uploadAll();
-
-			// use FBO
-			if (m_iIntScaledBufferFBO)
-			{
-				auto &gl = *m_upOpenGL;
-
-				// set up rendering to texture
-				gl.glBindFramebuffer(GL_FRAMEBUFFER, m_iIntScaledBufferFBO);
-				glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
-				gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-					m_iIntScaledBufferTexture, 0);
-
-				// check FBO completeness
-				if (gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-					// TODO: handle framebuffer error
-					fprintf(stderr, "Framebuffer is not complete!\n");
-				}
-
-				// draw to texture
-				glViewport(0, 0, m_oConfig.oInitialConfig.oResolution.x * m_iPixelSize,
-					m_oConfig.oInitialConfig.oResolution.y * m_iPixelSize);
 				glClear(GL_COLOR_BUFFER_BIT);
-				for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
+				glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
+
+				// draw texture
+				glBegin(GL_TRIANGLE_STRIP);
 				{
-					glBindTexture(GL_TEXTURE_2D, m_oLayers.textureID(i));
-
-					// draw texture (full width and height, but upside down)
-					glBegin(GL_TRIANGLE_STRIP);
-					{
-						// first triangle
-						//
-						// SCREEN:  TEXTURE:
-						//  1--3     2
-						//  | /      |\
-						//  |/       | \
-						//  2        1--3
-
-						glTexCoord2f(0.0, 1.0);  glVertex3f(-1.0f, -1.0f, 0.0f);
-						glTexCoord2f(0.0, 0.0);  glVertex3f(-1.0f,  1.0f, 0.0f);
-						glTexCoord2f(1.0, 1.0);  glVertex3f( 1.0f, -1.0f, 0.0f);
-
-
-						// second triangle (sharing an edge with the first one)
-						//
-						// SCREEN:  TEXTURE:
-						//     3     2--4
-						//    /|      \ |
-						//   / |       \|
-						//  2--4        3
-
-						glTexCoord2f(1.0, 0.0);  glVertex3f(1.0f, 1.0f, 0.0f);
-					}
-					glEnd();
-				}
-
-				// render to screen
-
-				gl.glBindFramebuffer(GL_FRAMEBUFFER, 0); // bind default framebuffer (screen buffer)
-				glViewport(
-					0,               // x
-					0,               // y
-					m_oClientSize.x, // width
-					m_oClientSize.y  // height
-				);
-				
-				glPushMatrix();
-				glLoadIdentity();
-				glOrtho(0, m_oClientSize.x, m_oClientSize.y, 0, 0.0f, 1.0f);
-				{
-					glClear(GL_COLOR_BUFFER_BIT);
-					glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
-
-					// draw texture
-					glBegin(GL_TRIANGLE_STRIP);
-					{
-						// first triangle
-						//
-						// 2
-						// |\
+					// first triangle
+					//
+					// 2
+					// |\
 						// | \
 						// 1--3
 
 						// 1
-						glTexCoord2f(0.0, 0.0);
-						glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iBottom, 0);
+					glTexCoord2f(0.0, 0.0);
+					glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iBottom, 0);
 
-						// 2
-						glTexCoord2f(0.0, 1.0);
-						glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iTop, 0);
+					// 2
+					glTexCoord2f(0.0, 1.0);
+					glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iTop, 0);
 
-						// 3
-						glTexCoord2f(1.0, 0.0);
-						glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iBottom, 0);
+					// 3
+					glTexCoord2f(1.0, 0.0);
+					glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iBottom, 0);
 
 
-						// second triangle (sharing an edge with the first one)
-						//
-						// 2--4
-						//  \ |
-						//   \|
-						//    3
+					// second triangle (sharing an edge with the first one)
+					//
+					// 2--4
+					//  \ |
+					//   \|
+					//    3
 
-						// 4
-						glTexCoord2f(1.0, 1.0);
-						glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iTop, 0);
-					}
-					glEnd();
+					// 4
+					glTexCoord2f(1.0, 1.0);
+					glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iTop, 0);
 				}
-				glPopMatrix();
+				glEnd();
 			}
+			glPopMatrix();
+		}
 
-			// draw directly
-			else
+		// draw directly
+		else
+		{
+			glLoadIdentity();
+			glOrtho(0, m_oClientSize.x, m_oClientSize.y, 0, 0.0f, 1.0f);
+
+			glClear(GL_COLOR_BUFFER_BIT);
+			for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
 			{
-				glLoadIdentity();
-				glOrtho(0, m_oClientSize.x, m_oClientSize.y, 0, 0.0f, 1.0f);
+				glBindTexture(GL_TEXTURE_2D, m_oLayers.textureID(i));
 
-				glClear(GL_COLOR_BUFFER_BIT);
-				for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
+				// draw texture (full width and height, but upside down)
+				glBegin(GL_TRIANGLE_STRIP);
 				{
-					glBindTexture(GL_TEXTURE_2D, m_oLayers.textureID(i));
-
-					// draw texture (full width and height, but upside down)
-					glBegin(GL_TRIANGLE_STRIP);
-					{
-						// first triangle
-						//
-						// SCREEN:  TEXTURE:
-						//  1--3     2
-						//  | /      |\
+					// first triangle
+					//
+					// SCREEN:  TEXTURE:
+					//  1--3     2
+					//  | /      |\
 						//  |/       | \
 						//  2        1--3
 
 						// 1
-						glTexCoord2f(0.0, 1.0);
-						glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iBottom, 0);
+					glTexCoord2f(0.0, 1.0);
+					glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iBottom, 0);
 
-						// 2
-						glTexCoord2f(0.0, 0.0);
-						glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iTop, 0);
+					// 2
+					glTexCoord2f(0.0, 0.0);
+					glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iTop, 0);
 
-						// 3
-						glTexCoord2f(1.0, 1.0);
-						glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iBottom, 0);
+					// 3
+					glTexCoord2f(1.0, 1.0);
+					glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iBottom, 0);
 
 
-						// second triangle (sharing an edge with the first one)
-						//
-						// SCREEN:  TEXTURE:
-						//     3     2--4
-						//    /|      \ |
-						//   / |       \|
-						//  2--4        3
+					// second triangle (sharing an edge with the first one)
+					//
+					// SCREEN:  TEXTURE:
+					//     3     2--4
+					//    /|      \ |
+					//   / |       \|
+					//  2--4        3
 
-						// 4
-						glTexCoord2f(1.0, 0.0);
-						glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iTop, 0);
-					}
-					glEnd();
+					// 4
+					glTexCoord2f(1.0, 0.0);
+					glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iTop, 0);
 				}
+				glEnd();
 			}
-
-
-
-			SwapBuffers(m_hDC);
 		}
 
-		if (m_iIntScaledBufferFBO)
-		{
-			m_upOpenGL->glDeleteFramebuffers(1, &m_iIntScaledBufferFBO);
-			glDeleteTextures(1, &m_iIntScaledBufferTexture);
 
-			m_iIntScaledBufferFBO     = 0;
-			m_iIntScaledBufferTexture = 0;
-		}
 
-		m_upOpenGL.release();
-		m_oLayers.destroy();
-		wglDeleteContext(m_hOpenGL);
-
-		m_eGraphicsThreadState = GraphicsThreadState::Stopped;
-		m_cv.notify_one();
+		SwapBuffers(m_hDC);
 	}
 
 	void GameCanvas::PIMPL::doUpdate()

@@ -85,6 +85,7 @@ namespace rlGameCanvasLib
 
 		void graphicsThreadProc();
 
+		void drawFrame();
 		void doUpdate();
 		void handleResize(unsigned iClientWidth, unsigned iClientHeight);
 
@@ -128,6 +129,9 @@ namespace rlGameCanvasLib
 		GraphicsData m_pBuffer_Drawing  = nullptr; // for access in draw callback
 
 		MultiLayerBitmap m_oLayers;
+		std::unique_ptr<Layer[]> m_oLayersForCallback;
+		std::unique_ptr<Layer[]> m_oLayersForCallback_Copy;
+		size_t m_iLayersForCallback_Size;
 
 		GLuint m_iIntScaledBufferFBO     = 0;
 		GLuint m_iIntScaledBufferTexture = 0;
