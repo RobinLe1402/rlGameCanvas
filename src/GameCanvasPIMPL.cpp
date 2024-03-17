@@ -589,8 +589,34 @@ namespace rlGameCanvasLib
 				return 0;
 
 			case SIZE_RESTORED:
-				m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_NONE;
-				// TODO: handle window restoration
+				if (m_oConfig.oInitialConfig.iMaximization != RL_GAMECANVAS_MAX_NONE)
+				{
+					m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_NONE;
+
+					const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
+					RECT rcWindow;
+					UInt iPixelSize = m_oConfig.oInitialConfig.iPixelSize;
+					GetRestoredCoordAndSize(dwStyle, m_hWnd, m_oConfig.oInitialConfig.oResolution,
+						iPixelSize, rcWindow);
+					if (
+						LOWORD(lParam) != iPixelSize * m_oConfig.oInitialConfig.oResolution.x ||
+						HIWORD(lParam) != iPixelSize * m_oConfig.oInitialConfig.oResolution.y
+					)
+					{
+						SetWindowPos(
+							m_hWnd,                          // hWnd
+							NULL,                            // hWndInsertAfter
+							rcWindow.left,                   // X
+							rcWindow.top,                    // Y
+							rcWindow.right  - rcWindow.left, // cx
+							rcWindow.bottom - rcWindow.top,  // cy
+							SWP_NOZORDER                     // uFlags
+						);
+						return 0;
+					}
+				}
+				else
+					m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_NONE;
 				break;
 
 			default:
@@ -930,6 +956,9 @@ namespace rlGameCanvasLib
 				oConfig_Copy.oResolution != oConfig.oResolution);
 
 			oConfig = oConfig_Copy;
+
+			doUpdate(false);
+			drawFrame();
 		}
 
 		// copy to shared buffer
