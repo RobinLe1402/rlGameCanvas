@@ -274,8 +274,10 @@ namespace rlGameCanvasLib
 		)
 			throw std::exception{ "Invalid startup configuration." };
 
-		if (config.oInitialConfig.iPixelSize == 0)
-			m_oConfig.oInitialConfig.iPixelSize = 1; // TODO: automatic pixel size
+		if (config.hIconBig && !config.hIconSmall)
+			m_oConfig.hIconSmall = config.hIconBig;
+		else if (config.hIconSmall && !config.hIconBig)
+			m_oConfig.hIconBig = config.hIconSmall;
 
 
 		// initialize the window caption string
@@ -359,6 +361,14 @@ namespace rlGameCanvasLib
 		// for compiler: C687 - "could be zero"
 		if (m_hWnd == NULL)
 			throw std::exception{ "Failed to create the window: No handle." };
+
+		if (m_oConfig.hIconSmall != NULL)
+			SendMessage(m_hWnd, WM_SETICON, ICON_SMALL,
+				reinterpret_cast<LPARAM>(m_oConfig.hIconSmall));
+
+		if (m_oConfig.hIconBig != NULL)
+			SendMessage(m_hWnd, WM_SETICON, ICON_BIG,
+				reinterpret_cast<LPARAM>(m_oConfig.hIconBig));
 
 		// get actual client area size
 		if (m_oConfig.oInitialConfig.iMaximization != RL_GAMECANVAS_MAX_FULLSCREEN)

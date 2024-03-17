@@ -139,6 +139,9 @@
   <ItemGroup>
     <ClCompile Include="main-static.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\res\robinle-icon.rc" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

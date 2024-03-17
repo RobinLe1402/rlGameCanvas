@@ -239,6 +239,8 @@ int main(int argc, char* argv[])
 	const char szTitle[] = "rlGameCanvas test in C";
 
 	sc.szWindowCaption    = szTitle;
+	sc.hIconBig           = LoadIconW(GetModuleHandleW(NULL), L"ROBINLE_ICON");
+	sc.hIconSmall         = NULL;
 	sc.iMaximizeBtnAction = RL_GAMECANVAS_MAX_MAXIMIZE;
 	sc.fnOnMsg            = CanvasMsg;
 	sc.fnOnWinMsg         = WinMsg;
@@ -276,5 +278,7 @@ int main(int argc, char* argv[])
 
 	printf("Calling rlGameCanvas_Destroy...\n");
 	rlGameCanvas_Destroy(canvas);
+
+	DestroyIcon(sc.hIconBig);
 	return 0;
 }
