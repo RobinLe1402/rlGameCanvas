@@ -98,14 +98,16 @@ void __stdcall CanvasMsg(
 			rip->oNewClientSize.x, rip->oNewClientSize.y
 		);
 
+		
 		/*
-		// test code for resizing (currently "breaks" the draw routine)
+		// test code for resizing
 		if (rip->iNewMaximization != RL_GAMECANVAS_MAX_NONE &&
 			rip->oOldClientSize.x < 1000 && rip->oNewClientSize.x >= 1000)
 			rop->oResolution.x = 2 * WIDTH;
 		else if (rip->iNewMaximization == RL_GAMECANVAS_MAX_NONE)
 			rop->oResolution.x = WIDTH;
 		*/
+		
 
 		break;
 	}
@@ -136,12 +138,16 @@ void __stdcall WinMsg(
 
 void __stdcall Draw(
 	rlGameCanvas canvas,
+	rlGameCanvas_Resolution oCanvasSize,
 	rlGameCanvas_Layer* pLayers,
 	rlGameCanvas_UInt iLayers,
 	const rlGameCanvas_GraphicsData pData)
 {
 	if (bPaused)
 		return;
+
+	const unsigned iWidth  = oCanvasSize.x;
+	const unsigned iHeight = oCanvasSize.y;
 
 	const GraphicsData* pDataT = pData;
 
@@ -154,7 +160,7 @@ void __stdcall Draw(
 		double dXOffsetOld = 0;
 
 		const unsigned iLineCenterOffset = WIDTH / 2;
-		unsigned iLineOffset = iOffset * WIDTH + iLineCenterOffset;
+		unsigned iLineOffset = iOffset * iWidth + iLineCenterOffset;
 
 		for (unsigned iY = 0; iOffset + iY < HEIGHT; ++iY)
 		{
@@ -192,11 +198,12 @@ void __stdcall Draw(
 
 			dXOffsetOld = dXOffset;
 
-			iLineOffset += WIDTH;
+			iLineOffset += iWidth;
 		}
 	}
 
-	memset(pLayers[1].pData, 0, sizeof(rlGameCanvas_Pixel) * WIDTH * HEIGHT);
+	// clear the horizontal line layer
+	memset(pLayers[1].pData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
 
 	double dOffset = (HEIGHT / 2) - FRAMECOUNT + pDataT->iAnimFrame;
 	double dOldOffset = dOffset + 2;
@@ -208,7 +215,7 @@ void __stdcall Draw(
 		{
 			for (unsigned x = 0; x < WIDTH; ++x)
 			{
-				pLayers[1].pData[iY * WIDTH + x] = px;
+				pLayers[1].pData[iY * iWidth + x] = px;
 			}
 		}
 

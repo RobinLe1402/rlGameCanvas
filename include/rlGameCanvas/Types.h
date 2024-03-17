@@ -103,10 +103,11 @@ typedef void (__stdcall *rlGameCanvas_WinMsgCallback)(
 
 
 typedef void (__stdcall *rlGameCanvas_DrawCallback)(
-		  rlGameCanvas              canvas,  // the canvas to be modified.
-	      rlGameCanvas_Layer       *pLayers, // array of the layers to be updated.
-	      rlGameCanvas_UInt         iLayers, // count of elements in the pLayers array.
-	const rlGameCanvas_GraphicsData pData    // the data to be used for updating the canvas.
+		  rlGameCanvas              canvas,      // the canvas to be modified.
+	      rlGameCanvas_Resolution   oCanvasSize, // the visible size, in pixels, of the canvas.
+	      rlGameCanvas_Layer       *pLayers,     // array of the layers to be updated.
+	      rlGameCanvas_UInt         iLayers,     // count of elements in the pLayers array.
+	const rlGameCanvas_GraphicsData pData        // the data to be used for updating the canvas.
 );
 
 

@@ -737,8 +737,8 @@ namespace rlGameCanvasLib
 			m_oLayersForCallback_Copy.get(), m_iLayersForCallback_Size,
 			m_oLayersForCallback     .get(), m_iLayersForCallback_Size
 		);
-		m_oConfig.fnDraw(m_oHandle, m_oLayersForCallback_Copy.get(), (UInt)m_oLayers.layerCount(),
-			m_pBuffer_Drawing);
+		m_oConfig.fnDraw(m_oHandle, m_oConfig.oInitialConfig.oResolution,
+			m_oLayersForCallback_Copy.get(), (UInt)m_oLayers.layerCount(), m_pBuffer_Drawing);
 
 
 
