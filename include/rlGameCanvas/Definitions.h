@@ -121,16 +121,24 @@
 
 
 /*
-	CFG = Config
-	Flags for rlGameCanvas_UpdateConfig.
-*/
-#define RL_GAMECANVAS_CFG_NORES   (0x00000001) /* ignore the iWidth and iHeight values.           */
-#define RL_GAMECANVAS_CFG_NOSCALE (0x00000002) /* ignore the iScaling value.                      */
-#define RL_GAMECANVAS_CFG_NOSIZE  (RL_GAMECANVAS_CFG_NORES | RL_GAMECANVAS_CFG_NOSCALE)
-#define RL_GAMECANVAS_CFG_NOMAX   (0x00000004) /* ignore the iMaximization value.                 */
+	UPD = Update
+	Flags for the update callack.
 
-// TODO: offer the option to hide the mouse cursor over the client area
-//#define RL_GAMECANVAS_CFG_NOMOUSE (0x00000008) /* ignore the bHideMouseCursor value.              */
+
+	RL_GAMECANVAS_UPD_READONLYCONFIG
+		Changes to the struct pointed to by pConfig will be ignored.
+		This flag is set when the current call to the Update callback is already the result of a
+		change in configuration/setup, in order to prevent endless loops.
+
+	RL_GAMECANVAS_UPD_REPAINT
+		The layer data has been cleared and must be redrawn from scratch.
+		Unlike if this flag is not set, the resulting data pointer is guaranteed to be used in the
+		very next drawn screen.
+		This flag is set on the very first call to the Update callback as well as after the canvas'
+		resolution has been changed.
+*/
+#define RL_GAMECANVAS_UPD_READONLYCONFIG (0x00000001)
+#define RL_GAMECANVAS_UPD_REPAINT        (0x00000002)
 
 
 

@@ -75,8 +75,9 @@ namespace rlGameCanvasLib
 		void graphicsThreadProc();
 
 		void drawFrame();
-		void doUpdate(bool bConfigChangable);
-		void handleResize(unsigned iClientWidth, unsigned iClientHeight);
+		void doUpdate(bool bConfigChangable, bool bRepaint);
+		void handleResize(unsigned iClientWidth, unsigned iClientHeight,
+			UInt iPreviousMaximization, UInt iNewMaximization);
 		void setResolution(const Resolution &oNewRes, bool bResize);
 		void setMaximization(UInt iMaximization, Resolution oRes, UInt &iPixelSize);
 

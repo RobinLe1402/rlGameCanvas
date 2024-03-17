@@ -14,6 +14,7 @@ typedef struct
 {
 	unsigned iAnimFrame;
 	double   dFrameTime;
+	bool     bInitialize;
 } GraphicsData;
 
 #define YFACTOR (0.6)
@@ -31,7 +32,7 @@ void __stdcall Update(
 	rlGameCanvas_GraphicsData pData,
 	double                    dSecsSinceLastCall,
 	rlGameCanvas_Config      *pConfig,
-	rlGameCanvas_Bool         bConfigChangable
+	rlGameCanvas_UInt         iFlags
 )
 {
 	GraphicsData *pDataT = pData;
@@ -44,7 +45,9 @@ void __stdcall Update(
 
 	pDataT->iAnimFrame %= FRAMECOUNT;
 
-	if (bFullscreenToggled && bConfigChangable)
+	pDataT->bInitialize = iFlags & RL_GAMECANVAS_UPD_REPAINT;
+
+	if (bFullscreenToggled && (iFlags & RL_GAMECANVAS_UPD_READONLYCONFIG) == 0)
 	{
 		if (pConfig->iMaximization == RL_GAMECANVAS_MAX_FULLSCREEN)
 			pConfig->iMaximization = iPrevMaximization;
@@ -90,8 +93,19 @@ void __stdcall CanvasMsg(
 		rlGameCanvas_ResizeOutputParams* rop =
 			(rlGameCanvas_ResizeOutputParams*)(iParam2);
 
-		printf("  Old canvas size: [%ux%u], new canvas size: [%ux%u]\n",
-			rip->oOldRes.x, rip->oOldRes.y, rip->oNewRes.x, rip->oNewRes.y);
+		printf("  Old client size: [%ux%u], new client size: [%ux%u]\n",
+			rip->oOldClientSize.x, rip->oOldClientSize.y,
+			rip->oNewClientSize.x, rip->oNewClientSize.y
+		);
+
+		/*
+		// test code for resizing (currently "breaks" the draw routine)
+		if (rip->iNewMaximization != RL_GAMECANVAS_MAX_NONE &&
+			rip->oOldClientSize.x < 1000 && rip->oNewClientSize.x >= 1000)
+			rop->oResolution.x = 2 * WIDTH;
+		else if (rip->iNewMaximization == RL_GAMECANVAS_MAX_NONE)
+			rop->oResolution.x = WIDTH;
+		*/
 
 		break;
 	}
@@ -131,10 +145,8 @@ void __stdcall Draw(
 
 	const GraphicsData* pDataT = pData;
 
-	static bool bInit = false;
-
 	const rlGameCanvas_Pixel px = RLGAMECANVAS_MAKEPIXEL_RGB(255, 0, 255);
-	if (!bInit)
+	if (pDataT->bInitialize)
 	{
 		const unsigned iOffset = HEIGHT / 2;
 		const unsigned iMaxXOffset = WIDTH / 2;
@@ -182,8 +194,6 @@ void __stdcall Draw(
 
 			iLineOffset += WIDTH;
 		}
-
-		bInit = true;
 	}
 
 	memset(pLayers[1].pData, 0, sizeof(rlGameCanvas_Pixel) * WIDTH * HEIGHT);
@@ -254,7 +264,7 @@ int main(int argc, char* argv[])
 	sc.oInitialConfig.oResolution.x     = WIDTH;
 	sc.oInitialConfig.oResolution.y     = HEIGHT;
 	sc.oInitialConfig.iPixelSize        = 2;
-	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_MAXIMIZE;
+	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_NONE;
 	sc.oInitialConfig.pxBackgroundColor = rlGameCanvas_Color_Black;
 
 	rlGameCanvas canvas = rlGameCanvas_Create(&sc);

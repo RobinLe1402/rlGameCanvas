@@ -118,16 +118,20 @@ typedef void (__stdcall *rlGameCanvas_UpdateCallback)(
 	                                                  of the pointed-to struct are updated, the
 	                                                  changes will be applied after this but before
 	                                                  the next frame.                             */
-	rlGameCanvas_Bool         bConfigChangeable   /* if this value is zero, changes to the struct
-	                                                  pointed to by pConfig will be ignored.      */
+	rlGameCanvas_UInt         iFlags              /* a combination of the RL_GAMECANVAS_UPDATE_[...]
+	                                                  values.                                     */
 );
 
 
 
 typedef struct
 {
-	rlGameCanvas_Resolution oOldRes; /* the old size, in pixels, of the canvas.                   */
-	rlGameCanvas_Resolution oNewRes; /* the new size, in pixels, of the canvas.                   */
+	rlGameCanvas_Resolution oOldClientSize;  /* the old size, in pixels, of the canvas.           */
+	rlGameCanvas_Resolution oNewClientSize;  /* the new size, in pixels, of the canvas.           */
+	rlGameCanvas_UInt iOldMaximization;      /* the previous maximization state.
+	                                            one of the RL_GAMECANVAS_MAX_[...] values.        */
+	rlGameCanvas_UInt iNewMaximization;      /* the new maximization state.
+	                                            one of the RL_GAMECANVAS_MAX_[...] values.        */
 } rlGameCanvas_ResizeInputParams;
 
 typedef struct

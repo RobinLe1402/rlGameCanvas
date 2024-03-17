@@ -475,7 +475,7 @@ namespace rlGameCanvasLib
 		m_oMainThreadID = std::this_thread::get_id();
 
 		m_bRunning = true;
-		doUpdate(false); // first call to update() prepares the very first frame
+		doUpdate(false, true); // first call to update() prepares the very first frame
 		ShowWindow(m_hWnd, SW_SHOW);
 		drawFrame(); // draw very first frame immediately
 		SetForegroundWindow(m_hWnd);
@@ -522,7 +522,7 @@ namespace rlGameCanvasLib
 			m_cv.wait(lock); // wait until graphics thread is ready for new data
 			lock.unlock();
 
-			doUpdate(true);
+			doUpdate(true, false);
 		}
 	lbClose:
 				
@@ -584,6 +584,8 @@ namespace rlGameCanvasLib
 			if (m_eGraphicsThreadState == GraphicsThreadState::NotStarted || m_bIgnoreResize)
 				break;
 
+			const UInt iPrevMax = m_oConfig.oInitialConfig.iMaximization;
+
 			switch (wParam)
 			{
 			case SIZE_MAXIMIZED:
@@ -638,7 +640,8 @@ namespace rlGameCanvasLib
 				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 0, 0);
 			}
 			else
-				handleResize(LOWORD(lParam), HIWORD(lParam));
+				handleResize(LOWORD(lParam), HIWORD(lParam), iPrevMax,
+					m_oConfig.oInitialConfig.iMaximization);
 			return 0;
 		}
 
@@ -908,10 +911,16 @@ namespace rlGameCanvasLib
 		SwapBuffers(m_hDC);
 	}
 
-	void GameCanvas::PIMPL::doUpdate(bool bConfigChangable)
+	void GameCanvas::PIMPL::doUpdate(bool bConfigChangable, bool bRepaint)
 	{
 		auto &oConfig = m_oConfig.oInitialConfig;
 		Config oConfig_Copy = oConfig;
+
+		UInt iFlags = 0;
+		if (!bConfigChangable)
+			iFlags |= RL_GAMECANVAS_UPD_READONLYCONFIG;
+		if (bRepaint)
+			iFlags |= RL_GAMECANVAS_UPD_REPAINT;
 
 		m_tp2 = std::chrono::system_clock::now();
 		if (m_tp1 == decltype(m_tp2){}) // not initialized?
@@ -920,7 +929,7 @@ namespace rlGameCanvasLib
 		m_bRunningUpdate = true;
 		m_oConfig.fnUpdate(m_oHandle, m_pBuffer_Updating,
 			std::chrono::duration_cast<std::chrono::duration<double>>(m_tp2 - m_tp1).count(),
-			&oConfig_Copy, bConfigChangable);
+			&oConfig_Copy, iFlags);
 		m_bRunningUpdate = false;
 		m_tp1 = m_tp2;
 
@@ -962,12 +971,12 @@ namespace rlGameCanvasLib
 				);
 			}
 
-			setResolution(oConfig_Copy.oResolution,
-				oConfig_Copy.oResolution != oConfig.oResolution);
+			const bool bNewRes = oConfig_Copy.oResolution != oConfig.oResolution;
+			setResolution(oConfig_Copy.oResolution, bNewRes);
 
 			oConfig = oConfig_Copy;
 
-			doUpdate(false);
+			doUpdate(false, bNewRes);
 			drawFrame();
 		}
 
@@ -976,7 +985,8 @@ namespace rlGameCanvasLib
 		m_oConfig.fnCopyData(m_pBuffer_Updating, m_pBuffer_Shared);
 	}
 
-	void GameCanvas::PIMPL::handleResize(unsigned iClientWidth, unsigned iClientHeight)
+	void GameCanvas::PIMPL::handleResize(unsigned iClientWidth, unsigned iClientHeight,
+		UInt iPreviousMaximization, UInt iNewMaximization)
 	{
 #ifndef NDEBUG
 		printf("> Resize: %u x %u pixels\n", iClientWidth, iClientHeight);
@@ -985,19 +995,17 @@ namespace rlGameCanvasLib
 		OpenGLLock lock(m_muxOpenGL, m_cvOpenGL, m_bOpenGLRequest, m_hDC, m_hOpenGL);
 
 		const Resolution oOldClientSize = m_oClientSize;
+		Resolution oNewRes = m_oConfig.oInitialConfig.oResolution;
 
-		m_oClientSize.x = iClientWidth;
-		m_oClientSize.y = iClientHeight;
-
-		if (!m_bFBO)
-			glViewport(0, 0, iClientWidth, iClientHeight);
-
+		bool bResize = false;
 		if (m_oConfig.fnOnMsg)
 		{
 			ResizeInputParams rip =
 			{
-				.oOldRes = oOldClientSize,
-				.oNewRes = m_oClientSize
+				.oOldClientSize = oOldClientSize,
+				.oNewClientSize = { .x = iClientWidth, .y = iClientHeight },
+				.iOldMaximization = iPreviousMaximization,
+				.iNewMaximization = iNewMaximization
 			};
 			const Resolution oOldRes = m_oConfig.oInitialConfig.oResolution;
 			ResizeOutputParams rop =
@@ -1017,10 +1025,45 @@ namespace rlGameCanvasLib
 			if (rop.oResolution.y == 0)
 				rop.oResolution.y = oOldRes.y;
 
-			setResolution(rop.oResolution, rop.oResolution != oOldRes);
+			bResize = rop.oResolution != oOldRes;
+			if (bResize && iNewMaximization == RL_GAMECANVAS_MAX_NONE)
+			{
+				RECT rcWindow;
+				m_iPixelSize = m_oConfig.oInitialConfig.iPixelSize;
+				GetRestoredCoordAndSize(GetWindowLong(m_hWnd, GWL_STYLE), m_hWnd, rop.oResolution,
+					m_iPixelSize, rcWindow);
+
+				const int iWidth  = rcWindow.right  - rcWindow.left;
+				const int iHeight = rcWindow.bottom - rcWindow.top;
+
+				m_bIgnoreResize = true;
+				SetWindowPos(
+					m_hWnd,        // hWnd
+					NULL,          // hWndInsertAfter
+					rcWindow.left, // X
+					rcWindow.top,  // Y
+					iWidth,        // cx
+					iHeight,       // cy
+					SWP_NOZORDER   // uFlags
+				);
+				m_bIgnoreResize = false;
+
+				iClientWidth  = m_iPixelSize * rop.oResolution.x;
+				iClientHeight = m_iPixelSize * rop.oResolution.y;
+			}
+			oNewRes = rop.oResolution;
 		}
 
-		doUpdate(false);
+		m_oClientSize.x = iClientWidth;
+		m_oClientSize.y = iClientHeight;
+
+		if (!m_bFBO)
+			glViewport(0, 0, iClientWidth, iClientHeight);
+
+		
+
+		setResolution(oNewRes, bResize);
+		doUpdate(false, bResize);
 		drawFrame();
 	}
 
