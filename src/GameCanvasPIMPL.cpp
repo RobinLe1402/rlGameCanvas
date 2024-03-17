@@ -1095,8 +1095,12 @@ namespace rlGameCanvasLib
 
 			for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
 			{
-				m_oLayersForCallback[i].pData =
-					reinterpret_cast<rlGameCanvas_Pixel *>(m_oLayers.scanline(i, 0));
+				auto &oLayer    = m_oLayersForCallback[i];
+
+				oLayer.pData      = reinterpret_cast<rlGameCanvas_Pixel*>(m_oLayers.scanline(i, 0));
+				oLayer.oSize      = oNewRes;
+				oLayer.oScreenPos = {}; // TODO: make screen position changable per layer
+				oLayer.bVisible   = 1; // TODO: make visibility changable per layer
 			}
 			m_iLayersForCallback_Size = sizeof(Layer) * m_oLayers.layerCount();
 		}

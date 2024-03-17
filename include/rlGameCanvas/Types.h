@@ -43,15 +43,6 @@ typedef uint32_t rlGameCanvas_Pixel;
 
 
 
-typedef struct
-{
-	// TODO: add different layer sizes?
-	rlGameCanvas_Pixel *pData; /* the pixel data - left to right, top to bottom.
-	                              value at position (x,y) can be found at index [y * width + x]. */
-} rlGameCanvas_Layer;
-
-
-
 typedef struct rlGameCanvas_OpaquePtrStruct
 {
 	int iUnused;
@@ -86,6 +77,18 @@ typedef struct
 	//rlGameCanvas_Bool bHideMouseCursor; /* should the mouse cursor be hidden on the client area when
 	//                                        the window has focus?                                 */
 } rlGameCanvas_Config;
+
+
+typedef struct
+{
+	rlGameCanvas_Pixel *pData;          /* the pixel data - left to right, top to bottom.
+										   value at position (x,y) can be found at
+											index [y * width + x].                                */
+
+	rlGameCanvas_Resolution oSize;      /* the size, in pixels, of the layer.                     */
+	rlGameCanvas_Resolution oScreenPos; /* the top left position of the camera.                   */
+	rlGameCanvas_Bool       bVisible;   /* is this layer currently visible?                       */
+} rlGameCanvas_Layer;
 
 
 
