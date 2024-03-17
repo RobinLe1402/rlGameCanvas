@@ -23,10 +23,15 @@ typedef struct
 #define DIST_ADD_PER_LINE (0.7)
 #define FRAMECOUNT ((HEIGHT / 2) - (unsigned)((HEIGHT / 2) * YFACTOR - 1))
 
+bool bFullscreenToggled = false;
+rlGameCanvas_UInt iPrevMaximization;
+
 void __stdcall Update(
 	rlGameCanvas              canvas,
 	rlGameCanvas_GraphicsData pData,
-	double                    dSecsSinceLastCall
+	double                    dSecsSinceLastCall,
+	rlGameCanvas_Config      *pConfig,
+	rlGameCanvas_Bool         bConfigChangable
 )
 {
 	GraphicsData *pDataT = pData;
@@ -38,6 +43,18 @@ void __stdcall Update(
 	pDataT->iAnimFrame += iPassedFrames;
 
 	pDataT->iAnimFrame %= FRAMECOUNT;
+
+	if (bFullscreenToggled && bConfigChangable)
+	{
+		if (pConfig->iMaximization == RL_GAMECANVAS_MAX_FULLSCREEN)
+			pConfig->iMaximization = iPrevMaximization;
+		else
+		{
+			iPrevMaximization = pConfig->iMaximization;
+			pConfig->iMaximization = RL_GAMECANVAS_MAX_FULLSCREEN;
+		}
+		bFullscreenToggled = false;
+	}
 }
 
 void __stdcall CanvasMsg(
@@ -94,7 +111,13 @@ void __stdcall WinMsg(
 	LPARAM       lParam
 )
 {
-	
+	switch (uMsg)
+	{
+	case WM_KEYDOWN:
+		if (wParam == 'F')
+			bFullscreenToggled = !bFullscreenToggled;
+		break;
+	}
 }
 
 void __stdcall Draw(

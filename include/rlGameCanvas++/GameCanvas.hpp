@@ -22,8 +22,6 @@ namespace rlGameCanvasLib
 		bool run();
 		void quit();
 
-		bool updateConfig(const Config &oConfig, UInt iFlags);
-
 		
 	private: // types
 

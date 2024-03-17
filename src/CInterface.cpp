@@ -94,15 +94,3 @@ RLGAMECANVAS_API void RLGAMECANVAS_LIB rlGameCanvas_Quit(
 
 	HandleToPointer(canvas)->quit();
 }
-
-RLGAMECANVAS_API rlGameCanvas_Bool RLGAMECANVAS_LIB rlGameCanvas_UpdateConfig(
-		  rlGameCanvas         canvas,
-	const rlGameCanvas_Config *config,
-		  rlGameCanvas_UInt    flags
-)
-{
-	if (!canvas || !config)
-		return false;
-
-	return HandleToPointer(canvas)->updateConfig(*config, flags);
-}

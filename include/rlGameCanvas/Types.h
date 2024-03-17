@@ -69,6 +69,24 @@ typedef struct
 	rlGameCanvas_UInt x, y;
 } rlGameCanvas_Resolution;
 
+/*
+	The current graphics configuration.
+	Can be changed via the game settings, no manual resizing by the user.
+*/
+typedef struct
+{
+	rlGameCanvas_Resolution oResolution;  /* size, in pixels, of the canvas.                      */
+	rlGameCanvas_UInt       iPixelSize;   /* the size, in actual pixels, for up-"scaling" when
+											  the window is in restored mode.                     */
+	rlGameCanvas_UInt iMaximization;      /* maximization state.
+											 one of the RL_GAMECANVAS_MAX_[...] values.           */
+	rlGameCanvas_Pixel pxBackgroundColor; /* the color the background should be filled with.      */
+
+	// TODO: offer option to hide mouse cursor over client area?
+	//rlGameCanvas_Bool bHideMouseCursor; /* should the mouse cursor be hidden on the client area when
+	//                                        the window has focus?                                 */
+} rlGameCanvas_Config;
+
 
 
 
@@ -91,10 +109,17 @@ typedef void (__stdcall *rlGameCanvas_DrawCallback)(
 
 
 typedef void (__stdcall *rlGameCanvas_UpdateCallback)(
-	rlGameCanvas              canvas,            /* the canvas to be updated.                     */
-	rlGameCanvas_GraphicsData pData,             /* the data to be written.                       */
-	double                    dSecsSinceLastCall /* number of seconds since last call.
-	                                                0 on the first call.                          */
+	rlGameCanvas              canvas,             /* the canvas to be updated.                    */
+	rlGameCanvas_GraphicsData pData,              /* the data to be written.                      */
+	double                    dSecsSinceLastCall, /* number of seconds since last call.
+	                                                 0 on the first call.                         */
+	rlGameCanvas_Config      *pConfig,            /* a pointer to the curent game configuration.
+	                                                 if bConfigChangable is nonzero and the contents
+	                                                  of the pointed-to struct are updated, the
+	                                                  changes will be applied after this but before
+	                                                  the next frame.                             */
+	rlGameCanvas_Bool         bConfigChangeable   /* if this value is zero, changes to the struct
+	                                                  pointed to by pConfig will be ignored.      */
 );
 
 
@@ -123,26 +148,6 @@ typedef void (__stdcall *rlGameCanvas_MsgCallback)(
 	rlGameCanvas_MsgParam iParam1,
 	rlGameCanvas_MsgParam iParam2
 );
-
-
-
-/*
-	The current graphics configuration.
-	Can be changed via the game settings, no manual resizing by the user.
-*/
-typedef struct
-{
-	rlGameCanvas_Resolution oResolution;  /* size, in pixels, of the canvas.                      */
-	rlGameCanvas_UInt       iPixelSize;   /* the size, in actual pixels, for up-"scaling" when
-	                                          the window is in restored mode.                     */
-	rlGameCanvas_UInt iMaximization;      /* maximization state.
-	                                         one of the RL_GAMECANVAS_MAX_[...] values.           */
-	rlGameCanvas_Pixel pxBackgroundColor; /* the color the background should be filled with.      */
-
-	// TODO: offer option to hide mouse cursor over client area?
-	//rlGameCanvas_Bool bHideMouseCursor; /* should the mouse cursor be hidden on the client area when
-	//                                        the window has focus?                                 */
-} rlGameCanvas_Config;
 
 
 

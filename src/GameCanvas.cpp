@@ -24,9 +24,4 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::quit() { m_pPIMPL->quit(); }
 
-	bool GameCanvas::updateConfig(const Config &oConfig, UInt iFlags)
-	{
-		return m_pPIMPL->updateConfig(oConfig, iFlags);
-	}
-
 }

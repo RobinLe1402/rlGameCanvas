@@ -65,7 +65,6 @@ namespace rlGameCanvasLib
 		// interface methods =======================================================================
 		bool run();
 		void quit();
-		bool updateConfig(const Config &oConfig, UInt iFlags);
 		// =========================================================================================
 
 
@@ -76,9 +75,10 @@ namespace rlGameCanvasLib
 		void graphicsThreadProc();
 
 		void drawFrame();
-		void doUpdate();
+		void doUpdate(bool bConfigChangable);
 		void handleResize(unsigned iClientWidth, unsigned iClientHeight);
 		void setResolution(const Resolution &oNewRes, bool bResize);
+		void setMaximization(UInt iMaximization, Resolution oRes, UInt &iPixelSize);
 
 		void sendMessage(
 			rlGameCanvas_UInt     iMsg,
@@ -91,8 +91,10 @@ namespace rlGameCanvasLib
 
 		rlGameCanvas  m_oHandle;
 		std::u8string m_sWindowCaption;
-		bool          m_bMinimized = false;
+		bool          m_bRunningUpdate     = false; // is the fnUpdate callback currently being run?
+		bool          m_bMinimized         = false;
 		bool          m_bMinimized_Waiting = false;
+		bool          m_bIgnoreResize      = false;
 
 		Resolution m_oClientSize = {};
 		UInt       m_iPixelSize  = 0;
