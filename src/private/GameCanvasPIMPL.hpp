@@ -28,6 +28,7 @@ namespace rlGameCanvasLib
 		{
 			NotStarted, // graphics thread hasn't been created yet
 			Running,    // run() was called, graphics thread is working.
+			Waiting,    // finished previous frame, waiting for next one
 			Stopped     // graphics thread was stopped after working.
 		};
 
@@ -74,8 +75,11 @@ namespace rlGameCanvasLib
 
 		void graphicsThreadProc();
 
-		void drawFrame();
-		void doUpdate(bool bConfigChangable, bool bRepaint);
+		void renderFrame();
+		void waitForGraphicsThread(bool bRequestOpenGL);
+		void resumeGraphicsThread(); // copy data, resume graphics thread
+
+		bool doUpdate(bool bConfigChangable, bool bRepaint); // return value: was frame rendered?
 		void handleResize(unsigned iClientWidth, unsigned iClientHeight,
 			UInt iPreviousMaximization, UInt iNewMaximization);
 		void setResolution(const Resolution &oNewRes, bool bResize);
@@ -116,18 +120,18 @@ namespace rlGameCanvasLib
 		std::thread         m_oGraphicsThread;
 		GraphicsThreadState m_eGraphicsThreadState = GraphicsThreadState::NotStarted;
 
-		std::mutex              m_mux; // general-purpose.
-		std::condition_variable m_cv;  // general-purpose.
+		// for minimization and closing
+		std::mutex              m_muxAppState;
+		std::condition_variable m_cvAppState;
+
 		bool m_bRunning       = false; // is the game logic running?
 		bool m_bStopRequested = false; // user/game requested a stop.
 
-		std::mutex              m_muxOpenGL;
-		std::condition_variable m_cvOpenGL;
+		std::mutex              m_muxNextFrame;
+		std::condition_variable m_cvNextFrame;
 		bool                    m_bOpenGLRequest = false;
 
-		std::mutex   m_muxBuffer;
 		GraphicsData m_pBuffer_Updating = nullptr; // for access in update callback
-		GraphicsData m_pBuffer_Shared   = nullptr; // ready to be drawn
 		GraphicsData m_pBuffer_Drawing  = nullptr; // for access in draw callback
 
 		MultiLayerBitmap m_oLayers;

@@ -59,69 +59,6 @@ namespace rlGameCanvasLib
 			return dwStyle;
 		}
 
-		
-		// To be used whenever a thread that's not the graphics thread needs control over OpenGL.
-		// Implementation is closely linked to GameCanvas::PIMPL.
-		class OpenGLLock final
-		{
-		public: // methods
-
-			OpenGLLock(std::mutex &mux, std::condition_variable &cv, bool &bRequested, HDC hDC,
-				HGLRC hOpenGL)
-				:
-				m_mux(mux),
-				m_cv(cv),
-				m_bRequested(bRequested),
-				m_hDC(hDC),
-				m_hOpenGL(hOpenGL),
-				m_lock(m_mux, std::defer_lock)
-			{
-				lock();
-			}
-
-			~OpenGLLock() { unlock(); }
-
-			void lock()
-			{
-				if (m_bLocked)
-					return;
-
-				m_lock.lock();
-				m_bRequested = true;
-				m_cv.wait(m_lock);
-				wglMakeCurrent(m_hDC, m_hOpenGL);
-
-				m_bLocked = true;
-			}
-
-			void unlock()
-			{
-				if (!m_bLocked)
-					return;
-
-				wglMakeCurrent(NULL, NULL);
-				m_bRequested = false;
-				m_cv.notify_one();
-#pragma warning(suppress : 26110) // C26110: caller failed to hold lock (false positive)
-				m_lock.unlock();
-
-				m_bLocked = false;
-			}
-
-
-		private: // variables
-
-			std::mutex &m_mux;
-			std::condition_variable &m_cv;
-			bool &m_bRequested;
-			HDC   m_hDC;
-			HGLRC m_hOpenGL;
-
-			std::unique_lock<std::mutex> m_lock;
-			bool m_bLocked = false;
-
-		};
-
 		struct WindowConfig
 		{
 			DWORD      dwStyle;
@@ -457,7 +394,6 @@ namespace rlGameCanvasLib
 		}
 
 		m_oConfig.fnCreateData(&m_pBuffer_Updating);
-		m_oConfig.fnCreateData(&m_pBuffer_Shared);
 		m_oConfig.fnCreateData(&m_pBuffer_Drawing);
 
 		const size_t iLayerCount = (size_t)1 + m_oConfig.iExtraLayerCount;
@@ -477,7 +413,7 @@ namespace rlGameCanvasLib
 		m_bRunning = true;
 		doUpdate(false, true); // first call to update() prepares the very first frame
 		ShowWindow(m_hWnd, SW_SHOW);
-		drawFrame(); // draw very first frame immediately
+		renderFrame(); // draw very first frame immediately
 		SetForegroundWindow(m_hWnd);
 
 		wglMakeCurrent(NULL, NULL); // give up control over OpenGL
@@ -499,9 +435,9 @@ namespace rlGameCanvasLib
 
 				if (m_bMinimized)
 				{
-					std::unique_lock lock(m_mux);
+					std::unique_lock lock(m_muxAppState);
 					m_bMinimized_Waiting = true;
-					m_cv.wait(lock);
+					m_cvAppState.wait(lock);
 					while (m_bMinimized)
 					{
 						if (GetMessageW(&msg, m_hWnd, 0, 0) == 0)
@@ -511,18 +447,15 @@ namespace rlGameCanvasLib
 					}
 					m_bMinimized         = false;
 					m_bMinimized_Waiting = false;
-					m_cv.notify_one(); // continue graphics thread
+					m_cvAppState.notify_one(); // continue graphics thread
 
 					if (!m_bRunning)
 						goto lbClose;
 				}
 			}
 
-			std::unique_lock lock(m_mux);
-			m_cv.wait(lock); // wait until graphics thread is ready for new data
-			lock.unlock();
-
-			doUpdate(true, false);
+			if (!doUpdate(true, false))
+				resumeGraphicsThread();
 		}
 	lbClose:
 				
@@ -562,7 +495,7 @@ namespace rlGameCanvasLib
 		if (m_eGraphicsThreadState != GraphicsThreadState::Running)
 			return;
 
-		std::unique_lock lock(m_mux);
+		std::unique_lock lock(m_muxAppState);
 		m_bStopRequested = true;
 	}
 
@@ -690,10 +623,11 @@ namespace rlGameCanvasLib
 
 		case WM_CLOSE:
 		{
-			std::unique_lock lock(m_mux);
+			std::unique_lock lock(m_muxAppState);
 			m_bRunning = false;
+			m_cvNextFrame.notify_one();
 			if (m_eGraphicsThreadState == GraphicsThreadState::Running)
-				m_cv.wait(lock);
+				m_cvAppState.wait(lock);
 		}
 			DestroyWindow(m_hWnd);
 			return 0;
@@ -719,52 +653,78 @@ namespace rlGameCanvasLib
 		{
 			// check if still running
 			{
-				std::unique_lock lock(m_mux);
+				std::unique_lock lock(m_muxAppState);
 				if (!m_bRunning)
 					break; // while
 				if (m_bMinimized_Waiting)
 				{
-					m_cv.notify_one(); // notify logic thread that minimization state was entered
-					m_cv.wait(lock); // wait for logic thread to wake up graphics thread
+					// notify logic thread that minimization state was entered
+					m_cvAppState.notify_one();
+					// wait for logic thread to wake up graphics thread
+					m_cvAppState.wait(lock);
 				}
 			}
 
-			// handle request for control over OpenGL
-			{
-				std::unique_lock lock(m_muxOpenGL);
-				if (m_bOpenGLRequest)
-				{
-					wglMakeCurrent(NULL, NULL);
-					m_cvOpenGL.notify_one();
-					m_cvOpenGL.wait(lock);
-					wglMakeCurrent(m_hDC, m_hOpenGL);
-				}
-			}
-
-			drawFrame();
+			renderFrame();
 		}
 
-		std::unique_lock lock(m_mux);
+		std::unique_lock lock(m_muxAppState);
 		m_eGraphicsThreadState = GraphicsThreadState::Stopped;
 		wglMakeCurrent(NULL, NULL);
-		m_cv.notify_one(); // notify main thread that the graphics thread is now terminating
+		m_cvAppState.notify_one(); // notify main thread that the graphics thread is now terminating
 	}
 
-	void GameCanvas::PIMPL::drawFrame()
+	void GameCanvas::PIMPL::renderFrame()
 	{
-		// copy live data
-		{
-			std::unique_lock lockBuf(m_muxBuffer);
-			m_oConfig.fnCopyData(m_pBuffer_Shared, m_pBuffer_Drawing);
-			lockBuf.unlock();
-		}
-
-		// notify logic thread that the graphics thread is ready for new data
+		// sync up with logic thread
 		if (std::this_thread::get_id() == m_oGraphicsThread.get_id())
 		{
-			std::unique_lock lock(m_mux);
-			m_cv.notify_one();
-			lock.unlock();
+			bool bOpenGLUnderControl = true;
+
+			std::unique_lock lock(m_muxNextFrame);
+			m_eGraphicsThreadState = GraphicsThreadState::Waiting;
+			if (m_bOpenGLRequest)
+			{
+				bOpenGLUnderControl = false;
+				wglMakeCurrent(NULL, NULL);
+			}
+			m_cvNextFrame.notify_one();
+			m_cvNextFrame.wait(lock);
+			
+			std::unique_lock lock_state(m_muxAppState);
+			if (!m_bRunning) // app is being shut down
+				return; // cancel current frame rendering
+			lock_state.unlock();
+
+			if (bOpenGLUnderControl)
+			{
+				bool bNewOpenGLRequest = m_bOpenGLRequest;
+				while (m_bOpenGLRequest)
+				{
+					if (bNewOpenGLRequest)
+					{
+						bOpenGLUnderControl = false;
+						wglMakeCurrent(NULL, NULL);
+						bNewOpenGLRequest = false;
+					}
+					m_cvNextFrame.notify_one();
+					m_cvNextFrame.wait(lock);
+					lock_state.lock();
+					if (!m_bRunning)
+						return;
+				}
+			}
+
+			if (!bOpenGLUnderControl)
+			{
+				// regain control over OpenGL
+				if (!wglMakeCurrent(m_hDC, m_hOpenGL))
+					fprintf(stderr, "Graphics thread couldn't regain control over OpenGL!\n");
+				// TODO: further error handling?
+			}
+			
+
+			m_eGraphicsThreadState = GraphicsThreadState::Running;
 		}
 
 		// update the canvas
@@ -791,8 +751,8 @@ namespace rlGameCanvasLib
 				m_iIntScaledBufferTexture, 0);
 
 			// check FBO completeness
-			const auto tmpStatus = gl.glCheckFramebufferStatus(GL_FRAMEBUFFER);
-			if (tmpStatus != GL_FRAMEBUFFER_COMPLETE) {
+			const auto iFramebbufferStatus = gl.glCheckFramebufferStatus(GL_FRAMEBUFFER);
+			if (iFramebbufferStatus != GL_FRAMEBUFFER_COMPLETE) {
 				// TODO: handle framebuffer error
 				fprintf(stderr, "Framebuffer is not complete!\n");
 			}
@@ -946,7 +906,51 @@ namespace rlGameCanvasLib
 		SwapBuffers(m_hDC);
 	}
 
-	void GameCanvas::PIMPL::doUpdate(bool bConfigChangable, bool bRepaint)
+	// This function is supposed to be called from another thread than the graphics thread.
+	// It waits until the graphics thread is waiting.
+	// For optimization purposes, no check is done if the graphics thread has already given up
+	// control over OpenGL.
+	void GameCanvas::PIMPL::waitForGraphicsThread(bool bRequestOpenGL)
+	{
+		std::unique_lock lock(m_muxNextFrame);
+		m_bOpenGLRequest = bRequestOpenGL;
+
+		switch (m_eGraphicsThreadState)
+		{
+		case GraphicsThreadState::Waiting:
+			if (bRequestOpenGL)
+			{
+				m_cvNextFrame.notify_one(); // allow graphics thread to give up control over OpenGL
+				m_cvNextFrame.wait(lock);   // wait for the above to finish
+			}
+			break;
+
+		case GraphicsThreadState::Running:
+			m_cvNextFrame.wait(lock); // wait for the graphics thread to finish drawing
+			break;
+
+		default:
+			throw std::exception{};
+		}
+
+		if (bRequestOpenGL)
+			wglMakeCurrent(m_hDC, m_hOpenGL); // todo: error handling?
+	}
+
+	// This function shall only be called after calling waitForGraphicsThread.
+	void GameCanvas::PIMPL::resumeGraphicsThread()
+	{
+		m_oConfig.fnCopyData(m_pBuffer_Updating, m_pBuffer_Drawing);
+
+		if (m_bOpenGLRequest)
+		{
+			wglMakeCurrent(NULL, NULL);
+			m_bOpenGLRequest = false;
+		}
+		m_cvNextFrame.notify_one();
+	}
+
+	bool GameCanvas::PIMPL::doUpdate(bool bConfigChangable, bool bRepaint)
 	{
 		auto &oConfig = m_oConfig.oInitialConfig;
 		Config oConfig_Copy = oConfig;
@@ -983,9 +987,10 @@ namespace rlGameCanvasLib
 				RLGAMECANVAS_MAKEPIXELOPAQUE(oConfig_Copy.pxBackgroundColor);
 		}
 
+		bool bRendered = false;
 		if (bConfigChangable && oConfig_Copy != oConfig)
 		{
-			OpenGLLock lock(m_muxOpenGL, m_cvOpenGL, m_bOpenGLRequest, m_hDC, m_hOpenGL);
+			waitForGraphicsThread(true);
 
 			m_iPixelSize = oConfig_Copy.iPixelSize;
 
@@ -1012,12 +1017,11 @@ namespace rlGameCanvasLib
 			oConfig = oConfig_Copy;
 
 			doUpdate(false, bNewRes);
-			drawFrame();
+			renderFrame();
+			bRendered = true;
 		}
 
-		// copy to shared buffer
-		std::unique_lock lockBuf(m_muxBuffer);
-		m_oConfig.fnCopyData(m_pBuffer_Updating, m_pBuffer_Shared);
+		return bRendered;
 	}
 
 	void GameCanvas::PIMPL::handleResize(unsigned iClientWidth, unsigned iClientHeight,
@@ -1027,7 +1031,7 @@ namespace rlGameCanvasLib
 		printf("> Resize: %u x %u pixels\n", iClientWidth, iClientHeight);
 #endif // NDEBUG
 
-		OpenGLLock lock(m_muxOpenGL, m_cvOpenGL, m_bOpenGLRequest, m_hDC, m_hOpenGL);
+		waitForGraphicsThread(true);
 
 		const Resolution oOldClientSize = m_oClientSize;
 		Resolution oNewRes = m_oConfig.oInitialConfig.oResolution;
@@ -1045,7 +1049,7 @@ namespace rlGameCanvasLib
 			const Resolution oOldRes = m_oConfig.oInitialConfig.oResolution;
 			ResizeOutputParams rop =
 			{
-				.oResolution = oOldRes
+				.oResolution = oOldRes,
 			};
 
 			m_oConfig.fnOnMsg(
@@ -1098,8 +1102,9 @@ namespace rlGameCanvasLib
 		
 
 		setResolution(oNewRes, bResize);
-		doUpdate(false, bResize);
-		drawFrame();
+		doUpdate(false, true);
+		m_oConfig.fnCopyData(m_pBuffer_Updating, m_pBuffer_Drawing);
+		renderFrame();
 	}
 
 	// WARNING:
