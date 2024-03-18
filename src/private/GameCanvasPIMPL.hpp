@@ -96,6 +96,7 @@ namespace rlGameCanvasLib
 		bool          m_bMinimized         = false;
 		bool          m_bMinimized_Waiting = false;
 		bool          m_bIgnoreResize      = false;
+		bool          m_bMaxFullscreen     = false;
 
 		Resolution m_oClientSize = {};
 		UInt       m_iPixelSize  = 0;

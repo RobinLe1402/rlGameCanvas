@@ -579,6 +579,37 @@ namespace rlGameCanvasLib
 			sendMessage(RL_GAMECANVAS_MSG_CREATE, 0, 0);
 			break;
 
+		case WM_SYSCOMMAND:
+			if (wParam == SC_MAXIMIZE)
+			{
+				if (m_oConfig.iMaximizeBtnAction == RL_GAMECANVAS_MAX_FULLSCREEN)
+				{
+					m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_FULLSCREEN;
+					m_bMaxFullscreen = true;
+
+					RECT rcWindow = {};
+					Resolution oClientSize = {};
+					GetFullscreenCoordAndSize(rcWindow, oClientSize);
+
+					m_bIgnoreResize = true;
+					ShowWindow(m_hWnd, SW_HIDE);
+					SetWindowLongW(m_hWnd, GWL_STYLE, GenWindowStyle(RL_GAMECANVAS_MAX_FULLSCREEN, false));
+					m_bIgnoreResize = false;
+					SetWindowPos(
+							m_hWnd,                          // hWnd
+							NULL,                            // hWndInsertAfter
+							rcWindow.left,                   // X
+							rcWindow.top,                    // Y
+							rcWindow.right  - rcWindow.left, // cx
+							rcWindow.bottom - rcWindow.top,  // cy
+							SWP_NOZORDER | SWP_SHOWWINDOW    // uFlags
+					);
+
+					return 0;
+				}
+			}
+			break;
+
 		case WM_SIZE:
 		{
 			if (m_eGraphicsThreadState == GraphicsThreadState::NotStarted || m_bIgnoreResize)
@@ -590,7 +621,6 @@ namespace rlGameCanvasLib
 			{
 			case SIZE_MAXIMIZED:
 				m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_MAXIMIZE;
-				// TODO: handle maximization
 				break;
 
 			case SIZE_MINIMIZED:
@@ -601,6 +631,11 @@ namespace rlGameCanvasLib
 				return 0;
 
 			case SIZE_RESTORED:
+				if (m_bMaxFullscreen)
+				{
+					m_bMaxFullscreen = false;
+					break;
+				}
 				if (m_oConfig.oInitialConfig.iMaximization != RL_GAMECANVAS_MAX_NONE)
 				{
 					m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_NONE;
@@ -823,10 +858,10 @@ namespace rlGameCanvasLib
 					//
 					// 2
 					// |\
-						// | \
-						// 1--3
+					// | \
+					// 1--3
 
-						// 1
+					// 1
 					glTexCoord2f(0.0, 0.0);
 					glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iBottom, 0);
 
@@ -874,10 +909,10 @@ namespace rlGameCanvasLib
 					// SCREEN:  TEXTURE:
 					//  1--3     2
 					//  | /      |\
-						//  |/       | \
-						//  2        1--3
+					//  |/       | \
+					//  2        1--3
 
-						// 1
+					// 1
 					glTexCoord2f(0.0, 1.0);
 					glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iBottom, 0);
 
