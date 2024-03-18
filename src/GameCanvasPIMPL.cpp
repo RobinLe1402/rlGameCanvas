@@ -1049,7 +1049,7 @@ namespace rlGameCanvasLib
 			const Resolution oOldRes = m_oConfig.oInitialConfig.oResolution;
 			ResizeOutputParams rop =
 			{
-				.oResolution = oOldRes,
+				.oResolution = oOldRes
 			};
 
 			m_oConfig.fnOnMsg(
