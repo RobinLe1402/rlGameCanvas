@@ -17,6 +17,8 @@ typedef struct
 	bool     bInitialize;
 } GraphicsData;
 
+#define RESIZETEST 1
+
 #define YFACTOR (0.6)
 #define FRAMESPERSEC (30)
 #define SECSPERFRAME (1.0 / FRAMESPERSEC)
@@ -99,14 +101,20 @@ void __stdcall CanvasMsg(
 		);
 
 		
-		/*
+#if RESIZETEST
 		// test code for resizing
 		if (rip->iNewMaximization != RL_GAMECANVAS_MAX_NONE &&
 			rip->oOldClientSize.x < 1000 && rip->oNewClientSize.x >= 1000)
+		{
 			rop->oResolution.x = 2 * WIDTH;
+			rop->pxBackgroundColor = RLGAMECANVAS_MAKEPIXEL_RGB(0x55, 0x44, 0x33);
+		}
 		else if (rip->iNewMaximization == RL_GAMECANVAS_MAX_NONE)
+		{
 			rop->oResolution.x = WIDTH;
-		*/
+			rop->pxBackgroundColor = rlGameCanvas_Color_Black;
+		}
+#endif
 		
 
 		break;
@@ -154,8 +162,8 @@ void __stdcall Draw(
 	const rlGameCanvas_Pixel px = RLGAMECANVAS_MAKEPIXEL_RGB(255, 0, 255);
 	if (pDataT->bInitialize)
 	{
-		const unsigned iOffset = HEIGHT / 2;
-		const unsigned iMaxXOffset = WIDTH / 2;
+		const unsigned iOffset     = HEIGHT / 2;
+		const unsigned iMaxXOffset = WIDTH  / 2;
 
 		double dXOffsetOld = 0;
 
