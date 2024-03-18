@@ -143,6 +143,8 @@ typedef struct
 	rlGameCanvas_Resolution oResolution;  /* new size, in pixels, of the canvas.
 	                                         if one of the values is zero, that size will remain
 	                                         unchanged.                                           */
+	rlGameCanvas_Pixel pxBackgroundColor; /* the color the background should be filled with.      */
+
 	// todo: add iPixelSize for windowed?
 } rlGameCanvas_ResizeOutputParams;
 

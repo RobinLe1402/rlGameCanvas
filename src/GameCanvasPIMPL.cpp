@@ -760,6 +760,15 @@ namespace rlGameCanvasLib
 			// draw to texture
 			glViewport(0, 0, m_oConfig.oInitialConfig.oResolution.x * m_iPixelSize,
 				m_oConfig.oInitialConfig.oResolution.y * m_iPixelSize);
+
+			const Pixel pxBG = m_oConfig.oInitialConfig.pxBackgroundColor;
+			glClearColor(
+				pxBG.rgba.r / 255.0f,
+				pxBG.rgba.g / 255.0f,
+				pxBG.rgba.b / 255.0f,
+				1.0f
+			);
+
 			glClear(GL_COLOR_BUFFER_BIT);
 			for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
 			{
@@ -808,6 +817,8 @@ namespace rlGameCanvasLib
 			glLoadIdentity();
 			glOrtho(0, m_oClientSize.x, m_oClientSize.y, 0, 0.0f, 1.0f);
 			{
+				glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // black background
+
 				glClear(GL_COLOR_BUFFER_BIT);
 				glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
 
@@ -999,16 +1010,19 @@ namespace rlGameCanvasLib
 
 			if (oConfig_Copy.pxBackgroundColor != oConfig.pxBackgroundColor)
 			{
-				if (m_bFBO)
-					m_upOpenGL->glBindFramebuffer(GL_FRAMEBUFFER, m_iIntScaledBufferFBO);
+				m_oConfig.oInitialConfig.pxBackgroundColor = oConfig_Copy.pxBackgroundColor;
 
-				const Pixel px = oConfig_Copy.pxBackgroundColor;
-				glClearColor(
-					px.rgba.r / 255.0f,
-					px.rgba.g / 255.0f,
-					px.rgba.b / 255.0f,
-					1.0f
-				);
+				if (!m_bFBO)
+				{
+					const Pixel px = m_oConfig.oInitialConfig.pxBackgroundColor;
+					glClearColor(
+						px.rgba.r / 255.0f,
+						px.rgba.g / 255.0f,
+						px.rgba.b / 255.0f,
+						1.0f
+					);
+				}
+				
 			}
 
 			const bool bNewRes = oConfig_Copy.oResolution != oConfig.oResolution;
@@ -1049,7 +1063,8 @@ namespace rlGameCanvasLib
 			const Resolution oOldRes = m_oConfig.oInitialConfig.oResolution;
 			ResizeOutputParams rop =
 			{
-				.oResolution = oOldRes
+				.oResolution       = oOldRes,
+				.pxBackgroundColor = m_oConfig.oInitialConfig.pxBackgroundColor
 			};
 
 			m_oConfig.fnOnMsg(
@@ -1058,6 +1073,19 @@ namespace rlGameCanvasLib
 				reinterpret_cast<MsgParam>(&rip), // iParam1
 				reinterpret_cast<MsgParam>(&rop)  // iParam2
 			);
+
+			m_oConfig.oInitialConfig.pxBackgroundColor =
+				RLGAMECANVAS_MAKEPIXELOPAQUE(rop.pxBackgroundColor);
+			if (!m_bFBO)
+			{
+				const Pixel pxBG = m_oConfig.oInitialConfig.pxBackgroundColor;
+				glClearColor(
+					pxBG.rgba.r / 255.0f,
+					pxBG.rgba.g / 255.0f,
+					pxBG.rgba.b / 255.0f,
+					1.0f
+				);
+			}
 
 			if (rop.oResolution.x == 0)
 				rop.oResolution.x = oOldRes.x;
