@@ -1137,7 +1137,25 @@ namespace rlGameCanvasLib
 			bFullscreen != (m_eMaximization == Maximization::Fullscreen);
 
 
-		m_bHideMouseCursor = bHideCursor;
+		if (m_bHideMouseCursor != bHideCursor)
+		{
+			m_bHideMouseCursor = bHideCursor;
+
+			// if the mouse cursor is currently on top of the client area, manually refresh the
+			// cursor immediately, as by default it will only change once it moves.
+			POINT ptCursor;
+			GetCursorPos(&ptCursor);
+			ScreenToClient(m_hWnd, &ptCursor);
+			if (ptCursor.x >= 0 && ptCursor.y >= 0 &&
+				(UInt)ptCursor.x < m_oClientSize.x &&
+				(UInt)ptCursor.y < m_oClientSize.y)
+			{
+				if (m_bHideMouseCursor)
+					SetCursor(NULL);
+				else
+					SetCursor(m_hCursor);
+			}
+		}
 
 		if (!bNewMode && !bFullscreenToggled)
 			return;

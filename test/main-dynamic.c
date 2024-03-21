@@ -26,6 +26,7 @@ typedef struct
 #define FRAMECOUNT ((HEIGHT / 2) - (unsigned)((HEIGHT / 2) * YFACTOR - 1))
 
 bool bFullscreenToggled = false;
+bool bHideCursorToggled = false;
 
 void __stdcall Update(
 	rlGameCanvas         canvas,
@@ -47,8 +48,12 @@ void __stdcall Update(
 	if (bFullscreenToggled)
 	{
 		poConfig->iFlags  ^= RL_GAMECANVAS_CFG_FULLSCREEN;
-		poConfig->iFlags  ^= RL_GAMECANVAS_CFG_HIDECURSOR;
 		bFullscreenToggled = false;
+	}
+	if (bHideCursorToggled)
+	{
+		poConfig->iFlags ^= RL_GAMECANVAS_CFG_HIDECURSOR;
+		bHideCursorToggled = false;
 	}
 }
 
@@ -96,8 +101,16 @@ void __stdcall WinMsg(
 	switch (uMsg)
 	{
 	case WM_KEYDOWN:
-		if (wParam == 'F')
-			bFullscreenToggled = !bFullscreenToggled;
+		switch (wParam)
+		{
+		case 'C':
+			bHideCursorToggled = true;
+			break;
+
+		case 'F':
+			bFullscreenToggled = true;
+			break;
+		}
 		break;
 	}
 }
