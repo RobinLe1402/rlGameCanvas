@@ -237,7 +237,7 @@ int main(int argc, char* argv[])
 	sc.fnCopyState     = CopyData;
 	sc.fnOnMsg         = CanvasMsg;
 	sc.fnOnWinMsg      = WinMsg;
-	sc.iFlags          = RL_GAMECANVAS_SUP_MAXIMIZED;
+	sc.iFlags          = RL_GAMECANVAS_SUP_WINDOWED | RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE;
 	sc.iModeCount      = 1;
 	sc.pcoModes        = &MODE;
 

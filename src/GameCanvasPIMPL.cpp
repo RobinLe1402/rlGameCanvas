@@ -340,13 +340,6 @@ namespace rlGameCanvasLib
 					if (!wglMakeCurrent(m_hDC, m_hOpenGL))
 						ThrowWithLastError("Call to wglMakeCurrent failed.");
 
-					glViewport(
-						0,               // x
-						0,               // y
-						m_oClientSize.x, // width
-						m_oClientSize.y  // height
-					);
-
 					glMatrixMode(GL_PROJECTION);
 
 					glEnable(GL_TEXTURE_2D);
@@ -552,8 +545,8 @@ namespace rlGameCanvasLib
 		{
 			RECT rcWindow = {};
 
-			if (m_bFBO)
-				m_bGraphicsThread_NewFBOSize = m_iPixelSize != m_iPixelSize_Restored;
+			if (m_bFBO && m_iPixelSize != m_iPixelSize_Restored)
+				m_bGraphicsThread_NewFBOSize = true;
 			m_iPixelSize = m_iPixelSize_Restored;
 
 			GetRestoredCoordAndSize(hWndOnTargetMonitor, m_oModes[m_iCurrentMode].oScreenSize,
@@ -681,28 +674,7 @@ namespace rlGameCanvasLib
 			case SC_MAXIMIZE:
 				if (m_bFullscreenOnMaximize)
 				{
-					m_eNonFullscreenMaximization = m_eMaximization;
-					m_eMaximization              = Maximization::Fullscreen;
-					m_bMaxFullscreen             = true;
-
-					RECT rcWindow = {};
-					Resolution oClientSize = {};
-					GetFullscreenCoordAndSize(rcWindow, oClientSize);
-
-					m_bIgnoreResize = true;
-					ShowWindow(m_hWnd, SW_HIDE);
-					SetWindowLongW(m_hWnd, GWL_STYLE, GenWindowStyle(Maximization::Fullscreen));
-					m_bIgnoreResize = false;
-					SetWindowPos(
-							m_hWnd,                          // hWnd
-							NULL,                            // hWndInsertAfter
-							rcWindow.left,                   // X
-							rcWindow.top,                    // Y
-							rcWindow.right  - rcWindow.left, // cx
-							rcWindow.bottom - rcWindow.top,  // cy
-							SWP_NOZORDER | SWP_SHOWWINDOW    // uFlags
-					);
-
+					setFullscreenOnMaximize();
 					return 0;
 				}
 				break;
@@ -716,10 +688,13 @@ namespace rlGameCanvasLib
 					const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
 					RECT rcWindow;
 
-					m_bGraphicsThread_NewFBOSize = m_iPixelSize != 1;
-					m_iPixelSize                 = m_iPixelSize_Restored;
+					if (m_iPixelSize != m_iPixelSize_Restored)
+						m_bGraphicsThread_NewFBOSize = true;
+					m_iPixelSize = m_iPixelSize_Restored;
 
 					GetRestoredCoordAndSize(m_hWnd, oScreenSize, m_iPixelSize, rcWindow);
+
+					waitForGraphicsThread();
 
 					WINDOWPLACEMENT wp = { sizeof(wp) };
 					GetWindowPlacement(m_hWnd, &wp);
@@ -727,16 +702,17 @@ namespace rlGameCanvasLib
 					SetWindowPlacement(m_hWnd, &wp);
 					break;
 					
-					SetWindowPos(
-						m_hWnd,                          // hWnd
-						NULL,                            // hWndInsertAfter
-						rcWindow.left,                   // X
-						rcWindow.top,                    // Y
-						rcWindow.right  - rcWindow.left, // cx
-						rcWindow.bottom - rcWindow.top,  // cy
-						SWP_NOZORDER                     // uFlags
-					);
+					//SetWindowPos(
+					//	m_hWnd,                          // hWnd
+					//	NULL,                            // hWndInsertAfter
+					//	rcWindow.left,                   // X
+					//	rcWindow.top,                    // Y
+					//	rcWindow.right  - rcWindow.left, // cx
+					//	rcWindow.bottom - rcWindow.top,  // cy
+					//	SWP_NOZORDER                     // uFlags
+					//);
 
+					m_bRestoreHandled = true;
 					return 0;
 				}
 				break;
@@ -762,8 +738,16 @@ namespace rlGameCanvasLib
 			switch (wParam)
 			{
 			case SIZE_MAXIMIZED:
-				m_eMaximization = Maximization::Maximized;
+			{
+				if (!m_bFullscreenOnMaximize)
+					m_eMaximization = Maximization::Maximized;
+				else
+				{
+					setFullscreenOnMaximize();
+					return 0;
+				}
 				break;
+			}
 
 			case SIZE_MINIMIZED:
 				if (m_bMinimized)
@@ -777,6 +761,38 @@ namespace rlGameCanvasLib
 				{
 					m_bMaxFullscreen = false;
 					break;
+				}
+
+				if (!m_bRestoreHandled)
+				{
+					m_eMaximization = Maximization::Windowed;
+					const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
+
+					const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
+					RECT rcWindow;
+
+					if (m_iPixelSize != m_iPixelSize_Restored)
+						m_bGraphicsThread_NewFBOSize = true;
+					m_iPixelSize                 = m_iPixelSize_Restored;
+
+					GetRestoredCoordAndSize(m_hWnd, oScreenSize, m_iPixelSize, rcWindow);
+
+					if (
+						LOWORD(lParam) != m_iPixelSize * oScreenSize.x ||
+						HIWORD(lParam) != m_iPixelSize * oScreenSize.y
+					)
+					{
+						SetWindowPos(
+							m_hWnd,                          // hWnd
+							NULL,                            // hWndInsertAfter
+							rcWindow.left,                   // X
+							rcWindow.top,                    // Y
+							rcWindow.right  - rcWindow.left, // cx
+							rcWindow.bottom - rcWindow.top,  // cy
+							SWP_NOZORDER                     // uFlags
+						);
+						return 0;
+					}
 				}
 				
 				break;
@@ -1046,6 +1062,32 @@ namespace rlGameCanvasLib
 	{
 		m_fnCopyState(m_pvState_Updating, m_pvState_Drawing);
 		m_cvNextFrame.notify_one();
+	}
+
+	void GameCanvas::PIMPL::setFullscreenOnMaximize()
+	{
+		waitForGraphicsThread();
+		m_eNonFullscreenMaximization = m_eMaximization;
+		m_eMaximization              = Maximization::Fullscreen;
+		m_bMaxFullscreen             = true;
+
+		RECT rcWindow = {};
+		Resolution oClientSize = {};
+		GetFullscreenCoordAndSize(rcWindow, oClientSize);
+
+		m_bIgnoreResize = true;
+		ShowWindow(m_hWnd, SW_HIDE);
+		SetWindowLongW(m_hWnd, GWL_STYLE, GenWindowStyle(Maximization::Fullscreen));
+		m_bIgnoreResize = false;
+		SetWindowPos(
+				m_hWnd,                          // hWnd
+				NULL,                            // hWndInsertAfter
+				rcWindow.left,                   // X
+				rcWindow.top,                    // Y
+				rcWindow.right  - rcWindow.left, // cx
+				rcWindow.bottom - rcWindow.top,  // cy
+				SWP_NOZORDER | SWP_SHOWWINDOW    // uFlags
+		);
 	}
 
 	void GameCanvas::PIMPL::doUpdate()

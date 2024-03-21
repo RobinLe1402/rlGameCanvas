@@ -105,6 +105,8 @@ namespace rlGameCanvasLib
 		void waitForGraphicsThread();
 		void resumeGraphicsThread(); // copy data, resume graphics thread
 
+		void setFullscreenOnMaximize();
+
 		void doUpdate();
 
 		void updateConfig(const Config &cfg, bool bForceUpdateAll = false);
@@ -149,6 +151,7 @@ namespace rlGameCanvasLib
 
 		bool m_bMinimized         = false;
 		bool m_bMinimized_Waiting = false;
+		bool m_bRestoreHandled    = false;
 
 		bool m_bRunning       = false; // is the game logic running?
 		bool m_bStopRequested = false; // user/game requested a stop.
@@ -204,8 +207,8 @@ namespace rlGameCanvasLib
 		std::unique_ptr<LayerSettings[]> m_oLayerSettings;
 
 
-		bool m_bGraphicsThread_NewViewport = false;
-		bool m_bGraphicsThread_NewFBOSize  = false;
+		bool m_bGraphicsThread_NewViewport = true;
+		bool m_bGraphicsThread_NewFBOSize  = true;
 
 	};
 
