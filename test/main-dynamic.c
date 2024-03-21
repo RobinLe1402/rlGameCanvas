@@ -47,6 +47,7 @@ void __stdcall Update(
 	if (bFullscreenToggled)
 	{
 		poConfig->iFlags  ^= RL_GAMECANVAS_CFG_FULLSCREEN;
+		poConfig->iFlags  ^= RL_GAMECANVAS_CFG_HIDECURSOR;
 		bFullscreenToggled = false;
 	}
 }
