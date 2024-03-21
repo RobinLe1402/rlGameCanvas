@@ -20,28 +20,27 @@ namespace rlGameCanvasLib
 
 	// Bool doesn't need a definition in C++ - the built-in bool type can be used
 	using UInt         = rlGameCanvas_UInt;
-	using GraphicsData = rlGameCanvas_GraphicsData;
 	using U8Char       = rlGameCanvas_U8Char;
 
-	using Layer = rlGameCanvas_Layer;
-
-	using CreateData  = rlGameCanvas_CreateData;
-	using DestroyData = rlGameCanvas_DestroyData;
-	using CopyData    = rlGameCanvas_CopyData;
+	using CreateStateCallback  = rlGameCanvas_CreateStateCallback;
+	using DestroyStateCallback = rlGameCanvas_DestroyStateCallback;
+	using CopyStateCallback    = rlGameCanvas_CopyStateCallback;
 
 	using Resolution = rlGameCanvas_Resolution;
 
-	using WinMsgCallback = rlGameCanvas_WinMsgCallback;
-	using DrawCallback   = rlGameCanvas_DrawCallback;
-
-	using ResizeInputParams  = rlGameCanvas_ResizeInputParams;
-	using ResizeOutputParams = rlGameCanvas_ResizeOutputParams;
-
-	using MsgParam = rlGameCanvas_MsgParam;
-
-	using MsgCallback = rlGameCanvas_MsgCallback;
-
 	using Config = rlGameCanvas_Config;
+
+	using LayerMetadata = rlGameCanvas_LayerMetadata;
+	using LayerData     = rlGameCanvas_LayerData;
+
+	using Mode = rlGameCanvas_Mode;
+
+	using UpdateStateCallback = rlGameCanvas_UpdateStateCallback;
+	using DrawStateCallback   = rlGameCanvas_DrawStateCallback;
+
+	using MsgParam       = rlGameCanvas_MsgParam;
+	using MsgCallback    = rlGameCanvas_MsgCallback;
+	using WinMsgCallback = rlGameCanvas_WinMsgCallback;
 
 	using StartupConfig = rlGameCanvas_StartupConfig;
 

@@ -17,7 +17,6 @@
 
 typedef unsigned rlGameCanvas_Bool;
 typedef uint32_t rlGameCanvas_UInt;
-typedef void*    rlGameCanvas_GraphicsData; // the data needed to draw the current frame.
 
 #if defined(__cplusplus) && __cplusplus >= 201811L
 typedef char8_t rlGameCanvas_U8Char;
@@ -50,108 +49,203 @@ typedef struct rlGameCanvas_OpaquePtrStruct
 
 
 
-typedef void (__stdcall *rlGameCanvas_CreateData )(rlGameCanvas_GraphicsData *ppData);
-typedef void (__stdcall *rlGameCanvas_DestroyData)(rlGameCanvas_GraphicsData  pData);
-typedef void (__stdcall *rlGameCanvas_CopyData)(rlGameCanvas_GraphicsData     pSrc,
-	rlGameCanvas_GraphicsData pDest);
+typedef void (__stdcall *rlGameCanvas_CreateStateCallback)(void **ppvData);
+typedef void (__stdcall *rlGameCanvas_DestroyStateCallback)(void *pvData);
+typedef void (__stdcall *rlGameCanvas_CopyStateCallback)(const void *pcvSrc, void *pvDest);
+
+
 
 typedef struct
 {
 	rlGameCanvas_UInt x, y;
 } rlGameCanvas_Resolution;
 
+
+
 /*
-	The current graphics configuration.
+	The current "logical" graphics configuration.
 	Can be changed via the game settings, no manual resizing by the user.
+
+	iMode
+		The index of the canvas mode.
+	iFlags
+		Some setting flags.
+		A combination of the RL_GAMECANVAS_CFG_[...] values.
 */
 typedef struct
 {
-	rlGameCanvas_Resolution oResolution;  /* size, in pixels, of the canvas.                      */
-	rlGameCanvas_UInt       iPixelSize;   /* the size, in actual pixels, for up-"scaling" when
-											  the window is in restored mode.                     */
-	rlGameCanvas_UInt iMaximization;      /* maximization state.
-											 one of the RL_GAMECANVAS_MAX_[...] values.           */
-	rlGameCanvas_Pixel pxBackgroundColor; /* the color the background should be filled with.      */
-
-	// TODO: offer option to hide mouse cursor over client area?
-	//rlGameCanvas_Bool bHideMouseCursor; /* should the mouse cursor be hidden on the client area when
-	//                                        the window has focus?                                 */
+	rlGameCanvas_UInt iMode;
+	rlGameCanvas_UInt iFlags;
 } rlGameCanvas_Config;
 
 
+
+/*
+	Metadata defining a layer.
+
+	oLayerSize
+		The size, in pixels, of the layer.
+		Must be at least as big as the screen.
+	oScreenPos
+		The coordinate of the top- and leftmost pixel visible on screen.
+		The layer contents are repeated if out-of-bounds pixels would be visible.
+	bVisible
+		Should the layer be rendered to the screen?
+*/
 typedef struct
 {
-	rlGameCanvas_Pixel *pData;          /* the pixel data - left to right, top to bottom.
-										   value at position (x,y) can be found at
-											index [y * width + x].                                */
+	rlGameCanvas_Resolution oLayerSize;
+	rlGameCanvas_Resolution oScreenPos;
+	rlGameCanvas_Bool       bHide;
+} rlGameCanvas_LayerMetadata;
 
-	rlGameCanvas_Resolution oSize;      /* the size, in pixels, of the layer.                     */
-	rlGameCanvas_Resolution oScreenPos; /* the top left position of the camera.                   */
-	rlGameCanvas_Bool       bVisible;   /* is this layer currently visible?                       */
-} rlGameCanvas_Layer;
+/*
+	Layer data to be used in the Draw callback.
+
+	ppxData
+		The actual pixel data of the layer.
+		Indexed left to right, top to bottom. Position (x,y) translates to index [y * width + x].
+	oLayerSize
+		The size, in pixels, of the layer.
+	poScreenPos
+		The top-left position of the "camera".
+	pbVisible
+		Should the layer be rendered to the screen?
+*/
+typedef struct
+{
+	rlGameCanvas_Pixel        *ppxData;
+	rlGameCanvas_Resolution    oLayerSize;
+
+	rlGameCanvas_Resolution   *poScreenPos;
+	rlGameCanvas_Bool         *pbVisible;
+} rlGameCanvas_LayerData;
+
+
+
+/*
+	Data used to define a canvas mode.
+
+	oScreenSize
+		The size, in pixels, of the "camera".
+		x and y members cannot be zero.
+	iLayerCount
+		The count of elements in the array pointed to by pcoLayerMetadata.
+		Must be > 0.
+	pcoLayerMetadata
+		Pointer to an array of layer definitions.
+*/
+typedef struct
+{
+	rlGameCanvas_Resolution           oScreenSize;
+	rlGameCanvas_UInt                 iLayerCount;
+	const rlGameCanvas_LayerMetadata *pcoLayerMetadata;
+} rlGameCanvas_Mode;
 
 
 
 
+/*
+	A callback for Windows messages.
+
+	canvas
+		The canvas calling the callback.
+	hWnd
+		The handle of the window that received the message.
+	uMsg
+		The Windows message code.
+	wParam
+		Generic parameter #1.
+	lParam
+		Generic parameter #2.
+*/
 typedef void (__stdcall *rlGameCanvas_WinMsgCallback)(
-	rlGameCanvas canvas, // the canvas that received the message.
-	UINT         uMsg,   // the message code, see WM_[...].
-	WPARAM       wParam, // generic parameter #1.
-	LPARAM       lParam  // generic parameter #2.
+	rlGameCanvas canvas,
+	HWND         hWnd,
+	UINT         uMsg,
+	WPARAM       wParam,
+	LPARAM       lParam
 );
 
 
 
-typedef void (__stdcall *rlGameCanvas_DrawCallback)(
-		  rlGameCanvas              canvas,      // the canvas to be modified.
-	      rlGameCanvas_Resolution   oCanvasSize, // the visible size, in pixels, of the canvas.
-	      rlGameCanvas_Layer       *pLayers,     // array of the layers to be updated.
-	      rlGameCanvas_UInt         iLayers,     // count of elements in the pLayers array.
-	const rlGameCanvas_GraphicsData pData        // the data to be used for updating the canvas.
+/*
+	A callback for drawing to the bitmap layers.
+
+	canvas
+		The canvas calling the callback.
+	pcvState
+		The current state of the game.
+	iMode
+		The index of the current canvas mode.
+	oScreenSize
+		The size, in pixels, of the screen.
+	iLayers
+		The count of elements in the poLayers array.
+	poLayers
+		Array of the layers to be updated.
+	ppxBackground
+		Pointer to the background color.
+		On entry, this is the previous background color.
+		On exit, this should be the color to be used in the background for this frame.
+	iFlags
+		Flags for the drawing routine.
+		A combination of the RL_GAMECANVAS_DRW_[...] values.
+*/
+typedef void(__stdcall *rlGameCanvas_DrawStateCallback)(
+	rlGameCanvas            canvas,
+	const void             *pcvState,
+	rlGameCanvas_UInt       iMode,
+	rlGameCanvas_Resolution oScreenSize,
+	rlGameCanvas_UInt       iLayers,
+	rlGameCanvas_LayerData *poLayers,
+	rlGameCanvas_Pixel     *ppxBackground,
+	rlGameCanvas_UInt       iFlags
 );
 
 
 
-typedef void (__stdcall *rlGameCanvas_UpdateCallback)(
-	rlGameCanvas              canvas,             /* the canvas to be updated.                    */
-	rlGameCanvas_GraphicsData pData,              /* the data to be written.                      */
-	double                    dSecsSinceLastCall, /* number of seconds since last call.
-	                                                 0 on the first call.                         */
-	rlGameCanvas_Config      *pConfig,            /* a pointer to the curent game configuration.
-	                                                 if bConfigChangable is nonzero and the contents
-	                                                  of the pointed-to struct are updated, the
-	                                                  changes will be applied after this but before
-	                                                  the next frame.                             */
-	rlGameCanvas_UInt         iFlags              /* a combination of the RL_GAMECANVAS_UPDATE_[...]
-	                                                  values.                                     */
+/*
+	A callback for updating the game state.
+
+	canvas
+		The canvas calling the callback.
+	pvState
+		The previous state of the game; to be updated.
+	dSecsSinceLastCall
+		The time that passed since the last call to this callback, in seconds.
+		0 on the very first call.
+	poConfig
+		A pointer to select canvas settings.
+		On entry, this is the configuration used on the previous frame.
+		On exit, this is the configuration to be used for the next frame.
+*/
+typedef void (__stdcall *rlGameCanvas_UpdateStateCallback)(
+	rlGameCanvas         canvas,
+	void                *pvState,
+	double               dSecsSinceLastCall,
+	rlGameCanvas_Config *poConfig
 );
-
-
-
-typedef struct
-{
-	rlGameCanvas_Resolution oOldClientSize;  /* the old size, in pixels, of the canvas.           */
-	rlGameCanvas_Resolution oNewClientSize;  /* the new size, in pixels, of the canvas.           */
-	rlGameCanvas_UInt iOldMaximization;      /* the previous maximization state.
-	                                            one of the RL_GAMECANVAS_MAX_[...] values.        */
-	rlGameCanvas_UInt iNewMaximization;      /* the new maximization state.
-	                                            one of the RL_GAMECANVAS_MAX_[...] values.        */
-} rlGameCanvas_ResizeInputParams;
-
-typedef struct
-{
-	rlGameCanvas_Resolution oResolution;  /* new size, in pixels, of the canvas.
-	                                         if one of the values is zero, that size will remain
-	                                         unchanged.                                           */
-	rlGameCanvas_Pixel pxBackgroundColor; /* the color the background should be filled with.      */
-
-	// todo: add iPixelSize for windowed?
-} rlGameCanvas_ResizeOutputParams;
 
 
 
 typedef uint64_t rlGameCanvas_MsgParam;
 
+/*
+	A callback for canvas events.
+
+	canvas
+		The canvas calling the callback.
+	iMsg
+		The ID of the message.
+		One of the RL_GAMECANVAS_MSG_[...] values.
+	iParam1
+		Generic parameter 1.
+		Value depends on the message.
+	iParam2
+		Generic parameter 2.
+		Value depends on the message.
+*/
 typedef void (__stdcall *rlGameCanvas_MsgCallback)(
 	rlGameCanvas          canvas,
 	rlGameCanvas_UInt     iMsg,
@@ -161,41 +255,62 @@ typedef void (__stdcall *rlGameCanvas_MsgCallback)(
 
 
 
+/*
+	The startup configuration of a game canvas.
+
+	szWindowCaption
+		The (UTF-8) text that should appear in the titlebar.
+		Can be NULL, in which case the caption will show a default text.
+	hIconSmall
+		The icon to be shown in the titlebar of the window.
+		Can be NULL. If hIconBig is set, it will be used. Otherwise, a default icon will be used.
+	hIconBig
+		The icon to be shown in the taskbar.
+		Can be NULL. If hIconSmall is set, it will be used. Otherwise, a default icon will be used.
+	fnUpdateState
+		Callback function for updating the graphics data (= the code for the main game loop).
+		Cannot be NULL.
+	fnDrawState
+		Callback function that updates the canvas.
+		Cannot be NULL.
+	fnCreateState
+		Function that creates an rlGameCanvas_GameState object.
+		Cannot be NULL.
+	fnDestroyState
+		Function that destroys an rlGameCanvas_GameState object.
+		Cannot be NULL.
+	fnCopyState
+		Function that copies the contents of one rlGameCanvas_GameState object into another one.
+		Cannot be NULL.
+	fnOnMsg
+		Callback function for custom messages.
+		Can be NULL.
+	fnOnWinMsg
+		Callback function for window messages.
+		Can be NULL.
+	iFlags
+		Flags for the canvas.
+		A combination of the RL_GAMECANVAS_SUP_[...] values.
+	iModeCount
+		Size of the array pointed to by poModes.
+	pcoModes
+		Pointer to an array of mode definitions.
+*/
 typedef struct
 {
-	const rlGameCanvas_U8Char *szWindowCaption; /* the (UTF-8) text that should appear in the
-	                                                titlebar.
-	                                               can be NULL.                                   */
-	HICON hIconSmall, hIconBig;                 /* the icons for the titlebar and taskbar.
-	                                               can be NULL.                                   */
-	rlGameCanvas_UInt iMaximizeBtnAction;       /* behaviour when user clicks the maximize button.
-	                                               one of the RL_GAMECANVAS_MAX_[...] values.     */
-	rlGameCanvas_UpdateCallback fnUpdate;       /* callback function for updating the graphics data
-	                                                (= the code for the main game loop).
-	                                               cannot be NULL.                                */
-	rlGameCanvas_MsgCallback fnOnMsg;           /* callback function for custom messages.
-	                                               can be NULL.
-	                                               do NOT call rlGameCanvas_UpdateConfig within
-	                                                this callback. Instead, use the parameters, when
-	                                                available.                                    */
-	rlGameCanvas_WinMsgCallback fnOnWinMsg;     /* callback function for window messages.
-	                                               can be NULL.                                   */
-	rlGameCanvas_DrawCallback fnDraw;           /* callback function that updates the canvas.
-	                                               cannot be NULL.                                */
-	rlGameCanvas_CreateData fnCreateData;       /* function that creates an
-	                                                rlGameCanvas_GraphicsData object.             */
-	rlGameCanvas_DestroyData fnDestroyData;     /* function that destroys an
-	                                                rlGameCanvas_GraphicsData object.
-	                                               cannot be NULL.                                */
-	rlGameCanvas_CopyData fnCopyData;           /* function that copies the contents of one
-	                                                rlGameCanvas_GraphicsData object into another
-	                                                one.
-	                                               cannot be NULL.                                */
-	rlGameCanvas_UInt iExtraLayerCount;         /* the count of additional layers to create, in
-	                                                addition to the base layer.                   */
-	rlGameCanvas_Bool bOversample;              /* should the image be oversampled?               */
-	rlGameCanvas_Config oInitialConfig;         /* the part of the configuration that can be changed
-	                                                at runtime.                                   */
+	const rlGameCanvas_U8Char        *szWindowCaption;
+	HICON                             hIconSmall;
+	HICON                             hIconBig;
+	rlGameCanvas_UpdateStateCallback  fnUpdateState;
+	rlGameCanvas_DrawStateCallback    fnDrawState;
+	rlGameCanvas_CreateStateCallback  fnCreateState;
+	rlGameCanvas_DestroyStateCallback fnDestroyState;
+	rlGameCanvas_CopyStateCallback    fnCopyState;
+	rlGameCanvas_MsgCallback          fnOnMsg;
+	rlGameCanvas_WinMsgCallback       fnOnWinMsg;
+	rlGameCanvas_UInt                 iFlags;
+	rlGameCanvas_UInt                 iModeCount;
+	const rlGameCanvas_Mode          *pcoModes;
 } rlGameCanvas_StartupConfig;
 
 

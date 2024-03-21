@@ -42,9 +42,6 @@
     <ClInclude Include="private\Windows.hpp">
       <Filter>Header Files\Private</Filter>
     </ClInclude>
-    <ClInclude Include="private\MultiLayerBitmap.hpp">
-      <Filter>Header Files\Private</Filter>
-    </ClInclude>
     <ClInclude Include="private\OpenGL.hpp">
       <Filter>Header Files\Private</Filter>
     </ClInclude>
@@ -53,6 +50,15 @@
     </ClInclude>
     <ClInclude Include="..\include\gl\glext.h">
       <Filter>Header Files\Private\ThirdParty</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\rlGameCanvas++\GameCanvas.hpp">
+      <Filter>Header Files\Private</Filter>
+    </ClInclude>
+    <ClInclude Include="private\GraphicsData.hpp">
+      <Filter>Header Files\Private</Filter>
+    </ClInclude>
+    <ClInclude Include="private\PrivateTypes.hpp">
+      <Filter>Header Files\Private</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -68,10 +74,10 @@
     <ClCompile Include="Windows.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="MultiLayerBitmap.cpp">
+    <ClCompile Include="OpenGL.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="OpenGL.cpp">
+    <ClCompile Include="GraphicsData.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

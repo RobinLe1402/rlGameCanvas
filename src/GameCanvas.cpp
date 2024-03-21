@@ -8,7 +8,7 @@ namespace rlGameCanvasLib
 	{
 		try
 		{
-			m_pPIMPL = new GameCanvas::PIMPL(config, reinterpret_cast<rlGameCanvas>(this));
+			m_pPIMPL = new GameCanvas::PIMPL(reinterpret_cast<rlGameCanvas>(this), config);
 		}
 		catch (...)
 		{

@@ -1,12 +1,15 @@
-#include "private/GameCanvasPIMPL.hpp"
-#include "private/Windows.hpp"
 #include <rlGameCanvas/Definitions.h>
 
+#include "private/GameCanvasPIMPL.hpp"
 #include "private/OpenGL.hpp"
+#include "private/PrivateTypes.hpp"
+#include "private/Windows.hpp"
 
 #include <gl/glext.h>
 
 #pragma comment(lib, "Opengl32.lib")
+
+
 
 namespace rlGameCanvasLib
 {
@@ -32,39 +35,43 @@ namespace rlGameCanvasLib
 			return memcmp(&o1, &o2, sizeof(Config)) != 0;
 		}
 
-		DWORD GenWindowStyle(UInt iMaximization, bool bMaxBtnAvailable)
+		Maximization StartupFlagsToMaximizationEnum(UInt iStartupFlags)
 		{
-			DWORD dwStyle = 0;
+			iStartupFlags &= 0x0000000F;
 
-			switch (iMaximization)
+			switch (iStartupFlags)
 			{
-			case RL_GAMECANVAS_MAX_FULLSCREEN:
-				dwStyle = WS_POPUP;
-				break;
+			case RL_GAMECANVAS_SUP_WINDOWED:
+				return Maximization::Windowed;
+			case RL_GAMECANVAS_SUP_MAXIMIZED:
+				return Maximization::Maximized;
+			case RL_GAMECANVAS_SUP_FULLSCREEN:
+				return Maximization::Fullscreen;
 
-			case RL_GAMECANVAS_MAX_MAXIMIZE:
-				dwStyle = (WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX) | WS_MAXIMIZE;
-				break;
+			default:
+				return Maximization::Unknown;
+			}
+		}
 
-			case RL_GAMECANVAS_MAX_NONE:
-				dwStyle = WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX;
-				if (!bMaxBtnAvailable)
-					dwStyle &= ~WS_MAXIMIZEBOX;
-				break;
+
+
+		constexpr DWORD GenWindowStyle(Maximization eMaximization)
+		{
+			switch (eMaximization)
+			{
+			case Maximization::Fullscreen:
+				return WS_POPUP;
+
+			case Maximization::Maximized:
+				return (WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX) | WS_MAXIMIZE;
+
+			case Maximization::Windowed:
+				return WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX;
 
 			default:
 				throw std::exception{};
 			}
-
-			return dwStyle;
 		}
-
-		struct WindowConfig
-		{
-			DWORD      dwStyle;
-			Rect       rcWindow;
-			Resolution oClientSize;
-		};
 
 		void GetFullscreenCoordAndSize(RECT &rcWindow, Resolution &oClientSize)
 		{
@@ -79,14 +86,10 @@ namespace rlGameCanvasLib
 			++rcWindow.right; // to avoid implicit fullscreen mode
 		}
 
-		void GetRestoredCoordAndSize(DWORD dwStyle, HWND hWndOnDestMonitor,
-			const Resolution &oRes, UInt &iPixelSize, RECT &rcWindow_Necessary)
+		void GetRestoredCoordAndSize(HWND hWndOnDestMonitor,
+			const Resolution &oRes, UInt iPixelSize, RECT &rcWindow_Necessary)
 		{
-			if (iPixelSize == 0)
-			{
-				// todo: automatically determine pixel size
-				iPixelSize = 1;
-			}
+			constexpr DWORD dwStyle = GenWindowStyle(Maximization::Windowed);
 
 
 			HMONITOR hMonitor;
@@ -184,7 +187,6 @@ namespace rlGameCanvasLib
 		wc.hInstance = s_hInstance;
 		wc.lpszClassName = s_szCLASSNAME;
 		wc.lpfnWndProc   = StaticWndProc;
-		wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
 		wc.style         = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
 
 		bRegistered = RegisterClassExW(&wc);
@@ -192,42 +194,79 @@ namespace rlGameCanvasLib
 	}
 
 
-	GameCanvas::PIMPL::PIMPL(const StartupConfig &config, rlGameCanvas oHandle) :
-		m_oConfig(config), m_oHandle(oHandle), m_iPixelSize(config.oInitialConfig.iPixelSize)
+	GameCanvas::PIMPL::PIMPL(rlGameCanvas oHandle, const StartupConfig &config) :
+		m_oHandle              (oHandle),
+		m_sWindowCaption       (config.szWindowCaption ? config.szWindowCaption : u8"rlGameCanvas"),
+		m_hIconSmall           (config.hIconSmall),
+		m_hIconBig             (config.hIconBig),
+		m_fnUpdateState        (config.fnUpdateState),
+		m_fnDrawState          (config.fnDrawState),
+		m_fnCreateState        (config.fnCreateState),
+		m_fnCopyState          (config.fnCopyState),
+		m_fnDestroyState       (config.fnDestroyState),
+		m_fnOnMsg              (config.fnOnMsg),
+		m_fnOnWinMsg           (config.fnOnWinMsg),
+		m_oModes               (config.iModeCount), // set values later
+		m_bFullscreenOnMaximize(config.iFlags & RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE),
+		m_bDontOversample      (config.iFlags & RL_GAMECANVAS_SUP_DONT_OVERSAMPLE      ),
+		m_bHideMouseCursor     (config.iFlags & RL_GAMECANVAS_SUP_HIDECURSOR           ),
+		m_eMaximization        (StartupFlagsToMaximizationEnum(config.iFlags)),
+		m_eNonFullscreenMaximization(
+			(m_eMaximization != Maximization::Fullscreen) ? m_eMaximization :
+			(m_bFullscreenOnMaximize ? Maximization::Windowed : Maximization::Maximized)
+		)
 	{
 		// check if the configuration is valid
-		if (config.fnUpdate      == nullptr ||
-			config.fnDraw        == nullptr ||
-			config.fnCreateData  == nullptr ||
-			config.fnDestroyData == nullptr ||
-			config.fnCopyData    == nullptr ||
-			config.iMaximizeBtnAction           > 2 ||
-			config.oInitialConfig.iMaximization > 2 ||
-			config.oInitialConfig.oResolution.x == 0 ||
-			config.oInitialConfig.oResolution.y == 0 ||
-			// initially maximized, but maximization is not available:
-			(config.oInitialConfig.iMaximization == RL_GAMECANVAS_MAX_MAXIMIZE &&
-				config.iMaximizeBtnAction != RL_GAMECANVAS_MAX_MAXIMIZE)
-		)
+		bool bValidConfig =
+			m_eMaximization != Maximization::Unknown &&
+			(!m_bFullscreenOnMaximize || m_eMaximization != Maximization::Maximized) &&
+			m_fnCreateState  != nullptr &&
+			m_fnCopyState    != nullptr &&
+			m_fnDestroyState != nullptr &&
+			m_fnUpdateState  != nullptr &&
+			m_fnDrawState    != nullptr &&
+			!m_oModes.empty();
+
+		if (bValidConfig)
+		{
+			for (size_t iMode = 0; iMode < m_oModes.size(); ++iMode)
+			{
+				auto &input  = config.pcoModes[iMode];
+				auto &output = m_oModes[iMode];
+				
+				bValidConfig =
+					input.iLayerCount   > 0 &&
+					input.oScreenSize.x > 0 && input.oScreenSize.y > 0;
+				if (!bValidConfig)
+					break;
+
+				output.oScreenSize = input.oScreenSize;
+				output.oLayerMetadata.reserve(input.iLayerCount);
+				for (size_t iLayer = 0; iLayer < input.iLayerCount; ++iLayer)
+				{
+					output.oLayerMetadata.push_back(input.pcoLayerMetadata[iLayer]);
+					
+					auto &oLayerSize = output.oLayerMetadata.back().oLayerSize;
+					
+					if (oLayerSize.x == 0)
+						oLayerSize.x = output.oScreenSize.x;
+					if (oLayerSize.y == 0)
+						oLayerSize.y = output.oScreenSize.y;
+				}
+			}
+		}
+
+		if (!bValidConfig)
 			throw std::exception{ "Invalid startup configuration." };
 
-		if (config.hIconBig && !config.hIconSmall)
-			m_oConfig.hIconSmall = config.hIconBig;
-		else if (config.hIconSmall && !config.hIconBig)
-			m_oConfig.hIconBig = config.hIconSmall;
 
 
-		// initialize the window caption string
-		if (config.szWindowCaption == nullptr) // default text
-			m_sWindowCaption = u8"rlGameCanvas";
-		else // custom text
-		{
-			m_sWindowCaption = config.szWindowCaption;
+		if (m_hIconBig && !m_hIconSmall)
+			m_hIconSmall = m_hIconBig;
+		else if (m_hIconSmall && !m_hIconBig)
+			m_hIconBig = m_hIconSmall;
 
-			// pointer might be invalid after constructor finishes, so it's safer to just set it to
-			// nullptr and to use m_sWindowCaption instead.
-			m_oConfig.szWindowCaption = nullptr;
-		}
+
 
 		// try to register the window class
 		if (!RegisterWindowClass())
@@ -235,173 +274,130 @@ namespace rlGameCanvasLib
 
 
 
-		int iWinX      = CW_USEDEFAULT;
-		int iWinY      = CW_USEDEFAULT;
-		int iWinWidth  = CW_USEDEFAULT;
-		int iWinHeight = CW_USEDEFAULT;
+		sendMessage(
+			RL_GAMECANVAS_MSG_CREATE,
+			reinterpret_cast<rlGameCanvas_MsgParam>(&m_iCurrentMode),
+			0
+		);
+		if (m_iCurrentMode >= config.iModeCount)
+			m_iCurrentMode = config.iModeCount;
 
-		const DWORD dwStyle = GenWindowStyle(m_oConfig.oInitialConfig.iMaximization,
-			m_oConfig.iMaximizeBtnAction != RL_GAMECANVAS_MAX_NONE);
-		switch (m_oConfig.oInitialConfig.iMaximization)
+		try
 		{
-		case RL_GAMECANVAS_MAX_FULLSCREEN:
-		{
-			RECT rcWindow = {};
-			GetFullscreenCoordAndSize(rcWindow, m_oClientSize);
-			iWinX      = rcWindow.left;
-			iWinY      = rcWindow.top;
-			iWinWidth  = rcWindow.right  - rcWindow.left;
-			iWinHeight = rcWindow.bottom - rcWindow.top;
-			break;
-		}
-
-		case RL_GAMECANVAS_MAX_MAXIMIZE:
-			// size is not calculated, but read after creation
-			break;
-
-		case RL_GAMECANVAS_MAX_NONE:
-		{
-			RECT rcWindow = {};
-			GetRestoredCoordAndSize(dwStyle, GetForegroundWindow(),
-				m_oConfig.oInitialConfig.oResolution, m_iPixelSize, rcWindow);
-			iWinX      = rcWindow.left;
-			iWinY      = rcWindow.top;
-			iWinWidth  = rcWindow.right  - rcWindow.left;
-			iWinHeight = rcWindow.bottom - rcWindow.top;
-		}
-			break;
-
-		default:
-			throw std::exception{ "Unknown initial maximization state." };
-		}
-
-
-		
-
-		// try to create the window
-		if (CreateWindowExW(
+			// try to create the window
+			if (CreateWindowExW(
 				NULL,                                                   // dwExStyle
 				s_szCLASSNAME,                                          // lpClassName
 				UTF8toWindowsUnicode(m_sWindowCaption.c_str()).c_str(), // lpWindowName
-				dwStyle,                                                // dwStyle
-				iWinX,                                                  // X
-				iWinY,                                                  // Y
-				iWinWidth,                                              // nWidth
-				iWinHeight,                                             // nHeight
+				GenWindowStyle(m_eMaximization),                        // dwStyle
+				CW_USEDEFAULT,                                          // X
+				CW_USEDEFAULT,                                          // Y
+				CW_USEDEFAULT,                                          // nWidth
+				CW_USEDEFAULT,                                          // nHeight
 				NULL,                                                   // hWndParent
 				NULL,                                                   // hMenu
 				s_hInstance,                                            // hInstance
 				this                                                    // lpParam
 			) == NULL)
-			ThrowWithLastError("Failed to create the window.");
+				ThrowWithLastError("Failed to create the window.");
 
-		// for compiler: C687 - "could be zero"
-		if (m_hWnd == NULL)
-			throw std::exception{ "Failed to create the window: No handle." };
+			// for compiler: C687 - "could be zero"
+			if (m_hWnd == NULL)
+				throw std::exception{ "Failed to create the window: No handle." };
 
-		if (m_oConfig.hIconSmall != NULL)
-			SendMessage(m_hWnd, WM_SETICON, ICON_SMALL,
-				reinterpret_cast<LPARAM>(m_oConfig.hIconSmall));
+			setWindowSize(GetForegroundWindow());
 
-		if (m_oConfig.hIconBig != NULL)
-			SendMessage(m_hWnd, WM_SETICON, ICON_BIG,
-				reinterpret_cast<LPARAM>(m_oConfig.hIconBig));
+			if (m_hIconSmall != NULL)
+				SendMessageW(m_hWnd, WM_SETICON, ICON_SMALL,
+					reinterpret_cast<LPARAM>(m_hIconSmall)
+				);
 
-		// get actual client area size
-		if (m_oConfig.oInitialConfig.iMaximization != RL_GAMECANVAS_MAX_FULLSCREEN)
-			m_oClientSize = GetActualClientSize(m_hWnd);
+			if (m_hIconBig != NULL)
+				SendMessageW(m_hWnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(m_hIconBig));
 
 
 
-		// set up OpenGL
+			// set up OpenGL
 
-		try
-		{
-			PIXELFORMATDESCRIPTOR pfd =
-			{
-				sizeof(PIXELFORMATDESCRIPTOR), 1,
-				PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
-				PFD_TYPE_RGBA, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-				PFD_MAIN_PLANE, 0, 0, 0, 0
-			};
-			int pf = ChoosePixelFormat(m_hDC, &pfd);
-			if (!SetPixelFormat(m_hDC, pf, &pfd))
-				ThrowWithLastError("Call to SetPixelFormat failed.");
-
-			m_hOpenGL = wglCreateContext(m_hDC);
-			if (m_hOpenGL == NULL)
-				ThrowWithLastError("Call to SetPixelFormat failed.");
 			try
 			{
-				if (!wglMakeCurrent(m_hDC, m_hOpenGL))
-					ThrowWithLastError("Call to wglMakeCurrent failed.");
+				PIXELFORMATDESCRIPTOR pfd =
+				{
+					sizeof(PIXELFORMATDESCRIPTOR), 1,
+					PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+					PFD_TYPE_RGBA, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					PFD_MAIN_PLANE, 0, 0, 0, 0
+				};
+				int pf = ChoosePixelFormat(m_hDC, &pfd);
+				if (!SetPixelFormat(m_hDC, pf, &pfd))
+					ThrowWithLastError("Call to SetPixelFormat failed.");
 
-				glViewport(
-					0,               // x
-					0,               // y
-					m_oClientSize.x, // width
-					m_oClientSize.y  // height
-				);
+				m_hOpenGL = wglCreateContext(m_hDC);
+				if (m_hOpenGL == NULL)
+					ThrowWithLastError("Call to SetPixelFormat failed.");
+				try
+				{
+					if (!wglMakeCurrent(m_hDC, m_hOpenGL))
+						ThrowWithLastError("Call to wglMakeCurrent failed.");
 
-				glMatrixMode(GL_PROJECTION);
+					glViewport(
+						0,               // x
+						0,               // y
+						m_oClientSize.x, // width
+						m_oClientSize.y  // height
+					);
 
-				const Pixel pxBG = m_oConfig.oInitialConfig.pxBackgroundColor;
-				glClearColor(
-					pxBG.rgba.r / 255.0f,
-					pxBG.rgba.g / 255.0f,
-					pxBG.rgba.b / 255.0f,
-					1.0f
-				);
+					glMatrixMode(GL_PROJECTION);
 
-				glEnable(GL_TEXTURE_2D);
-				glEnable(GL_BLEND);
-				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+					glEnable(GL_TEXTURE_2D);
+					glEnable(GL_BLEND);
+					glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				}
+				catch (...)
+				{
+					wglMakeCurrent(NULL, NULL);
+					wglDeleteContext(m_hOpenGL);
+					throw;
+				}
 			}
 			catch (...)
 			{
-				wglMakeCurrent(NULL, NULL);
-				wglDeleteContext(m_hOpenGL);
+				DestroyWindow(m_hWnd);
 				throw;
 			}
+
+
+
+
+			m_upOpenGL = std::make_unique<OpenGL>();
+			m_bFBO     = m_upOpenGL->glGenFramebuffers;
+#ifndef NDEBUG
+			printf("> OpenGL Version String: \"%s\"\n", m_upOpenGL->versionStr().c_str());
+			printf("> OpenGL framebuffers available: %s\n", m_bFBO ? "Yes" : "No");
+#endif // NDEBUG
+
+			if (m_bFBO)
+			{
+				auto &gl = *m_upOpenGL;
+
+				gl.glGenFramebuffers(1, &m_iIntScaledBufferFBO);
+				glGenTextures(1, &m_iIntScaledBufferTexture);
+
+				glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			}
+
+			m_fnCreateState(&m_pvState_Updating);
+			m_fnCreateState(&m_pvState_Drawing);
+
+			initializeCurrentMode();
 		}
 		catch (...)
 		{
-			DestroyWindow(m_hWnd);
+			sendMessage(RL_GAMECANVAS_MSG_DESTROY, 0, 0);
 			throw;
 		}
-		
-
-
-
-		m_upOpenGL = std::make_unique<OpenGL>();
-		m_bFBO     = m_upOpenGL->glGenFramebuffers;
-#ifndef NDEBUG
-		printf("> OpenGL Version String: \"%s\"\n", m_upOpenGL->versionStr().c_str());
-		printf("> OpenGL framebuffers available: %s\n", m_bFBO ? "Yes" : "No");
-#endif // NDEBUG
-
-		if (m_bFBO)
-		{
-			auto &gl = *m_upOpenGL;
-			const auto &cfg = m_oConfig.oInitialConfig;
-
-			gl.glGenFramebuffers(1, &m_iIntScaledBufferFBO);
-			glGenTextures(1, &m_iIntScaledBufferTexture);
-
-			glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		}
-
-		m_oConfig.fnCreateData(&m_pBuffer_Updating);
-		m_oConfig.fnCreateData(&m_pBuffer_Drawing);
-
-		const size_t iLayerCount = (size_t)1 + m_oConfig.iExtraLayerCount;
-		m_oLayersForCallback      = std::make_unique<Layer[]>(iLayerCount);
-		m_oLayersForCallback_Copy = std::make_unique<Layer[]>(iLayerCount);
-
-
-		setResolution(m_oConfig.oInitialConfig.oResolution, true);
 	}
 
 	GameCanvas::PIMPL::~PIMPL() { quit(); }
@@ -411,9 +407,7 @@ namespace rlGameCanvasLib
 		m_oMainThreadID = std::this_thread::get_id();
 
 		m_bRunning = true;
-		doUpdate(false, true); // first call to update() prepares the very first frame
 		ShowWindow(m_hWnd, SW_SHOW);
-		renderFrame(); // draw very first frame immediately
 		SetForegroundWindow(m_hWnd);
 
 		wglMakeCurrent(NULL, NULL); // give up control over OpenGL
@@ -454,8 +448,8 @@ namespace rlGameCanvasLib
 				}
 			}
 
-			if (!doUpdate(true, false))
-				resumeGraphicsThread();
+			doUpdate();
+			resumeGraphicsThread();
 		}
 	lbClose:
 				
@@ -481,7 +475,7 @@ namespace rlGameCanvasLib
 		}
 
 		m_upOpenGL.release();
-		m_oLayers.destroy();
+		m_oGraphicsData.destroy();
 		wglMakeCurrent(NULL, NULL);
 		wglDeleteContext(m_hOpenGL);
 
@@ -499,26 +493,197 @@ namespace rlGameCanvasLib
 		m_bStopRequested = true;
 	}
 
+	void GameCanvas::PIMPL::initializeCurrentMode()
+	{
+		createGraphicsData();
+		
+		if (m_eMaximization == Maximization::Windowed)
+			setWindowSize(m_hWnd);
+
+		calcRenderParams();
+	}
+
+	void GameCanvas::PIMPL::createGraphicsData()
+	{
+		const auto &mode = m_oModes[m_iCurrentMode];
+
+		m_oGraphicsData.create(mode); // todo: error handling
+
+		const size_t iLayerCount = mode.oLayerMetadata.size();
+
+		m_iLayersForCallback_Size = iLayerCount * sizeof(LayerData);
+		m_oLayersForCallback      = std::make_unique<LayerData[]>(iLayerCount);
+		m_oLayersForCallback_Copy = std::make_unique<LayerData[]>(iLayerCount);
+		m_oLayerSettings          = std::make_unique<LayerSettings[]>(iLayerCount);
+
+		for (size_t iLayer = 0; iLayer < iLayerCount; ++iLayer)
+		{
+			const auto &oLayerSpecs = mode.oLayerMetadata[iLayer];
+			auto &oLayerSettings    = m_oLayerSettings[iLayer];
+
+			oLayerSettings.bVisible   = oLayerSpecs.bHide == 0;
+			oLayerSettings.oScreenPos = oLayerSpecs.oScreenPos;
+
+			m_oLayersForCallback[iLayer] =
+			{
+				.ppxData =
+					reinterpret_cast<rlGameCanvas_Pixel*>(m_oGraphicsData.scanline(iLayer, 0)),
+				.oLayerSize  = oLayerSpecs.oLayerSize,
+				.poScreenPos = &oLayerSettings.oScreenPos,
+				.pbVisible   = &oLayerSettings.bVisible
+			};
+		}
+	}
+
+	void GameCanvas::PIMPL::setWindowSize(HWND hWndOnTargetMonitor)
+	{
+		m_bIgnoreResize = true;
+		const DWORD dwStyle = GenWindowStyle(m_eMaximization);
+		SetWindowLongW(m_hWnd, GWL_STYLE, dwStyle);
+		m_bIgnoreResize = false;
+
+		int iWinX = 0;
+		int iWinY = 0;
+		int iWinWidth  = 0;
+		int iWinHeight = 0;
+		switch (m_eMaximization)
+		{
+		case Maximization::Windowed:
+		{
+			RECT rcWindow = {};
+
+			if (m_bFBO)
+				m_bGraphicsThread_NewFBOSize = m_iPixelSize != m_iPixelSize_Restored;
+			m_iPixelSize = m_iPixelSize_Restored;
+
+			GetRestoredCoordAndSize(hWndOnTargetMonitor, m_oModes[m_iCurrentMode].oScreenSize,
+				m_iPixelSize, rcWindow);
+			iWinX      = rcWindow.left;
+			iWinY      = rcWindow.top;
+			iWinWidth  = rcWindow.right  - rcWindow.left;
+			iWinHeight = rcWindow.bottom - rcWindow.top;
+			break;
+		}
+
+		case Maximization::Maximized:
+			m_oClientSize = GetActualClientSize(m_hWnd);
+			return; // nothing to do
+
+		case Maximization::Fullscreen:
+		{
+			RECT rcWindow = {};
+			GetFullscreenCoordAndSize(rcWindow, m_oClientSize);
+			iWinX      = rcWindow.left;
+			iWinY      = rcWindow.top;
+			iWinWidth  = rcWindow.right  - rcWindow.left;
+			iWinHeight = rcWindow.bottom - rcWindow.top;
+			break;
+		}
+		}
+
+		m_bIgnoreResize = true;
+		SetWindowPos(
+			m_hWnd,      // hWnd
+			NULL,        // hWndInsertAfter
+			iWinX,       // X
+			iWinY,       // Y
+			iWinWidth,   // cx
+			iWinHeight,  // cy
+			SWP_NOZORDER // uFlags
+		);
+		m_bIgnoreResize = false;
+
+		if (m_eMaximization != Maximization::Fullscreen)
+			m_oClientSize = GetActualClientSize(m_hWnd);
+	}
+
+	void GameCanvas::PIMPL::calcRenderParams()
+	{
+		const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
+
+		const UInt iOldPixelSize = m_iPixelSize;
+
+		// calculate drawing rectangle
+		const double dRatio = (double)oScreenSize.x / oScreenSize.y;
+
+		UInt iDisplayWidth  = 0;
+		UInt iDisplayHeight = 0;
+
+		// calculate the biggest possible size that keeps the aspect ratio
+		{
+			iDisplayHeight = m_oClientSize.y;
+			iDisplayWidth  = UInt(iDisplayHeight * dRatio);
+
+			if (iDisplayWidth > m_oClientSize.x)
+			{
+				iDisplayWidth  = m_oClientSize.x;
+				iDisplayHeight = UInt(iDisplayWidth / dRatio);
+
+				if (iDisplayHeight > m_oClientSize.y)
+					iDisplayHeight = m_oClientSize.y;
+			}
+		}
+
+		// client area smaller than canvas size --> downscale
+		if (m_oClientSize.x < oScreenSize.x || m_oClientSize.y < oScreenSize.y)
+		{
+			m_iPixelSize = 1;
+			// keep the pre-calculated size
+		}
+
+		// canvas fits into client area at least once
+		else
+		{
+			m_iPixelSize = std::min(
+				m_oClientSize.x / oScreenSize.x,
+				m_oClientSize.y / oScreenSize.y
+			);
+			if (!m_bDontOversample &&
+				m_oClientSize.x > oScreenSize.x * m_iPixelSize &&
+				m_oClientSize.y > oScreenSize.y * m_iPixelSize)
+			{
+				++m_iPixelSize;
+				// keep the pre-calculated size
+			}
+			else
+			{
+				iDisplayWidth  = oScreenSize.x * m_iPixelSize;
+				iDisplayHeight = oScreenSize.y * m_iPixelSize;
+			}
+		}
+
+		// calculate the actual drawing rectangle
+		m_oDrawRect.iLeft   = (m_oClientSize.x  - iDisplayWidth) / 2;
+		m_oDrawRect.iRight  = m_oDrawRect.iLeft + iDisplayWidth;
+		m_oDrawRect.iTop    = (m_oClientSize.y - iDisplayHeight) / 2;
+		m_oDrawRect.iBottom = m_oDrawRect.iTop + iDisplayHeight;
+
+
+		if (m_bFBO && iOldPixelSize != m_iPixelSize)
+			m_bGraphicsThread_NewFBOSize = true;
+	}
+
 	LRESULT GameCanvas::PIMPL::localWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		if (!m_bMinimized && m_oConfig.fnOnWinMsg)
-			m_oConfig.fnOnWinMsg(m_oHandle, uMsg, wParam, lParam);
+		if (!m_bMinimized && m_fnOnWinMsg)
+			m_fnOnWinMsg(m_oHandle, hWnd, uMsg, wParam, lParam);
 
 		switch (uMsg)
 		{
 		case WM_CREATE:
 			m_hWnd = hWnd;
 			m_hDC  = GetDC(m_hWnd);
-			sendMessage(RL_GAMECANVAS_MSG_CREATE, 0, 0);
 			break;
 
 		case WM_SYSCOMMAND:
-			if (wParam == SC_MAXIMIZE)
+			switch (wParam)
 			{
-				if (m_oConfig.iMaximizeBtnAction == RL_GAMECANVAS_MAX_FULLSCREEN)
+			case SC_MAXIMIZE:
+				if (m_bFullscreenOnMaximize)
 				{
-					m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_FULLSCREEN;
-					m_bMaxFullscreen = true;
+					m_eNonFullscreenMaximization = m_eMaximization;
+					m_eMaximization              = Maximization::Fullscreen;
+					m_bMaxFullscreen             = true;
 
 					RECT rcWindow = {};
 					Resolution oClientSize = {};
@@ -526,7 +691,7 @@ namespace rlGameCanvasLib
 
 					m_bIgnoreResize = true;
 					ShowWindow(m_hWnd, SW_HIDE);
-					SetWindowLongW(m_hWnd, GWL_STYLE, GenWindowStyle(RL_GAMECANVAS_MAX_FULLSCREEN, false));
+					SetWindowLongW(m_hWnd, GWL_STYLE, GenWindowStyle(Maximization::Fullscreen));
 					m_bIgnoreResize = false;
 					SetWindowPos(
 							m_hWnd,                          // hWnd
@@ -540,6 +705,52 @@ namespace rlGameCanvasLib
 
 					return 0;
 				}
+				break;
+
+			case SC_RESTORE:
+				if (m_eMaximization != Maximization::Windowed)
+				{
+					m_eMaximization = Maximization::Windowed;
+					const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
+
+					const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
+					RECT rcWindow;
+
+					m_bGraphicsThread_NewFBOSize = m_iPixelSize != 1;
+					m_iPixelSize                 = m_iPixelSize_Restored;
+
+					GetRestoredCoordAndSize(m_hWnd, oScreenSize, m_iPixelSize, rcWindow);
+
+					WINDOWPLACEMENT wp = { sizeof(wp) };
+					GetWindowPlacement(m_hWnd, &wp);
+					wp.rcNormalPosition = rcWindow;
+					SetWindowPlacement(m_hWnd, &wp);
+					break;
+					
+					SetWindowPos(
+						m_hWnd,                          // hWnd
+						NULL,                            // hWndInsertAfter
+						rcWindow.left,                   // X
+						rcWindow.top,                    // Y
+						rcWindow.right  - rcWindow.left, // cx
+						rcWindow.bottom - rcWindow.top,  // cy
+						SWP_NOZORDER                     // uFlags
+					);
+
+					return 0;
+				}
+				break;
+			}
+			break;
+
+		case WM_SETCURSOR:
+			if (LOWORD(lParam) == HTCLIENT)
+			{
+				if (m_bHideMouseCursor)
+					SetCursor(NULL);
+				else
+					SetCursor(m_hCursor);
+				return TRUE;
 			}
 			break;
 
@@ -548,12 +759,10 @@ namespace rlGameCanvasLib
 			if (m_eGraphicsThreadState == GraphicsThreadState::NotStarted || m_bIgnoreResize)
 				break;
 
-			const UInt iPrevMax = m_oConfig.oInitialConfig.iMaximization;
-
 			switch (wParam)
 			{
 			case SIZE_MAXIMIZED:
-				m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_MAXIMIZE;
+				m_eMaximization = Maximization::Maximized;
 				break;
 
 			case SIZE_MINIMIZED:
@@ -569,34 +778,7 @@ namespace rlGameCanvasLib
 					m_bMaxFullscreen = false;
 					break;
 				}
-				if (m_oConfig.oInitialConfig.iMaximization != RL_GAMECANVAS_MAX_NONE)
-				{
-					m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_NONE;
-
-					const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
-					RECT rcWindow;
-					UInt iPixelSize = m_oConfig.oInitialConfig.iPixelSize;
-					GetRestoredCoordAndSize(dwStyle, m_hWnd, m_oConfig.oInitialConfig.oResolution,
-						iPixelSize, rcWindow);
-					if (
-						LOWORD(lParam) != iPixelSize * m_oConfig.oInitialConfig.oResolution.x ||
-						HIWORD(lParam) != iPixelSize * m_oConfig.oInitialConfig.oResolution.y
-					)
-					{
-						SetWindowPos(
-							m_hWnd,                          // hWnd
-							NULL,                            // hWndInsertAfter
-							rcWindow.left,                   // X
-							rcWindow.top,                    // Y
-							rcWindow.right  - rcWindow.left, // cx
-							rcWindow.bottom - rcWindow.top,  // cy
-							SWP_NOZORDER                     // uFlags
-						);
-						return 0;
-					}
-				}
-				else
-					m_oConfig.oInitialConfig.iMaximization = RL_GAMECANVAS_MAX_NONE;
+				
 				break;
 
 			default:
@@ -608,8 +790,7 @@ namespace rlGameCanvasLib
 				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 0, 0);
 			}
 			else
-				handleResize(LOWORD(lParam), HIWORD(lParam), iPrevMax,
-					m_oConfig.oInitialConfig.iMaximization);
+				handleResize(LOWORD(lParam), HIWORD(lParam));
 			return 0;
 		}
 
@@ -679,15 +860,8 @@ namespace rlGameCanvasLib
 		// sync up with logic thread
 		if (std::this_thread::get_id() == m_oGraphicsThread.get_id())
 		{
-			bool bOpenGLUnderControl = true;
-
 			std::unique_lock lock(m_muxNextFrame);
 			m_eGraphicsThreadState = GraphicsThreadState::Waiting;
-			if (m_bOpenGLRequest)
-			{
-				bOpenGLUnderControl = false;
-				wglMakeCurrent(NULL, NULL);
-			}
 			m_cvNextFrame.notify_one();
 			m_cvNextFrame.wait(lock);
 			
@@ -695,36 +869,27 @@ namespace rlGameCanvasLib
 			if (!m_bRunning) // app is being shut down
 				return; // cancel current frame rendering
 			lock_state.unlock();
-
-			if (bOpenGLUnderControl)
-			{
-				bool bNewOpenGLRequest = m_bOpenGLRequest;
-				while (m_bOpenGLRequest)
-				{
-					if (bNewOpenGLRequest)
-					{
-						bOpenGLUnderControl = false;
-						wglMakeCurrent(NULL, NULL);
-						bNewOpenGLRequest = false;
-					}
-					m_cvNextFrame.notify_one();
-					m_cvNextFrame.wait(lock);
-					lock_state.lock();
-					if (!m_bRunning)
-						return;
-				}
-			}
-
-			if (!bOpenGLUnderControl)
-			{
-				// regain control over OpenGL
-				if (!wglMakeCurrent(m_hDC, m_hOpenGL))
-					fprintf(stderr, "Graphics thread couldn't regain control over OpenGL!\n");
-				// TODO: further error handling?
-			}
 			
 
 			m_eGraphicsThreadState = GraphicsThreadState::Running;
+
+			if (m_bGraphicsThread_NewViewport)
+			{
+				glViewport(0, 0, m_oClientSize.x, m_oClientSize.y);
+				m_bGraphicsThread_NewViewport = false;
+			}
+			if (m_bGraphicsThread_NewFBOSize)
+			{
+				const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
+
+				glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+					oScreenSize.x * m_iPixelSize, oScreenSize.y * m_iPixelSize,
+					0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr
+				);
+
+				m_bGraphicsThread_NewFBOSize = false;
+			}
 		}
 
 		// update the canvas
@@ -732,12 +897,35 @@ namespace rlGameCanvasLib
 			m_oLayersForCallback_Copy.get(), m_iLayersForCallback_Size,
 			m_oLayersForCallback     .get(), m_iLayersForCallback_Size
 		);
-		m_oConfig.fnDraw(m_oHandle, m_oConfig.oInitialConfig.oResolution,
-			m_oLayersForCallback_Copy.get(), (UInt)m_oLayers.layerCount(), m_pBuffer_Drawing);
+		auto &mode = m_oModes[m_iCurrentMode];
 
+		UInt iDrawFlags = 0;
+		if (m_bNewMode)
+		{
+			m_bNewMode = false;
+			iDrawFlags |= RL_GAMECANVAS_DRW_NEWMODE;
+		}
 
+		m_fnDrawState(
+			m_oHandle,                                               // canvas
+			m_pvState_Drawing,                                       // pcvState
+			m_iCurrentMode,                                          // iMode
+			mode.oScreenSize,                                        // oScreenSize
+			(UInt)mode.oLayerMetadata.size(),                        // iLayers
+			m_oLayersForCallback_Copy.get(),                         // poLayers
+			reinterpret_cast<rlGameCanvas_Pixel *>(&m_pxBackground), // ppxBackground
+			iDrawFlags                                               // iFlags
+		);
 
-		m_oLayers.uploadAll();
+		m_pxBackground = RLGAMECANVAS_MAKEPIXELOPAQUE(m_pxBackground);
+
+		glClearColor(
+			m_pxBackground.rgba.r / 1.0f,
+			m_pxBackground.rgba.g / 1.0f,
+			m_pxBackground.rgba.b / 1.0f,
+			1.0f
+		);
+
 
 		// use FBO
 		if (m_bFBO)
@@ -758,53 +946,17 @@ namespace rlGameCanvasLib
 			}
 
 			// draw to texture
-			glViewport(0, 0, m_oConfig.oInitialConfig.oResolution.x * m_iPixelSize,
-				m_oConfig.oInitialConfig.oResolution.y * m_iPixelSize);
-
-			const Pixel pxBG = m_oConfig.oInitialConfig.pxBackgroundColor;
-			glClearColor(
-				pxBG.rgba.r / 255.0f,
-				pxBG.rgba.g / 255.0f,
-				pxBG.rgba.b / 255.0f,
-				1.0f
-			);
+			const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
+			glViewport(0, 0, oScreenSize.x * m_iPixelSize, oScreenSize.y * m_iPixelSize);
 
 			glClear(GL_COLOR_BUFFER_BIT);
-			for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
-			{
-				glBindTexture(GL_TEXTURE_2D, m_oLayers.textureID(i));
-
-				// draw texture (full width and height, but upside down)
-				glBegin(GL_TRIANGLE_STRIP);
-				{
-					// first triangle
-					//
-					// SCREEN:  TEXTURE:
-					//  1--3     2
-					//  | /      |\
-					//  |/       | \
-					//  2        1--3
-
-					glTexCoord2f(0.0, 1.0);  glVertex3f(-1.0f, -1.0f, 0.0f);
-					glTexCoord2f(0.0, 0.0);  glVertex3f(-1.0f, 1.0f, 0.0f);
-					glTexCoord2f(1.0, 1.0);  glVertex3f(1.0f, -1.0f, 0.0f);
+			glLoadIdentity();
+			glOrtho(-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f);
+			m_oGraphicsData.draw();
 
 
-					// second triangle (sharing an edge with the first one)
-					//
-					// SCREEN:  TEXTURE:
-					//     3     2--4
-					//    /|      \ |
-					//   / |       \|
-					//  2--4        3
-
-					glTexCoord2f(1.0, 0.0);  glVertex3f(1.0f, 1.0f, 0.0f);
-				}
-				glEnd();
-			}
 
 			// render to screen
-
 			gl.glBindFramebuffer(GL_FRAMEBUFFER, 0); // bind default framebuffer (screen buffer)
 			glViewport(
 				0,               // x
@@ -864,52 +1016,12 @@ namespace rlGameCanvasLib
 		// draw directly
 		else
 		{
+			glViewport(0, 0, m_oClientSize.x, m_oClientSize.y); // todo: remove again?
 			glLoadIdentity();
 			glOrtho(0, m_oClientSize.x, m_oClientSize.y, 0, 0.0f, 1.0f);
 
 			glClear(GL_COLOR_BUFFER_BIT);
-			for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
-			{
-				glBindTexture(GL_TEXTURE_2D, m_oLayers.textureID(i));
-
-				// draw texture (full width and height, but upside down)
-				glBegin(GL_TRIANGLE_STRIP);
-				{
-					// first triangle
-					//
-					// SCREEN:  TEXTURE:
-					//  1--3     2
-					//  | /      |\
-					//  |/       | \
-					//  2        1--3
-
-					// 1
-					glTexCoord2f(0.0, 1.0);
-					glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iBottom, 0);
-
-					// 2
-					glTexCoord2f(0.0, 0.0);
-					glVertex3i(m_oDrawRect.iLeft, m_oDrawRect.iTop, 0);
-
-					// 3
-					glTexCoord2f(1.0, 1.0);
-					glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iBottom, 0);
-
-
-					// second triangle (sharing an edge with the first one)
-					//
-					// SCREEN:  TEXTURE:
-					//     3     2--4
-					//    /|      \ |
-					//   / |       \|
-					//  2--4        3
-
-					// 4
-					glTexCoord2f(1.0, 0.0);
-					glVertex3i(m_oDrawRect.iRight, m_oDrawRect.iTop, 0);
-				}
-				glEnd();
-			}
+			m_oGraphicsData.draw_Legacy(m_oDrawRect);
 		}
 
 
@@ -921,391 +1033,122 @@ namespace rlGameCanvasLib
 	// It waits until the graphics thread is waiting.
 	// For optimization purposes, no check is done if the graphics thread has already given up
 	// control over OpenGL.
-	void GameCanvas::PIMPL::waitForGraphicsThread(bool bRequestOpenGL)
+	void GameCanvas::PIMPL::waitForGraphicsThread()
 	{
 		std::unique_lock lock(m_muxNextFrame);
-		m_bOpenGLRequest = bRequestOpenGL;
 
-		switch (m_eGraphicsThreadState)
-		{
-		case GraphicsThreadState::Waiting:
-			if (bRequestOpenGL)
-			{
-				m_cvNextFrame.notify_one(); // allow graphics thread to give up control over OpenGL
-				m_cvNextFrame.wait(lock);   // wait for the above to finish
-			}
-			break;
-
-		case GraphicsThreadState::Running:
+		if (m_eGraphicsThreadState == GraphicsThreadState::Running)
 			m_cvNextFrame.wait(lock); // wait for the graphics thread to finish drawing
-			break;
-
-		default:
-			throw std::exception{};
-		}
-
-		if (bRequestOpenGL)
-			wglMakeCurrent(m_hDC, m_hOpenGL); // todo: error handling?
 	}
 
 	// This function shall only be called after calling waitForGraphicsThread.
 	void GameCanvas::PIMPL::resumeGraphicsThread()
 	{
-		m_oConfig.fnCopyData(m_pBuffer_Updating, m_pBuffer_Drawing);
-
-		if (m_bOpenGLRequest)
-		{
-			wglMakeCurrent(NULL, NULL);
-			m_bOpenGLRequest = false;
-		}
+		m_fnCopyState(m_pvState_Updating, m_pvState_Drawing);
 		m_cvNextFrame.notify_one();
 	}
 
-	bool GameCanvas::PIMPL::doUpdate(bool bConfigChangable, bool bRepaint)
+	void GameCanvas::PIMPL::doUpdate()
 	{
-		auto &oConfig = m_oConfig.oInitialConfig;
-		Config oConfig_Copy = oConfig;
+		const Config cfgOld =
+		{
+			.iMode  = m_iCurrentMode,
+			.iFlags =
+				UInt(m_eMaximization == Maximization::Fullscreen ? RL_GAMECANVAS_CFG_FULLSCREEN : 0)
+				|
+				UInt(m_bHideMouseCursor                          ? RL_GAMECANVAS_CFG_HIDECURSOR : 0)
+		};
+		Config cfgNew = cfgOld;
 
-		UInt iFlags = 0;
-		if (!bConfigChangable)
-			iFlags |= RL_GAMECANVAS_UPD_READONLYCONFIG;
-		if (bRepaint)
-			iFlags |= RL_GAMECANVAS_UPD_REPAINT;
+
 
 		m_tp2 = std::chrono::system_clock::now();
 		if (m_tp1 == decltype(m_tp2){}) // not initialized?
 			m_tp1 = m_tp2;
 
+		const double dElapsedSeconds =
+			std::chrono::duration_cast<std::chrono::duration<double>>(m_tp2 - m_tp1).count();
+
 		m_bRunningUpdate = true;
-		m_oConfig.fnUpdate(m_oHandle, m_pBuffer_Updating,
-			std::chrono::duration_cast<std::chrono::duration<double>>(m_tp2 - m_tp1).count(),
-			&oConfig_Copy, iFlags);
+		m_fnUpdateState(
+			m_oHandle,          // canvas
+			m_pvState_Updating, // pvState
+			dElapsedSeconds,    // dSecsSinceLastCall
+			&cfgNew             // poConfig
+		);
 		m_bRunningUpdate = false;
 		m_tp1 = m_tp2;
 
-		if (
-			m_oConfig.iMaximizeBtnAction != RL_GAMECANVAS_MAX_MAXIMIZE &&
-			oConfig_Copy.iMaximization   == RL_GAMECANVAS_MAX_MAXIMIZE
-			)
-			oConfig_Copy = oConfig; // illegal change --> ignore request
-		else
-		{
-			if (oConfig_Copy.oResolution.x == 0)
-				oConfig_Copy.oResolution.x = oConfig.oResolution.x;
-			if (oConfig_Copy.oResolution.y == 0)
-				oConfig_Copy.oResolution.y = oConfig.oResolution.y;
-			oConfig_Copy.pxBackgroundColor =
-				RLGAMECANVAS_MAKEPIXELOPAQUE(oConfig_Copy.pxBackgroundColor);
-		}
 
-		bool bRendered = false;
-		if (bConfigChangable && oConfig_Copy != oConfig)
-		{
-			waitForGraphicsThread(true);
 
-			m_iPixelSize = oConfig_Copy.iPixelSize;
-
-			if (oConfig_Copy.iMaximization != oConfig.iMaximization)
-				setMaximization(oConfig_Copy.iMaximization, oConfig_Copy.oResolution, m_iPixelSize);
-
-			if (oConfig_Copy.pxBackgroundColor != oConfig.pxBackgroundColor)
-			{
-				m_oConfig.oInitialConfig.pxBackgroundColor = oConfig_Copy.pxBackgroundColor;
-
-				if (!m_bFBO)
-				{
-					const Pixel px = m_oConfig.oInitialConfig.pxBackgroundColor;
-					glClearColor(
-						px.rgba.r / 255.0f,
-						px.rgba.g / 255.0f,
-						px.rgba.b / 255.0f,
-						1.0f
-					);
-				}
-				
-			}
-
-			const bool bNewRes = oConfig_Copy.oResolution != oConfig.oResolution;
-			setResolution(oConfig_Copy.oResolution, bNewRes);
-
-			oConfig = oConfig_Copy;
-
-			doUpdate(false, bNewRes);
-			renderFrame();
-			bRendered = true;
-		}
-
-		return bRendered;
+		if (cfgOld != cfgNew)
+			updateConfig(cfgNew);
 	}
 
-	void GameCanvas::PIMPL::handleResize(unsigned iClientWidth, unsigned iClientHeight,
-		UInt iPreviousMaximization, UInt iNewMaximization)
+	void GameCanvas::PIMPL::updateConfig(const Config &cfg, bool bForceUpdateAll)
+	{
+		const bool bFullscreen = cfg.iFlags & RL_GAMECANVAS_CFG_FULLSCREEN;
+		const bool bHideCursor = cfg.iFlags & RL_GAMECANVAS_CFG_HIDECURSOR;
+
+		const bool bNewMode           = bForceUpdateAll || cfg.iMode != m_iCurrentMode;
+		const bool bFullscreenToggled = bForceUpdateAll ||
+			bFullscreen != (m_eMaximization == Maximization::Fullscreen);
+
+
+		m_bHideMouseCursor = bHideCursor;
+
+		if (!bNewMode && !bFullscreenToggled)
+			return;
+
+
+
+		if (bFullscreenToggled && bFullscreen)
+			m_eNonFullscreenMaximization = m_eMaximization;
+		m_eMaximization = bFullscreen ? Maximization::Fullscreen : m_eNonFullscreenMaximization;
+		m_iCurrentMode  = cfg.iMode;
+
+		const auto &mode    = m_oModes[cfg.iMode];
+		const bool bRunning = m_eGraphicsThreadState != GraphicsThreadState::NotStarted;
+
+
+		const bool bHidden = bRunning &&
+			((bNewMode && m_eMaximization == Maximization::Windowed) || bFullscreenToggled);
+		if (bHidden)
+			ShowWindow(m_hWnd, SW_HIDE);
+
+		if (bRunning)
+			waitForGraphicsThread();
+
+		if (bFullscreenToggled)
+			setWindowSize(m_hWnd);
+
+		if (bNewMode)
+			initializeCurrentMode();
+
+		calcRenderParams();
+
+		if (bHidden)
+			ShowWindow(m_hWnd, SW_SHOW);
+	}
+
+	void GameCanvas::PIMPL::handleResize(unsigned iClientWidth, unsigned iClientHeight)
 	{
 #ifndef NDEBUG
 		printf("> Resize: %u x %u pixels\n", iClientWidth, iClientHeight);
 #endif // NDEBUG
 
-		waitForGraphicsThread(true);
-
-		const Resolution oOldClientSize = m_oClientSize;
-		Resolution oNewRes = m_oConfig.oInitialConfig.oResolution;
+		waitForGraphicsThread();
 
 		bool bResize = false;
-		if (m_oConfig.fnOnMsg)
-		{
-			ResizeInputParams rip =
-			{
-				.oOldClientSize = oOldClientSize,
-				.oNewClientSize = { .x = iClientWidth, .y = iClientHeight },
-				.iOldMaximization = iPreviousMaximization,
-				.iNewMaximization = iNewMaximization
-			};
-			const Resolution oOldRes = m_oConfig.oInitialConfig.oResolution;
-			ResizeOutputParams rop =
-			{
-				.oResolution       = oOldRes,
-				.pxBackgroundColor = m_oConfig.oInitialConfig.pxBackgroundColor
-			};
-
-			m_oConfig.fnOnMsg(
-				m_oHandle,                        // canvas
-				RL_GAMECANVAS_MSG_RESIZE,         // iMsg
-				reinterpret_cast<MsgParam>(&rip), // iParam1
-				reinterpret_cast<MsgParam>(&rop)  // iParam2
-			);
-
-			m_oConfig.oInitialConfig.pxBackgroundColor =
-				RLGAMECANVAS_MAKEPIXELOPAQUE(rop.pxBackgroundColor);
-			if (!m_bFBO)
-			{
-				const Pixel pxBG = m_oConfig.oInitialConfig.pxBackgroundColor;
-				glClearColor(
-					pxBG.rgba.r / 255.0f,
-					pxBG.rgba.g / 255.0f,
-					pxBG.rgba.b / 255.0f,
-					1.0f
-				);
-			}
-
-			if (rop.oResolution.x == 0)
-				rop.oResolution.x = oOldRes.x;
-			if (rop.oResolution.y == 0)
-				rop.oResolution.y = oOldRes.y;
-
-			bResize = rop.oResolution != oOldRes;
-			if (bResize && iNewMaximization == RL_GAMECANVAS_MAX_NONE)
-			{
-				RECT rcWindow;
-				m_iPixelSize = m_oConfig.oInitialConfig.iPixelSize;
-				GetRestoredCoordAndSize(GetWindowLong(m_hWnd, GWL_STYLE), m_hWnd, rop.oResolution,
-					m_iPixelSize, rcWindow);
-
-				const int iWidth  = rcWindow.right  - rcWindow.left;
-				const int iHeight = rcWindow.bottom - rcWindow.top;
-
-				m_bIgnoreResize = true;
-				SetWindowPos(
-					m_hWnd,        // hWnd
-					NULL,          // hWndInsertAfter
-					rcWindow.left, // X
-					rcWindow.top,  // Y
-					iWidth,        // cx
-					iHeight,       // cy
-					SWP_NOZORDER   // uFlags
-				);
-				m_bIgnoreResize = false;
-
-				iClientWidth  = m_iPixelSize * rop.oResolution.x;
-				iClientHeight = m_iPixelSize * rop.oResolution.y;
-			}
-			oNewRes = rop.oResolution;
-		}
-
+		
 		m_oClientSize.x = iClientWidth;
 		m_oClientSize.y = iClientHeight;
 
 		if (!m_bFBO)
-			glViewport(0, 0, iClientWidth, iClientHeight);
+			m_bGraphicsThread_NewViewport = true;
 
 		
-
-		setResolution(oNewRes, bResize);
-		doUpdate(false, true);
-		m_oConfig.fnCopyData(m_pBuffer_Updating, m_pBuffer_Drawing);
-		renderFrame();
-	}
-
-	// WARNING:
-	// This function should only be called if...
-	// * the calling thread has control over OpenGL
-	// * there is currently no rendering in progress
-	// * m_oClientSize is up to date
-	// WHAT THIS FUNCTION DOES
-	// * recalculate m_iPixelSize and m_oDrawRect
-	// WHAT THIS FUNCTION DOESN'T DO
-	// * draw to the screen
-	void GameCanvas::PIMPL::setResolution(const Resolution &oNewRes, bool bResize)
-	{
-		if (bResize)
-		{
-			m_oConfig.oInitialConfig.oResolution = oNewRes;
-
-			if (!m_oLayers.create(
-				1 + m_oConfig.iExtraLayerCount, // iLayerCount
-				oNewRes.x,                      // iWidth
-				oNewRes.y                       // iHeight
-			))
-			{
-				// TODO: error handling?
-				fprintf(stderr, "Error resizing the canvas!\n");
-				return;
-			}
-
-			for (size_t i = 0; i < m_oLayers.layerCount(); ++i)
-			{
-				auto &oLayer    = m_oLayersForCallback[i];
-
-				oLayer.pData      = reinterpret_cast<rlGameCanvas_Pixel*>(m_oLayers.scanline(i, 0));
-				oLayer.oSize      = oNewRes;
-				oLayer.oScreenPos = {}; // TODO: make screen position changable per layer
-				oLayer.bVisible   = 1; // TODO: make visibility changable per layer
-			}
-			m_iLayersForCallback_Size = sizeof(Layer) * m_oLayers.layerCount();
-		}
-
-
-		// calculate drawing rectangle
-
-		const double dRatio = (double)oNewRes.x / oNewRes.y;
-
-		UInt iDisplayWidth  = 0;
-		UInt iDisplayHeight = 0;
-
-		// calculate the biggest possible size that keeps the aspect ratio
-		{
-			iDisplayHeight = m_oClientSize.y;
-			iDisplayWidth  = UInt(iDisplayHeight * dRatio);
-
-			if (iDisplayWidth > m_oClientSize.x)
-			{
-				iDisplayWidth  = m_oClientSize.x;
-				iDisplayHeight = UInt(iDisplayWidth / dRatio);
-
-				if (iDisplayHeight > m_oClientSize.y)
-					iDisplayHeight = m_oClientSize.y;
-			}
-		}
-
-		// client area smaller than canvas size --> downscale
-		if (m_oClientSize.x < oNewRes.x || m_oClientSize.y < oNewRes.y)
-		{
-			m_iPixelSize = 1;
-			// keep the pre-calculated size
-		}
-
-		// canvas fits into client area at least once
-		else
-		{
-			m_iPixelSize = std::min(m_oClientSize.x / oNewRes.x, m_oClientSize.y / oNewRes.y);
-			if (m_oConfig.bOversample &&
-				m_oClientSize.x > oNewRes.x * m_iPixelSize &&
-				m_oClientSize.y > oNewRes.y * m_iPixelSize)
-			{
-				++m_iPixelSize;
-				// keep the pre-calculated size
-			}
-			else
-			{
-				iDisplayWidth  = oNewRes.x * m_iPixelSize;
-				iDisplayHeight = oNewRes.y * m_iPixelSize;
-			}
-		}
-
-		// calculate the actual drawing rectangle
-		m_oDrawRect.iLeft   = (m_oClientSize.x  - iDisplayWidth) / 2;
-		m_oDrawRect.iRight  = m_oDrawRect.iLeft + iDisplayWidth;
-		m_oDrawRect.iTop    = (m_oClientSize.y - iDisplayHeight) / 2;
-		m_oDrawRect.iBottom = m_oDrawRect.iTop + iDisplayHeight;
-
-
-		glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-			m_oConfig.oInitialConfig.oResolution.x * m_iPixelSize,
-			m_oConfig.oInitialConfig.oResolution.y * m_iPixelSize,
-			0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	}
-
-	// WARNING:
-	// This function should only be called if...
-	// * the calling thread has control over OpenGL
-	// * there is currently no rendering in progress
-	// WHAT THIS FUNCTION DOES
-	// * change the window style, size and position
-	// * update m_oClientSize
-	// WHAT THIS FUNCTION DOESN'T DO
-	// * draw to the screen
-	// * recalculate the rendering size
-	void GameCanvas::PIMPL::setMaximization(UInt iMaximization, Resolution oNewRes,
-		UInt &iPixelSize)
-	{
-		int iWinX      = CW_USEDEFAULT;
-		int iWinY      = CW_USEDEFAULT;
-		int iWinWidth  = CW_USEDEFAULT;
-		int iWinHeight = CW_USEDEFAULT;
-
-		m_bIgnoreResize = true;
-
-		const DWORD dwStyle =
-			GenWindowStyle(iMaximization, m_oConfig.iMaximizeBtnAction != RL_GAMECANVAS_MAX_NONE);
-
-		if (iMaximization != RL_GAMECANVAS_MAX_MAXIMIZE)
-			ShowWindow(m_hWnd, SW_HIDE);
-		SetWindowLongW(m_hWnd, GWL_STYLE, dwStyle); // TODO: error handling?
-
-		switch (iMaximization)
-		{
-		case RL_GAMECANVAS_MAX_FULLSCREEN:
-		{
-			RECT rcWindow = {};
-			GetFullscreenCoordAndSize(rcWindow, m_oClientSize);
-			SetWindowPos(
-				m_hWnd,                          // hWnd
-				NULL,                            // hWndInsertAfter
-				rcWindow.left,                   // X
-				rcWindow.top,                    // Y
-				rcWindow.right  - rcWindow.left, // cx
-				rcWindow.bottom - rcWindow.top,  // cy
-				SWP_SHOWWINDOW | SWP_NOZORDER    // uFlags
-			);
-			break;
-		}
-			
-		case RL_GAMECANVAS_MAX_MAXIMIZE:
-			ShowWindow(m_hWnd, SW_MAXIMIZE);
-			break;
-
-		case RL_GAMECANVAS_MAX_NONE:
-		{
-			RECT rcWindow = {};
-			GetRestoredCoordAndSize(dwStyle, m_hWnd, oNewRes, iPixelSize, rcWindow);
-
-			SetWindowPos(
-				m_hWnd,                          // hWnd
-				NULL,                            // hWndInsertAfter
-				rcWindow.left,                   // X
-				rcWindow.top,                    // Y
-				rcWindow.right  - rcWindow.left, // cx
-				rcWindow.bottom - rcWindow.top,  // cy
-				SWP_SHOWWINDOW | SWP_NOZORDER    // uFlags
-			);
-			break;
-		}
-		}
-
-		if (iMaximization != RL_GAMECANVAS_MAX_FULLSCREEN)
-			m_oClientSize = GetActualClientSize(m_hWnd);
-
-		m_bIgnoreResize = false;
+		calcRenderParams();
 	}
 
 	void GameCanvas::PIMPL::sendMessage(
@@ -1314,8 +1157,8 @@ namespace rlGameCanvasLib
 			rlGameCanvas_MsgParam iParam2
 	)
 	{
-		if (m_oConfig.fnOnMsg)
-			m_oConfig.fnOnMsg(m_oHandle, iMsg, iParam1, iParam2);
+		if (m_fnOnMsg)
+			m_fnOnMsg(m_oHandle, iMsg, iParam1, iParam2);
 	}
 
 }

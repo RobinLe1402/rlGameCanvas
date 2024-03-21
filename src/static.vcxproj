@@ -150,7 +150,7 @@
   <ItemGroup>
     <ClCompile Include="GameCanvas.cpp" />
     <ClCompile Include="GameCanvasPIMPL.cpp" />
-    <ClCompile Include="MultiLayerBitmap.cpp" />
+    <ClCompile Include="GraphicsData.cpp" />
     <ClCompile Include="OpenGL.cpp" />
     <ClCompile Include="Windows.cpp" />
   </ItemGroup>
@@ -161,7 +161,7 @@
     <ClInclude Include="..\include\rlGameCanvas++\Pixel.hpp" />
     <ClInclude Include="..\include\rlGameCanvas++\Types.hpp" />
     <ClInclude Include="private\GameCanvasPIMPL.hpp" />
-    <ClInclude Include="private\MultiLayerBitmap.hpp" />
+    <ClInclude Include="private\GraphicsData.hpp" />
     <ClInclude Include="private\OpenGL.hpp" />
     <ClInclude Include="private\Windows.hpp" />
   </ItemGroup>

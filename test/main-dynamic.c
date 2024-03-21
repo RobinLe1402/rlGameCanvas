@@ -14,7 +14,6 @@ typedef struct
 {
 	unsigned iAnimFrame;
 	double   dFrameTime;
-	bool     bInitialize;
 } GraphicsData;
 
 #define RESIZETEST 1
@@ -27,17 +26,15 @@ typedef struct
 #define FRAMECOUNT ((HEIGHT / 2) - (unsigned)((HEIGHT / 2) * YFACTOR - 1))
 
 bool bFullscreenToggled = false;
-rlGameCanvas_UInt iPrevMaximization;
 
 void __stdcall Update(
-	rlGameCanvas              canvas,
-	rlGameCanvas_GraphicsData pData,
-	double                    dSecsSinceLastCall,
-	rlGameCanvas_Config      *pConfig,
-	rlGameCanvas_UInt         iFlags
+	rlGameCanvas         canvas,
+	void                *pvState,
+	double               dSecsSinceLastCall,
+	rlGameCanvas_Config *poConfig
 )
 {
-	GraphicsData *pDataT = pData;
+	GraphicsData *pDataT = pvState;
 
 	pDataT->dFrameTime += dSecsSinceLastCall;
 
@@ -47,17 +44,9 @@ void __stdcall Update(
 
 	pDataT->iAnimFrame %= FRAMECOUNT;
 
-	pDataT->bInitialize = iFlags & RL_GAMECANVAS_UPD_REPAINT;
-
-	if (bFullscreenToggled && (iFlags & RL_GAMECANVAS_UPD_READONLYCONFIG) == 0)
+	if (bFullscreenToggled)
 	{
-		if (pConfig->iMaximization == RL_GAMECANVAS_MAX_FULLSCREEN)
-			pConfig->iMaximization = iPrevMaximization;
-		else
-		{
-			iPrevMaximization = pConfig->iMaximization;
-			pConfig->iMaximization = RL_GAMECANVAS_MAX_FULLSCREEN;
-		}
+		poConfig->iFlags  ^= RL_GAMECANVAS_CFG_FULLSCREEN;
 		bFullscreenToggled = false;
 	}
 }
@@ -86,39 +75,6 @@ void __stdcall CanvasMsg(
 	case RL_GAMECANVAS_MSG_GAINFOCUS:
 		printf("GAINFOCUS received\n");
 		break;
-
-	case RL_GAMECANVAS_MSG_RESIZE:
-	{
-		printf("RESIZE received\n");
-		const rlGameCanvas_ResizeInputParams *rip =
-			(const rlGameCanvas_ResizeInputParams*)(iParam1);
-		rlGameCanvas_ResizeOutputParams* rop =
-			(rlGameCanvas_ResizeOutputParams*)(iParam2);
-
-		printf("  Old client size: [%ux%u], new client size: [%ux%u]\n",
-			rip->oOldClientSize.x, rip->oOldClientSize.y,
-			rip->oNewClientSize.x, rip->oNewClientSize.y
-		);
-
-		
-#if RESIZETEST
-		// test code for resizing
-		if (rip->iNewMaximization != RL_GAMECANVAS_MAX_NONE &&
-			rip->oOldClientSize.x < 1000 && rip->oNewClientSize.x >= 1000)
-		{
-			rop->oResolution.x = 2 * WIDTH;
-			rop->pxBackgroundColor = RLGAMECANVAS_MAKEPIXEL_RGB(0x55, 0x44, 0x33);
-		}
-		else if (rip->iNewMaximization == RL_GAMECANVAS_MAX_NONE)
-		{
-			rop->oResolution.x = WIDTH;
-			rop->pxBackgroundColor = rlGameCanvas_Color_Black;
-		}
-#endif
-		
-
-		break;
-	}
 		
 	case RL_GAMECANVAS_MSG_MINIMIZE:
 		printf("MINIMIZE received\n");
@@ -130,6 +86,7 @@ void __stdcall CanvasMsg(
 
 void __stdcall WinMsg(
 	rlGameCanvas canvas,
+	HWND         hWnd,
 	UINT         uMsg,
 	WPARAM       wParam,
 	LPARAM       lParam
@@ -145,22 +102,26 @@ void __stdcall WinMsg(
 }
 
 void __stdcall Draw(
-	rlGameCanvas canvas,
-	rlGameCanvas_Resolution oCanvasSize,
-	rlGameCanvas_Layer* pLayers,
-	rlGameCanvas_UInt iLayers,
-	const rlGameCanvas_GraphicsData pData)
+	rlGameCanvas            canvas,
+	const void             *pcvState,
+	rlGameCanvas_UInt       iMode,
+	rlGameCanvas_Resolution oScreenSize,
+	rlGameCanvas_UInt       iLayers,
+	rlGameCanvas_LayerData *poLayers,
+	rlGameCanvas_Pixel     *ppxBackground,
+	rlGameCanvas_UInt       iFlags
+)
 {
 	if (bPaused)
 		return;
 
-	const unsigned iWidth  = oCanvasSize.x;
-	const unsigned iHeight = oCanvasSize.y;
+	const unsigned iWidth  = oScreenSize.x;
+	const unsigned iHeight = oScreenSize.y;
 
-	const GraphicsData* pDataT = pData;
+	const GraphicsData* pDataT = pcvState;
 
 	const rlGameCanvas_Pixel px = RLGAMECANVAS_MAKEPIXEL_RGB(255, 0, 255);
-	if (pDataT->bInitialize)
+	if (iFlags & RL_GAMECANVAS_DRW_NEWMODE)
 	{
 		const unsigned iOffset     = HEIGHT / 2;
 		const unsigned iMaxXOffset = WIDTH  / 2;
@@ -172,7 +133,7 @@ void __stdcall Draw(
 
 		for (unsigned iY = 0; iOffset + iY < HEIGHT; ++iY)
 		{
-			pLayers[0].pData[iLineOffset] = px; // center line
+			poLayers[0].ppxData[iLineOffset] = px; // center line
 
 			const double dXOffset = iY * DIST_ADD_PER_LINE;
 
@@ -194,8 +155,8 @@ void __stdcall Draw(
 						break;
 					}
 
-					pLayers[0].pData[iLineOffset + iOffset] = px;
-					pLayers[0].pData[iLineOffset - iOffset] = px;
+					poLayers[0].ppxData[iLineOffset + iOffset] = px;
+					poLayers[0].ppxData[iLineOffset - iOffset] = px;
 				}
 
 				if (bOutOfBounds)
@@ -211,7 +172,7 @@ void __stdcall Draw(
 	}
 
 	// clear the horizontal line layer
-	memset(pLayers[1].pData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
+	memset(poLayers[1].ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
 
 	double dOffset = (HEIGHT / 2) - FRAMECOUNT + pDataT->iAnimFrame;
 	double dOldOffset = dOffset + 2;
@@ -223,7 +184,7 @@ void __stdcall Draw(
 		{
 			for (unsigned x = 0; x < WIDTH; ++x)
 			{
-				pLayers[1].pData[iY * iWidth + x] = px;
+				poLayers[1].ppxData[iY * iWidth + x] = px;
 			}
 		}
 
@@ -263,24 +224,22 @@ int main(int argc, char* argv[])
 
 	const char szTitle[] = "rlGameCanvas test in C";
 
-	sc.szWindowCaption    = szTitle;
-	sc.hIconBig           = LoadIconW(GetModuleHandleW(NULL), L"ROBINLE_ICON");
-	sc.hIconSmall         = NULL;
-	sc.iMaximizeBtnAction = RL_GAMECANVAS_MAX_MAXIMIZE;
-	sc.fnOnMsg            = CanvasMsg;
-	sc.fnOnWinMsg         = WinMsg;
-	sc.fnUpdate           = Update;
-	sc.fnDraw             = Draw;
-	sc.fnCreateData       = CreateData;
-	sc.fnDestroyData      = DestroyData;
-	sc.fnCopyData         = CopyData;
-	sc.iExtraLayerCount   = 1;
-	sc.bOversample        = 1;
-	sc.oInitialConfig.oResolution.x     = WIDTH;
-	sc.oInitialConfig.oResolution.y     = HEIGHT;
-	sc.oInitialConfig.iPixelSize        = 2;
-	sc.oInitialConfig.iMaximization     = RL_GAMECANVAS_MAX_NONE;
-	sc.oInitialConfig.pxBackgroundColor = rlGameCanvas_Color_Black;
+	const rlGameCanvas_LayerMetadata LAYERS[2] = { 0 };
+	const rlGameCanvas_Mode MODE = { { WIDTH, HEIGHT }, 2, LAYERS };
+
+	sc.szWindowCaption = szTitle;
+	sc.hIconBig        = LoadIconW(GetModuleHandleW(NULL), L"ROBINLE_ICON");
+	sc.hIconSmall      = NULL;
+	sc.fnUpdateState   = Update;
+	sc.fnDrawState     = Draw;
+	sc.fnCreateState   = CreateData;
+	sc.fnDestroyState  = DestroyData;
+	sc.fnCopyState     = CopyData;
+	sc.fnOnMsg         = CanvasMsg;
+	sc.fnOnWinMsg      = WinMsg;
+	sc.iFlags          = RL_GAMECANVAS_SUP_MAXIMIZED;
+	sc.iModeCount      = 1;
+	sc.pcoModes        = &MODE;
 
 	rlGameCanvas canvas = rlGameCanvas_Create(&sc);
 	if (!canvas)

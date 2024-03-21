@@ -7,8 +7,9 @@
 
 #include <rlGameCanvas++/GameCanvas.hpp>
 
-#include "MultiLayerBitmap.hpp"
+#include "GraphicsData.hpp"
 #include "OpenGL.hpp"
+#include "PrivateTypes.hpp"
 
 #include <gl/GL.h>
 
@@ -32,12 +33,18 @@ namespace rlGameCanvasLib
 			Stopped     // graphics thread was stopped after working.
 		};
 
-		struct Rect
+		enum class Maximization
 		{
-			UInt iLeft;
-			UInt iTop;
-			UInt iRight;
-			UInt iBottom;
+			Unknown, // for startup
+			Windowed,
+			Maximized,
+			Fullscreen
+		};
+
+		struct LayerSettings
+		{
+			rlGameCanvas_Bool bVisible;
+			Resolution        oScreenPos;
 		};
 
 	}
@@ -60,7 +67,7 @@ namespace rlGameCanvasLib
 
 	public: // methods
 
-		PIMPL(const StartupConfig &config, rlGameCanvas oHandle);
+		PIMPL(rlGameCanvas oHandle, const StartupConfig &config);
 		~PIMPL();
 
 		// interface methods =======================================================================
@@ -71,19 +78,39 @@ namespace rlGameCanvasLib
 
 	private: // methods
 
+		// Prepare everything for the current mode.
+		// Creates graphics data, maybe sets the window size and calculates the drawing area.
+		void initializeCurrentMode();
+
+		// (Re-)create the actual graphics data.
+		// Requires m_iCurrentMode to be up to date.
+		void createGraphicsData();
+
+		// Set window size and style without processing any of the resize-related messages.
+		// Requires m_iCurrentMode and m_eMaximization to be up to date.
+		// Updates m_oClientSize.
+		void setWindowSize(HWND hWndOnTargetMonitor);
+
+		// Recalculate output rectangle and pixel size.
+		// Requires m_iCurrentMode and m_oClientSize to be up to date.
+		// Updates m_iPixelSize and m_oDrawRect.
+		void calcRenderParams();
+
+
 		LRESULT localWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 		void graphicsThreadProc();
 
 		void renderFrame();
-		void waitForGraphicsThread(bool bRequestOpenGL);
+		void waitForGraphicsThread();
 		void resumeGraphicsThread(); // copy data, resume graphics thread
 
-		bool doUpdate(bool bConfigChangable, bool bRepaint); // return value: was frame rendered?
-		void handleResize(unsigned iClientWidth, unsigned iClientHeight,
-			UInt iPreviousMaximization, UInt iNewMaximization);
-		void setResolution(const Resolution &oNewRes, bool bResize);
-		void setMaximization(UInt iMaximization, Resolution oRes, UInt &iPixelSize);
+		void doUpdate();
+
+		void updateConfig(const Config &cfg, bool bForceUpdateAll = false);
+
+		void handleResize(unsigned iClientWidth, unsigned iClientHeight);
+
 
 		void sendMessage(
 			rlGameCanvas_UInt     iMsg,
@@ -94,27 +121,22 @@ namespace rlGameCanvasLib
 
 	private: // variables
 
-		rlGameCanvas  m_oHandle;
-		std::u8string m_sWindowCaption;
-		bool          m_bRunningUpdate     = false; // is the fnUpdate callback currently being run?
-		bool          m_bMinimized         = false;
-		bool          m_bMinimized_Waiting = false;
-		bool          m_bIgnoreResize      = false;
-		bool          m_bMaxFullscreen     = false;
+		const rlGameCanvas m_oHandle;
 
-		Resolution m_oClientSize = {};
-		UInt       m_iPixelSize  = 0;
-		Rect       m_oDrawRect   = {};
-
-		std::chrono::system_clock::time_point m_tp1, m_tp2;
-
-		StartupConfig m_oConfig;
-
-		HWND  m_hWnd    = NULL;
-		HGLRC m_hOpenGL = NULL;
-		HDC   m_hDC     = NULL;
+		const HCURSOR m_hCursor = LoadCursorW(NULL, IDC_ARROW);
+		HWND          m_hWnd    = NULL;
+		HGLRC         m_hOpenGL = NULL;
+		HDC           m_hDC     = NULL;
 
 		std::unique_ptr<OpenGL> m_upOpenGL; // extended OpenGL interface
+
+		bool   m_bFBO                    = false;
+		GLuint m_iIntScaledBufferFBO     = 0;
+		GLuint m_iIntScaledBufferTexture = 0;
+
+		std::mutex              m_muxNextFrame;
+		std::condition_variable m_cvNextFrame;
+
 
 		std::thread::id     m_oMainThreadID;
 		std::thread         m_oGraphicsThread;
@@ -124,24 +146,67 @@ namespace rlGameCanvasLib
 		std::mutex              m_muxAppState;
 		std::condition_variable m_cvAppState;
 
+
+		bool m_bMinimized         = false;
+		bool m_bMinimized_Waiting = false;
+
 		bool m_bRunning       = false; // is the game logic running?
 		bool m_bStopRequested = false; // user/game requested a stop.
+		bool m_bRunningUpdate = false; // is the fnUpdate callback currently being run?
+		bool m_bIgnoreResize  = false;
+		bool m_bMaxFullscreen = false;
 
-		std::mutex              m_muxNextFrame;
-		std::condition_variable m_cvNextFrame;
-		bool                    m_bOpenGLRequest = false;
+		std::chrono::system_clock::time_point m_tp1, m_tp2;
 
-		GraphicsData m_pBuffer_Updating = nullptr; // for access in update callback
-		GraphicsData m_pBuffer_Drawing  = nullptr; // for access in draw callback
 
-		MultiLayerBitmap m_oLayers;
-		std::unique_ptr<Layer[]> m_oLayersForCallback;
-		std::unique_ptr<Layer[]> m_oLayersForCallback_Copy;
+
+		// configurable data: startup ==============================================================
+		const std::u8string        m_sWindowCaption;
+		HICON                      m_hIconSmall;
+		HICON                      m_hIconBig;
+		const UpdateStateCallback  m_fnUpdateState;
+		const DrawStateCallback    m_fnDrawState;
+		const CreateStateCallback  m_fnCreateState;
+		const CopyStateCallback    m_fnCopyState;
+		const DestroyStateCallback m_fnDestroyState;
+		const MsgCallback          m_fnOnMsg;
+		const WinMsgCallback       m_fnOnWinMsg;
+		std::vector<Mode_CPP>      m_oModes;
+		const bool                 m_bFullscreenOnMaximize;
+		const bool                 m_bDontOversample;
+		// configurable data: runtime ==============================================================
+		bool         m_bHideMouseCursor;
+		Maximization m_eMaximization;
+		UInt         m_iCurrentMode = 0;
+		Pixel        m_pxBackground = rlGameCanvas_Color_Black;
+		//==========================================================================================
+
+		bool m_bNewMode = true;
+		Maximization m_eNonFullscreenMaximization;
+
+
+
+		Resolution m_oClientSize = {};
+		UInt       m_iPixelSize  = 1;
+		Rect       m_oDrawRect   = {};
+
+		UInt m_iPixelSize_Restored = 1;
+
+		
+
+		void *m_pvState_Updating = nullptr; // for access in update callback
+		void *m_pvState_Drawing  = nullptr; // for access in draw callback
+
+		GraphicsData m_oGraphicsData;
+		std::unique_ptr<LayerData[]> m_oLayersForCallback;
+		std::unique_ptr<LayerData[]> m_oLayersForCallback_Copy;
 		size_t m_iLayersForCallback_Size;
+		std::unique_ptr<LayerSettings[]> m_oLayerSettings;
 
-		bool   m_bFBO                    = false;
-		GLuint m_iIntScaledBufferFBO     = 0;
-		GLuint m_iIntScaledBufferTexture = 0;
+
+		bool m_bGraphicsThread_NewViewport = false;
+		bool m_bGraphicsThread_NewFBOSize  = false;
+
 	};
 
 }
