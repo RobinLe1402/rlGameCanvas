@@ -28,6 +28,9 @@ typedef struct
 bool bFullscreenToggled = false;
 bool bHideCursorToggled = false;
 
+bool bMouseCursorOnCanvas = false;
+rlGameCanvas_Resolution oMouseCursorPos;
+
 void __stdcall Update(
 	rlGameCanvas         canvas,
 	void                *pvState,
@@ -86,6 +89,19 @@ void __stdcall CanvasMsg(
 		printf("MINIMIZE received\n");
 		bPaused = iParam1;
 		printf("  %s minimization\n", bPaused ? "Entered" : "Exited");
+		break;
+
+	case RL_GAMECANVAS_MSG_MOUSEMOVE:
+		printf("MOUSEMOVE received\n");
+		bMouseCursorOnCanvas = true;
+		oMouseCursorPos.x = iParam1;
+		oMouseCursorPos.y = iParam2;
+		printf("  Mouse now at (%u,%u)\n", oMouseCursorPos.x, oMouseCursorPos.y);
+		break;
+
+	case RL_GAMECANVAS_MSG_MOUSELEAVE:
+		printf("MOUSELEAVE received\n");
+		bMouseCursorOnCanvas = false;
 		break;
 	}
 }

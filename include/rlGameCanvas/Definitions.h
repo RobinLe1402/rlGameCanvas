@@ -60,9 +60,8 @@
 	TRIGGER:           The mouse cursor has moved to a new position on the client area.
 	                   Only fired when the window has focus.
 	EXPECTED BEHAVIOR: Possibly move mouse cursor/change button highlighting.
-	PARAMETER 1:       [rlGameCanvas_Resolution*] The coordinates of the pixel the mouse cursor is
-	                   now on.
-	PARAMETER 2:       Not used.
+	PARAMETER 1:       [rlGameCanvas_UInt] The x-coordinate of the mouse cursor, in canvas pixels.
+	PARAMETER 2:       [rlGameCanvas_UInt] The y-coordinate of the mouse cursor, in canvas pixels.
 */
 #define RL_GAMECANVAS_MSG_MOUSEMOVE (0x00000006)
 

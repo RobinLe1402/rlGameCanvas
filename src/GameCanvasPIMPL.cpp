@@ -6,6 +6,7 @@
 #include "private/Windows.hpp"
 
 #include <gl/glext.h>
+#include <windowsx.h>
 
 #pragma comment(lib, "Opengl32.lib")
 
@@ -727,6 +728,56 @@ namespace rlGameCanvasLib
 				else
 					SetCursor(m_hCursor);
 				return TRUE;
+			}
+			break;
+
+		case WM_MOUSEMOVE:
+		{
+			const auto iClientX = GET_X_LPARAM(lParam);
+			const auto iClientY = GET_Y_LPARAM(lParam);
+
+			const bool bClientOverCanvas =
+				iClientX >= (int)m_oDrawRect.iLeft && (UInt)iClientX <= m_oDrawRect.iRight &&
+				iClientY >= (int)m_oDrawRect.iTop  && (UInt)iClientY <= m_oDrawRect.iBottom;
+
+			if (!bClientOverCanvas)
+			{
+				if (m_bMouseOverCanvas)
+				{
+					m_bMouseOverCanvas = false;
+					sendMessage(RL_GAMECANVAS_MSG_MOUSELEAVE, 0, 0);
+				}
+			}
+			else
+			{
+				const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
+				const double dPixelSize =
+					double(m_oDrawRect.iRight - m_oDrawRect.iLeft) / oScreenSize.x;
+
+				const int iCanvasX = iClientX - m_oDrawRect.iLeft;
+				const int iCanvasY = iClientY - m_oDrawRect.iTop;
+				const Resolution oMousePos =
+				{
+					.x = UInt(iCanvasX / dPixelSize),
+					.y = UInt(iCanvasY / dPixelSize)
+				};
+				if (!m_bMouseOverCanvas || oMousePos != m_oPrevCursorPos)
+				{
+					m_bMouseOverCanvas = true;
+					sendMessage(RL_GAMECANVAS_MSG_MOUSEMOVE, oMousePos.x, oMousePos.y);
+					m_oPrevCursorPos = oMousePos;
+				}
+
+			}
+
+			break;
+		}
+
+		case WM_MOUSELEAVE:
+			if (m_bMouseOverCanvas)
+			{
+				m_bMouseOverCanvas = false;
+				sendMessage(RL_GAMECANVAS_MSG_MOUSELEAVE, 0, 0);
 			}
 			break;
 

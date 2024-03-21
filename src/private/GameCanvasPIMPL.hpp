@@ -149,10 +149,13 @@ namespace rlGameCanvasLib
 		std::condition_variable m_cvAppState;
 
 
-		bool m_bHasFocus          = false;
-		bool m_bMinimized         = false;
-		bool m_bMinimized_Waiting = false;
-		bool m_bRestoreHandled    = false;
+		Resolution m_oPrevCursorPos = {};
+		bool m_bMouseOverCanvas     = false;
+
+		bool m_bHasFocus            = false;
+		bool m_bMinimized           = false;
+		bool m_bMinimized_Waiting   = false;
+		bool m_bRestoreHandled      = false;
 
 		bool m_bRunning       = false; // is the game logic running?
 		bool m_bStopRequested = false; // user/game requested a stop.
