@@ -722,7 +722,7 @@ namespace rlGameCanvasLib
 		case WM_SETCURSOR:
 			if (LOWORD(lParam) == HTCLIENT)
 			{
-				if (m_bHideMouseCursor)
+				if (m_bHasFocus && m_bHideMouseCursor)
 					SetCursor(NULL);
 				else
 					SetCursor(m_hCursor);
@@ -811,10 +811,12 @@ namespace rlGameCanvasLib
 		}
 
 		case WM_KILLFOCUS:
+			m_bHasFocus = false;
 			sendMessage(RL_GAMECANVAS_MSG_LOSEFOCUS, 0, 0);
 			break;
 
 		case WM_SETFOCUS:
+			m_bHasFocus = true;
 			sendMessage(RL_GAMECANVAS_MSG_GAINFOCUS, 0, 0);
 			break;
 
@@ -1143,17 +1145,20 @@ namespace rlGameCanvasLib
 
 			// if the mouse cursor is currently on top of the client area, manually refresh the
 			// cursor immediately, as by default it will only change once it moves.
-			POINT ptCursor;
-			GetCursorPos(&ptCursor);
-			ScreenToClient(m_hWnd, &ptCursor);
-			if (ptCursor.x >= 0 && ptCursor.y >= 0 &&
-				(UInt)ptCursor.x < m_oClientSize.x &&
-				(UInt)ptCursor.y < m_oClientSize.y)
+			if (m_bHasFocus)
 			{
-				if (m_bHideMouseCursor)
-					SetCursor(NULL);
-				else
-					SetCursor(m_hCursor);
+				POINT ptCursor;
+				GetCursorPos(&ptCursor);
+				ScreenToClient(m_hWnd, &ptCursor);
+				if (ptCursor.x >= 0 && ptCursor.y >= 0 &&
+					(UInt)ptCursor.x < m_oClientSize.x &&
+					(UInt)ptCursor.y < m_oClientSize.y)
+				{
+					if (m_bHideMouseCursor)
+						SetCursor(NULL);
+					else
+						SetCursor(m_hCursor);
+				}
 			}
 		}
 

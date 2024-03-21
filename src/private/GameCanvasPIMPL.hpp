@@ -149,6 +149,7 @@ namespace rlGameCanvasLib
 		std::condition_variable m_cvAppState;
 
 
+		bool m_bHasFocus          = false;
 		bool m_bMinimized         = false;
 		bool m_bMinimized_Waiting = false;
 		bool m_bRestoreHandled    = false;
