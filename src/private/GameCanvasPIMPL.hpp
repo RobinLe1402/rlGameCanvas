@@ -127,6 +127,7 @@ namespace rlGameCanvasLib
 
 		const HCURSOR m_hCursor = LoadCursorW(NULL, IDC_ARROW);
 		HWND          m_hWnd    = NULL;
+		HACCEL        m_hAccel  = NULL;
 		HGLRC         m_hOpenGL = NULL;
 		HDC           m_hDC     = NULL;
 
@@ -156,6 +157,7 @@ namespace rlGameCanvasLib
 		bool m_bMinimized           = false;
 		bool m_bMinimized_Waiting   = false;
 		bool m_bRestoreHandled      = false;
+		bool m_bFullscreenToggled   = false;
 
 		bool m_bRunning       = false; // is the game logic running?
 		bool m_bStopRequested = false; // user/game requested a stop.

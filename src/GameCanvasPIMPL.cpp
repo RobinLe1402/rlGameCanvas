@@ -317,6 +317,21 @@ namespace rlGameCanvasLib
 				SendMessageW(m_hWnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(m_hIconBig));
 
 
+			ACCEL accAltEnter =
+			{
+				.fVirt = FALT,
+				.key   = VK_RETURN,
+				.cmd = 0
+			};
+
+			m_hAccel = CreateAcceleratorTableW(&accAltEnter, 1);
+			if (m_hAccel == NULL)
+			{
+				DestroyWindow(m_hWnd);
+				throw std::exception{ "Failed to create accelerator table." };
+			}
+
+
 
 			// set up OpenGL
 
@@ -415,8 +430,11 @@ namespace rlGameCanvasLib
 		{
 			while (PeekMessageW(&msg, m_hWnd, 0, 0, PM_REMOVE))
 			{
-				TranslateMessage(&msg);
-				DispatchMessageW(&msg);
+				if (!TranslateAcceleratorW(msg.hwnd, m_hAccel, &msg))
+				{
+					TranslateMessage(&msg);
+					DispatchMessageW(&msg);
+				}
 
 				if (!m_bRunning)
 					goto lbClose;
@@ -717,6 +735,15 @@ namespace rlGameCanvasLib
 					return 0;
 				}
 				break;
+			}
+			break;
+
+		case WM_SYSKEYDOWN:
+			// [Alt] + [Return] --> toggle fullscreen
+			if ((wParam == VK_RETURN) && (HIWORD(lParam) & KF_ALTDOWN))
+			{
+				m_bFullscreenToggled = true;
+				return 0;
 			}
 			break;
 
@@ -1154,6 +1181,11 @@ namespace rlGameCanvasLib
 				UInt(m_bHideMouseCursor                          ? RL_GAMECANVAS_CFG_HIDECURSOR : 0)
 		};
 		Config cfgNew = cfgOld;
+		if (m_bFullscreenToggled)
+		{
+			cfgNew.iFlags ^= RL_GAMECANVAS_CFG_FULLSCREEN;
+			m_bFullscreenToggled = false;
+		}
 
 
 
