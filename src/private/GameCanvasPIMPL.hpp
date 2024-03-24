@@ -169,7 +169,6 @@ namespace rlGameCanvasLib
 		bool m_bFullscreenToggled   = false;
 
 		bool m_bRunning       = false; // is the game logic running?
-		bool m_bStopRequested = false; // user/game requested a stop.
 		bool m_bRunningUpdate = false; // is the fnUpdate callback currently being run?
 		bool m_bIgnoreResize  = false;
 		bool m_bMaxFullscreen = false;
@@ -195,6 +194,7 @@ namespace rlGameCanvasLib
 		bool                       m_bRestrictCursor;
 		// configurable data: runtime ==============================================================
 		bool         m_bHideCursor;
+		bool         m_bHideCursorEx;
 		Maximization m_eMaximization;
 		UInt         m_iCurrentMode = 0;
 		Pixel        m_pxBackground = rlGameCanvas_Color_Black;

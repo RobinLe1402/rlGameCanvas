@@ -31,6 +31,8 @@ typedef struct
 bool bFullscreenToggled     = false;
 bool bRestrictCursorToggled = false;
 bool bHideCursorToggled     = false;
+bool bHideCursorExToggled   = false;
+bool bCloseRequested        = false;
 
 bool bMouseCursorOnCanvas = false;
 rlGameCanvas_Resolution oMouseCursorPos;
@@ -68,6 +70,13 @@ void __stdcall Update(
 		poConfig->iFlags ^= RL_GAMECANVAS_CFG_HIDE_CURSOR;
 		bHideCursorToggled = false;
 	}
+	if (bHideCursorExToggled)
+	{
+		poConfig->iFlags ^= RL_GAMECANVAS_CFG_HIDE_CURSOR_EX;
+		bHideCursorExToggled = false;
+	}
+	if (bCloseRequested)
+		rlGameCanvas_Quit(canvas);
 
 	pDataT->bMouseOnCanvas = pcoReadonlyState->iFlags & RL_GAMECANVAS_STA_MOUSE_ON_CANVAS;
 	pDataT->oMousePos      = pcoReadonlyState->oMousePos;
@@ -123,12 +132,20 @@ void __stdcall WinMsg(
 			bHideCursorToggled = true;
 			break;
 
+		case 'E':
+			bHideCursorExToggled = true;
+			break;
+
 		case 'F':
 			bFullscreenToggled = true;
 			break;
 
 		case 'R':
 			bRestrictCursorToggled = true;
+			break;
+
+		case 'X':
+			bCloseRequested = true;
 			break;
 		}
 		break;
@@ -320,8 +337,10 @@ int main(int argc, char* argv[])
 		"==================================================\n"
 		"CONTROLS:\n"
 		"[C]ursor     - Toggle mouse cursor visiblity.\n"
-		"[R]estrict   - Toggle mouse cursor restriction.\n"
+		"[E]xtended   - Toggle extended mouse cursor visibility.\n"
 		"[F]ullscreen - Toggle fullscreen mode.\n"
+		"[R]estrict   - Toggle mouse cursor restriction.\n"
+		"E[x]it       - Close the demo.\n"
 		"==================================================\n"
 	);
 
