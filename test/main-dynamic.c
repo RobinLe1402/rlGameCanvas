@@ -8,6 +8,11 @@
 
 #define WIDTH  256
 #define HEIGHT 240
+
+#define MODE_COUNT 2
+#define MODEID_DEFAULT 0
+#define MODEID_DEBUG   1
+
 #define LAYER_COUNT 4
 #define LAYERID_BG     0
 #define LAYERID_VLINES 1
@@ -35,7 +40,7 @@ typedef struct
 bool bFullscreenToggled     = false;
 bool bRestrictCursorToggled = false;
 bool bHideCursorToggled     = false;
-bool bHideCursorExToggled   = false;
+bool bModeToggled           = false;
 bool bCloseRequested        = false;
 
 bool bMouseCursorOnCanvas = false;
@@ -73,6 +78,11 @@ void __stdcall Update(
 	{
 		poConfig->iFlags ^= RL_GAMECANVAS_CFG_HIDE_CURSOR;
 		bHideCursorToggled = false;
+	}
+	if (bModeToggled)
+	{
+		poConfig->iMode = ++poConfig->iMode % MODE_COUNT;
+		bModeToggled = false;
 	}
 	if (bCloseRequested)
 		rlGameCanvas_Quit(canvas);
@@ -131,12 +141,12 @@ void __stdcall WinMsg(
 			bHideCursorToggled = true;
 			break;
 
-		case 'E':
-			bHideCursorExToggled = true;
-			break;
-
 		case 'F':
 			bFullscreenToggled = true;
+			break;
+
+		case 'M':
+			bModeToggled = true;
 			break;
 
 		case 'R':
@@ -183,6 +193,7 @@ void __stdcall Draw(
 
 
 		// draw a background pattern
+		if (iMode == MODEID_DEBUG)
 		{
 			const rlGameCanvas_Pixel px = RLGAMECANVAS_MAKEPIXEL(255, 255, 255, 48);
 
@@ -317,7 +328,17 @@ int main(int argc, char* argv[])
 	rlGameCanvas_LayerMetadata LAYERS[LAYER_COUNT] = { 0 };
 	LAYERS[LAYERID_BG].oLayerSize.x = 2;
 	LAYERS[LAYERID_BG].oLayerSize.y = 2;
-	const rlGameCanvas_Mode MODE = { { WIDTH, HEIGHT }, LAYER_COUNT, LAYERS };
+
+	rlGameCanvas_Mode oModes[MODE_COUNT] = { 0 };
+
+	oModes[MODEID_DEFAULT].oScreenSize.x    = WIDTH;
+	oModes[MODEID_DEFAULT].oScreenSize.y    = HEIGHT;
+	oModes[MODEID_DEFAULT].iLayerCount      = LAYER_COUNT;
+	oModes[MODEID_DEFAULT].pcoLayerMetadata = LAYERS;
+
+	oModes[MODEID_DEBUG] = oModes[MODEID_DEFAULT];
+	oModes[MODEID_DEBUG].oScreenSize.y += 10;
+
 
 	sc.szWindowCaption = szTitle;
 	sc.hIconBig        = LoadIconW(GetModuleHandleW(NULL), L"ROBINLE_ICON");
@@ -331,8 +352,8 @@ int main(int argc, char* argv[])
 	sc.fnOnWinMsg      = WinMsg;
 	sc.iFlags          = RL_GAMECANVAS_SUP_WINDOWED | RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE |
 		RL_GAMECANVAS_SUP_RESTRICT_CURSOR;
-	sc.iModeCount      = 1;
-	sc.pcoModes        = &MODE;
+	sc.iModeCount      = MODE_COUNT;
+	sc.pcoModes        = oModes;
 
 	rlGameCanvas canvas = rlGameCanvas_Create(&sc);
 	if (!canvas)
@@ -347,7 +368,8 @@ int main(int argc, char* argv[])
 		"==================================================\n"
 		"CONTROLS:\n"
 		"[C]ursor     - Toggle mouse cursor visiblity.\n"
-		"[F]ullscreen - Toggle fullscreen mode.\n"
+		"[F]ullscreen - Toggle fullscreen.\n"
+		"[M]ode       - Toggle debug mode.\n"
 		"[R]estrict   - Toggle mouse cursor restriction.\n"
 		"E[x]it       - Close the demo.\n"
 		"==================================================\n"

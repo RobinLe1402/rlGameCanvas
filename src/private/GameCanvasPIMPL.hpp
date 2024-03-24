@@ -118,7 +118,7 @@ namespace rlGameCanvasLib
 
 		void doUpdate();
 
-		void updateConfig(const Config &cfg, bool bForceUpdateAll = false);
+		void updateConfig(const Config &cfg);
 
 		void handleResize(unsigned iClientWidth, unsigned iClientHeight);
 

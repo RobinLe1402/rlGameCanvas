@@ -520,6 +520,8 @@ namespace rlGameCanvasLib
 			setWindowSize(m_hWnd);
 
 		calcRenderParams();
+		if (m_bFBO)
+			m_bGraphicsThread_NewFBOSize = true;
 	}
 
 	void GameCanvas::PIMPL::createGraphicsData()
@@ -1112,8 +1114,6 @@ namespace rlGameCanvasLib
 			glViewport(0, 0, oScreenSize.x * m_iPixelSize, oScreenSize.y * m_iPixelSize);
 
 			glClear(GL_COLOR_BUFFER_BIT);
-			glLoadIdentity();
-			glOrtho(-1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f);
 			m_oGraphicsData.draw();
 
 
@@ -1309,14 +1309,14 @@ namespace rlGameCanvasLib
 			updateConfig(cfgNew);
 	}
 
-	void GameCanvas::PIMPL::updateConfig(const Config &cfg, bool bForceUpdateAll)
+	void GameCanvas::PIMPL::updateConfig(const Config &cfg)
 	{
 		const bool bFullscreen     = cfg.iFlags & RL_GAMECANVAS_CFG_FULLSCREEN;
 		const bool bRestrictCursor = cfg.iFlags & RL_GAMECANVAS_CFG_RESTRICT_CURSOR;
 		const bool bHideCursor     = cfg.iFlags & RL_GAMECANVAS_CFG_HIDE_CURSOR;
 
-		const bool bNewMode           = bForceUpdateAll || cfg.iMode != m_iCurrentMode;
-		const bool bFullscreenToggled = bForceUpdateAll ||
+		m_bNewMode                    = cfg.iMode != m_iCurrentMode;
+		const bool bFullscreenToggled = 
 			bFullscreen != (m_eMaximization == Maximization::Fullscreen);
 
 
@@ -1342,7 +1342,7 @@ namespace rlGameCanvasLib
 			applyCursor();
 		}
 
-		if (!bNewMode && !bFullscreenToggled)
+		if (!m_bNewMode && !bFullscreenToggled)
 			return;
 
 
@@ -1357,7 +1357,7 @@ namespace rlGameCanvasLib
 
 
 		const bool bHidden = bRunning &&
-			((bNewMode && m_eMaximization == Maximization::Windowed) || bFullscreenToggled);
+			((m_bNewMode && m_eMaximization == Maximization::Windowed) || bFullscreenToggled);
 		if (bHidden)
 			ShowWindow(m_hWnd, SW_HIDE);
 
@@ -1367,7 +1367,7 @@ namespace rlGameCanvasLib
 		if (bFullscreenToggled)
 			setWindowSize(m_hWnd);
 
-		if (bNewMode)
+		if (m_bNewMode)
 			initializeCurrentMode();
 
 		calcRenderParams();
