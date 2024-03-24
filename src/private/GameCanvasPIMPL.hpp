@@ -159,8 +159,9 @@ namespace rlGameCanvasLib
 		std::condition_variable m_cvAppState;
 
 
-		Resolution m_oCursorPos = {};
-		bool m_bMouseOverCanvas = false;
+		Resolution m_oCursorPos          = {};
+		bool m_bMouseCursorOutsideClient = true;
+		bool m_bMouseOverCanvas          = false;
 
 		bool m_bHasFocus            = false;
 		bool m_bMinimized           = false;

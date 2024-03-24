@@ -708,7 +708,8 @@ namespace rlGameCanvasLib
 	void GameCanvas::PIMPL::applyCursor()
 	{
 		if (m_bHasFocus &&
-			((m_bMouseOverCanvas && m_bHideCursor) || (!m_bMouseOverCanvas && m_bHideCursorEx))
+			((m_bMouseOverCanvas && m_bHideCursor) ||
+				(!m_bMouseOverCanvas && m_bHideCursorEx && !m_bMouseCursorOutsideClient))
 		)
 			SetCursor(NULL);
 		else
@@ -813,12 +814,14 @@ namespace rlGameCanvasLib
 			break;
 
 		case WM_NCMOUSEMOVE:
+			m_bMouseCursorOutsideClient = true;
 			m_bMouseOverCanvas = false;
 			applyCursor();
 			break;
 
 		case WM_MOUSEMOVE:
 		{
+			m_bMouseCursorOutsideClient = false;
 			bool bCursorChanged = false;
 
 			if (m_bHideCursorEx)
@@ -863,6 +866,7 @@ namespace rlGameCanvasLib
 		}
 
 		case WM_MOUSELEAVE:
+			m_bMouseCursorOutsideClient = true;
 			m_bMouseOverCanvas = false;
 			break;
 
