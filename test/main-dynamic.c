@@ -8,7 +8,11 @@
 
 #define WIDTH  256
 #define HEIGHT 240
-#define LAYER_COUNT 3
+#define LAYER_COUNT 4
+#define LAYERID_BG     0
+#define LAYERID_VLINES 1
+#define LAYERID_HLINES 2
+#define LAYERID_CURSOR 3
 
 bool bPaused = false;
 typedef struct
@@ -177,9 +181,18 @@ void __stdcall Draw(
 		const unsigned iLineCenterOffset = WIDTH / 2;
 		unsigned iLineOffset = iOffset * iWidth + iLineCenterOffset;
 
+
+		// draw a background pattern
+		{
+			const rlGameCanvas_Pixel px = RLGAMECANVAS_MAKEPIXEL(255, 255, 255, 64);
+
+			poLayers[LAYERID_BG].ppxData[0] = px;
+			poLayers[LAYERID_BG].ppxData[3] = px;
+		}
+
 		for (unsigned iY = 0; iOffset + iY < HEIGHT; ++iY)
 		{
-			poLayers[0].ppxData[iLineOffset] = px; // center line
+			poLayers[LAYERID_VLINES].ppxData[iLineOffset] = px; // center line
 
 			const double dXOffset = iY * DIST_ADD_PER_LINE;
 
@@ -201,8 +214,8 @@ void __stdcall Draw(
 						break;
 					}
 
-					poLayers[0].ppxData[iLineOffset + iOffset] = px;
-					poLayers[0].ppxData[iLineOffset - iOffset] = px;
+					poLayers[LAYERID_VLINES].ppxData[iLineOffset + iOffset] = px;
+					poLayers[LAYERID_VLINES].ppxData[iLineOffset - iOffset] = px;
 				}
 
 				if (bOutOfBounds)
@@ -220,7 +233,7 @@ void __stdcall Draw(
 
 
 	// clear the horizontal line layer
-	memset(poLayers[1].ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
+	memset(poLayers[LAYERID_HLINES].ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
 
 	// draw the horizontal lines
 	double dOffset = (HEIGHT / 2) - FRAMECOUNT + pDataT->iAnimFrame;
@@ -233,7 +246,7 @@ void __stdcall Draw(
 		{
 			for (unsigned x = 0; x < WIDTH; ++x)
 			{
-				poLayers[1].ppxData[iY * iWidth + x] = px;
+				poLayers[LAYERID_HLINES].ppxData[iY * iWidth + x] = px;
 			}
 		}
 
@@ -248,7 +261,7 @@ void __stdcall Draw(
 
 
 	// if applicable, draw a cursor indicator
-	memset(poLayers[2].ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
+	memset(poLayers[LAYERID_CURSOR].ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
 	if (pDataT->bMouseOnCanvas)
 	{
 		const rlGameCanvas_UInt iX = pDataT->oMousePos.x;
@@ -256,21 +269,21 @@ void __stdcall Draw(
 		const rlGameCanvas_Pixel px = rlGameCanvas_Color_White;
 
 		if (iX > 0)
-			poLayers[2].ppxData[iY * iWidth + iX - 1] = px;
+			poLayers[LAYERID_CURSOR].ppxData[iY * iWidth + iX - 1] = px;
 		if (iX > 1)
-			poLayers[2].ppxData[iY * iWidth + iX - 2] = px;
+			poLayers[LAYERID_CURSOR].ppxData[iY * iWidth + iX - 2] = px;
 		if (iY > 0)
-			poLayers[2].ppxData[(iY - 1) * iWidth + iX] = px;
+			poLayers[LAYERID_CURSOR].ppxData[(iY - 1) * iWidth + iX] = px;
 		if (iY > 1)
-			poLayers[2].ppxData[(iY - 2) * iWidth + iX] = px;
+			poLayers[LAYERID_CURSOR].ppxData[(iY - 2) * iWidth + iX] = px;
 		if (iWidth - 1 - iX > 0)
-			poLayers[2].ppxData[iY * iWidth + iX + 1] = px;
+			poLayers[LAYERID_CURSOR].ppxData[iY * iWidth + iX + 1] = px;
 		if (iWidth - 1 - iX > 1)
-			poLayers[2].ppxData[iY * iWidth + iX + 2] = px;
+			poLayers[LAYERID_CURSOR].ppxData[iY * iWidth + iX + 2] = px;
 		if (iHeight - 1 - iY > 0)
-			poLayers[2].ppxData[(iY + 1) * iWidth + iX] = px;
+			poLayers[LAYERID_CURSOR].ppxData[(iY + 1) * iWidth + iX] = px;
 		if (iHeight - 1 - iY > 1)
-			poLayers[2].ppxData[(iY + 2) * iWidth + iX] = px;
+			poLayers[LAYERID_CURSOR].ppxData[(iY + 2) * iWidth + iX] = px;
 	}
 }
 
@@ -301,7 +314,9 @@ int main(int argc, char* argv[])
 
 	const char szTitle[] = "rlGameCanvas test in C";
 
-	const rlGameCanvas_LayerMetadata LAYERS[LAYER_COUNT] = { 0 };
+	rlGameCanvas_LayerMetadata LAYERS[LAYER_COUNT] = { 0 };
+	LAYERS[LAYERID_BG].oLayerSize.x = 2;
+	LAYERS[LAYERID_BG].oLayerSize.y = 2;
 	const rlGameCanvas_Mode MODE = { { WIDTH, HEIGHT }, LAYER_COUNT, LAYERS };
 
 	sc.szWindowCaption = szTitle;

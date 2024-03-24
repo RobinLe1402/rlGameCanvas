@@ -44,10 +44,10 @@ void GraphicsData::Layer::setScreenPos(const lib::Resolution &oScreenPos)
 		.y = oScreenPos.y % m_oScreenSize.y
 	};
 
-	m_fTexLeft   =        (float(m_oScreenPos.x            ) / m_iWidth );
-	m_fTexTop    = 1.0f - (float(m_oScreenPos.y            ) / m_iHeight);
-	m_fTexRight  =        (float(m_oScreenPos.x + m_iWidth ) / m_iWidth );
-	m_fTexBottom = 1.0f - (float(m_oScreenPos.y + m_iHeight) / m_iHeight);
+	m_fTexLeft   =        (float(m_oScreenPos.x                  ) / m_iWidth );
+	m_fTexTop    = 1.0f - (float(m_oScreenPos.y                  ) / m_iHeight);
+	m_fTexRight  =        (float(m_oScreenPos.x + m_oScreenSize.x) / m_iWidth );
+	m_fTexBottom = 1.0f - (float(m_oScreenPos.y + m_oScreenSize.y) / m_iHeight);
 }
 
 void GraphicsData::Layer::drawFilling()
