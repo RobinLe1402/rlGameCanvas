@@ -184,7 +184,7 @@ void __stdcall Draw(
 
 		// draw a background pattern
 		{
-			const rlGameCanvas_Pixel px = RLGAMECANVAS_MAKEPIXEL(255, 255, 255, 64);
+			const rlGameCanvas_Pixel px = RLGAMECANVAS_MAKEPIXEL(255, 255, 255, 48);
 
 			poLayers[LAYERID_BG].ppxData[0] = px;
 			poLayers[LAYERID_BG].ppxData[3] = px;
