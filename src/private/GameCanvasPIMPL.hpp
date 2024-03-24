@@ -194,11 +194,13 @@ namespace rlGameCanvasLib
 		bool                       m_bRestrictCursor;
 		// configurable data: runtime ==============================================================
 		bool         m_bHideCursor;
-		bool         m_bHideCursorEx;
 		Maximization m_eMaximization;
 		UInt         m_iCurrentMode = 0;
 		Pixel        m_pxBackground = rlGameCanvas_Color_Black;
 		//==========================================================================================
+
+		double m_dTimeSinceLastMouseMove = 0.0;
+		bool   m_bHideCursorEx = false;
 
 		bool m_bNewMode = true;
 		Maximization m_eNonFullscreenMaximization;

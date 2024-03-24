@@ -17,6 +17,10 @@ namespace rlGameCanvasLib
 	namespace
 	{
 
+		constexpr double dSECONDS_TILL_CURSOR_HIDE_EX = 2.0;
+
+
+
 		[[noreturn]]
 		void ThrowWithLastError(const char *szMessage, DWORD dwLastError = GetLastError())
 		{
@@ -212,7 +216,6 @@ namespace rlGameCanvasLib
 		m_bDontOversample      (config.iFlags & RL_GAMECANVAS_SUP_DONT_OVERSAMPLE      ),
 		m_bRestrictCursor      (config.iFlags & RL_GAMECANVAS_SUP_RESTRICT_CURSOR      ),
 		m_bHideCursor          (config.iFlags & RL_GAMECANVAS_SUP_HIDE_CURSOR          ),
-		m_bHideCursorEx        (config.iFlags & RL_GAMECANVAS_SUP_HIDE_CURSOR_EX       ),
 		m_eMaximization        (StartupFlagsToMaximizationEnum(config.iFlags)),
 		m_eNonFullscreenMaximization(
 			(m_eMaximization != Maximization::Fullscreen) ? m_eMaximization :
@@ -704,7 +707,9 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::applyCursor()
 	{
-		if (m_bHideCursor && m_bHasFocus && (m_bHideCursorEx || m_bMouseOverCanvas))
+		if (m_bHasFocus &&
+			((m_bMouseOverCanvas && m_bHideCursor) || (!m_bMouseOverCanvas && m_bHideCursorEx))
+		)
 			SetCursor(NULL);
 		else
 			SetCursor(m_hCursor);
@@ -814,6 +819,14 @@ namespace rlGameCanvasLib
 
 		case WM_MOUSEMOVE:
 		{
+			bool bCursorChanged = false;
+
+			if (m_bHideCursorEx)
+			{
+				bCursorChanged  = true;
+				m_bHideCursorEx = false;
+			}
+
 			const auto iClientX = GET_X_LPARAM(lParam);
 			const auto iClientY = GET_Y_LPARAM(lParam);
 
@@ -841,6 +854,9 @@ namespace rlGameCanvasLib
 			}
 
 			if (m_bMouseOverCanvas != bMouseOverCanvasBefore)
+				bCursorChanged = true;
+
+			if (bCursorChanged)
 				applyCursor();
 
 			break;
@@ -1225,8 +1241,7 @@ namespace rlGameCanvasLib
 			.iFlags =
 				UInt(bPrevFullscreen   ? RL_GAMECANVAS_CFG_FULLSCREEN      : 0) |
 				UInt(m_bRestrictCursor ? RL_GAMECANVAS_CFG_RESTRICT_CURSOR : 0) |
-				UInt(m_bHideCursor     ? RL_GAMECANVAS_CFG_HIDE_CURSOR     : 0) |
-				UInt(m_bHideCursorEx   ? RL_GAMECANVAS_CFG_HIDE_CURSOR_EX  : 0)
+				UInt(m_bHideCursor     ? RL_GAMECANVAS_CFG_HIDE_CURSOR     : 0)
 		};
 
 		Config cfgNew = cfgOld;
@@ -1265,6 +1280,27 @@ namespace rlGameCanvasLib
 
 
 
+		const bool bHideCursorEx_Before = m_bHideCursorEx;
+		if (!m_bHideCursorEx)
+		{
+			m_dTimeSinceLastMouseMove += dElapsedSeconds;
+			if (m_dTimeSinceLastMouseMove >= dSECONDS_TILL_CURSOR_HIDE_EX)
+			{
+				m_dTimeSinceLastMouseMove = 0.0;
+				m_bHideCursorEx = true;
+
+				if (
+					(cfgNew.iFlags & RL_GAMECANVAS_CFG_HIDE_CURSOR) ==
+					(cfgOld.iFlags & RL_GAMECANVAS_CFG_HIDE_CURSOR)
+				)
+					applyCursor();
+
+#ifndef NDEBUG
+				printf("> Cursor is automatically hidden\n");
+#endif // NDEBUG
+			}
+		}
+
 		if (cfgOld != cfgNew)
 			updateConfig(cfgNew);
 	}
@@ -1274,7 +1310,6 @@ namespace rlGameCanvasLib
 		const bool bFullscreen     = cfg.iFlags & RL_GAMECANVAS_CFG_FULLSCREEN;
 		const bool bRestrictCursor = cfg.iFlags & RL_GAMECANVAS_CFG_RESTRICT_CURSOR;
 		const bool bHideCursor     = cfg.iFlags & RL_GAMECANVAS_CFG_HIDE_CURSOR;
-		const bool bHideCursorEx   = cfg.iFlags & RL_GAMECANVAS_CFG_HIDE_CURSOR_EX;
 
 		const bool bNewMode           = bForceUpdateAll || cfg.iMode != m_iCurrentMode;
 		const bool bFullscreenToggled = bForceUpdateAll ||
@@ -1287,21 +1322,15 @@ namespace rlGameCanvasLib
 			applyCursorRestriction();
 		}
 		
-		if (m_bHideCursor != bHideCursor || m_bHideCursorEx != bHideCursorEx)
+		if (m_bHideCursor != bHideCursor)
 		{
 			m_bHideCursor   = bHideCursor;
-			m_bHideCursorEx = bHideCursorEx;
 
 #ifndef NDEBUG
 			if (bHideCursor)
 				printf("> Cursor is hidden\n");
 			else
 				printf("> Cursor is visible\n");
-
-			if (bHideCursorEx)
-				printf("> Cursor will be hidden on the padding area\n");
-			else
-				printf("> Cursor will be visible on the padding area\n");
 #endif // NDEBUG
 
 			// manually refresh the cursor immediately, as by default it will only change once it

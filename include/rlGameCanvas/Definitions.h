@@ -102,7 +102,6 @@
 //                                              (0x00000080) is reserved for future use.
 #define RL_GAMECANVAS_SUP_RESTRICT_CURSOR       (0x00000100)
 #define RL_GAMECANVAS_SUP_HIDE_CURSOR           (0x00000200)
-#define RL_GAMECANVAS_SUP_HIDE_CURSOR_EX        (0x00000400)
 
 
 
@@ -124,14 +123,10 @@
 	RL_GAMECANVAS_CFG_HIDE_CURSOR
 		If this flag is set, the mouse cursor will be hidden over the client area when the window
 		has focus.
-	RL_GAMECANVAS_CFG_HIDE_CURSOR_EX
-		If this flag is set, setting RL_GAMECANVAS_CFG_HIDE_CURSOR will also hide the mouse cursor
-		over the black padding area around the canvas in fullscreen or maximized mode.
 */
 #define RL_GAMECANVAS_CFG_FULLSCREEN      (0x00000001)
 #define RL_GAMECANVAS_CFG_RESTRICT_CURSOR (0x00000002)
 #define RL_GAMECANVAS_CFG_HIDE_CURSOR     (0x00000004)
-#define RL_GAMECANVAS_CFG_HIDE_CURSOR_EX  (0x00000008)
 
 
 

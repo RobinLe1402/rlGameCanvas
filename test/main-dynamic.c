@@ -70,11 +70,6 @@ void __stdcall Update(
 		poConfig->iFlags ^= RL_GAMECANVAS_CFG_HIDE_CURSOR;
 		bHideCursorToggled = false;
 	}
-	if (bHideCursorExToggled)
-	{
-		poConfig->iFlags ^= RL_GAMECANVAS_CFG_HIDE_CURSOR_EX;
-		bHideCursorExToggled = false;
-	}
 	if (bCloseRequested)
 		rlGameCanvas_Quit(canvas);
 
@@ -337,7 +332,6 @@ int main(int argc, char* argv[])
 		"==================================================\n"
 		"CONTROLS:\n"
 		"[C]ursor     - Toggle mouse cursor visiblity.\n"
-		"[E]xtended   - Toggle extended mouse cursor visibility.\n"
 		"[F]ullscreen - Toggle fullscreen mode.\n"
 		"[R]estrict   - Toggle mouse cursor restriction.\n"
 		"E[x]it       - Close the demo.\n"
