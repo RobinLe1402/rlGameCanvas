@@ -55,27 +55,6 @@
 */
 #define RL_GAMECANVAS_MSG_MINIMIZE (0x00000005)
 
-/*
-	MESSAGE:           RL_GAMECANVAS_MSG_MOUSEMOVE
-	TRIGGER:           The mouse cursor has moved to a new position on the client area.
-	                   Only fired when the window has focus.
-	EXPECTED BEHAVIOR: Possibly move mouse cursor/change button highlighting.
-	PARAMETER 1:       [rlGameCanvas_UInt] The x-coordinate of the mouse cursor, in canvas pixels.
-	PARAMETER 2:       [rlGameCanvas_UInt] The y-coordinate of the mouse cursor, in canvas pixels.
-*/
-#define RL_GAMECANVAS_MSG_MOUSEMOVE (0x00000006)
-
-/*
-	MESSAGE:           RL_GAMECANVAS_MSG_MOUSELEAVE
-	TRIGGER:           a) The window has focus and the mouse cursor has moved to a new position
-	                      outside the client area.
-	                   b) The window has lost focus. Sent after RL_GAMECANVAS_MSG_LOSEFOCUS.
-	EXPECTED BEHAVIOR: Possibly move mouse cursor/change button highlighting.
-	PARAMETER 1:       Not used.
-	PARAMETER 2:       Not used.
-*/
-#define RL_GAMECANVAS_MSG_MOUSELEAVE (0x00000007)
-
 
 
 
@@ -139,6 +118,24 @@
 */
 #define RL_GAMECANVAS_CFG_FULLSCREEN (0x00000001)
 #define RL_GAMECANVAS_CFG_HIDECURSOR (0x00000002)
+
+
+
+
+
+
+
+
+
+
+/*
+	STA = State
+
+	RL_GAMECANVAS_STA_MOUSE_ON_CANVAS
+		If this flag is set, the mouse cursor is on the client area.
+		Otherwise, it isn't.
+*/
+#define RL_GAMECANVAS_STA_MOUSE_ON_CANVAS (0x00000001)
 
 
 

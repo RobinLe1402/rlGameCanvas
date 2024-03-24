@@ -720,16 +720,6 @@ namespace rlGameCanvasLib
 					wp.rcNormalPosition = rcWindow;
 					SetWindowPlacement(m_hWnd, &wp);
 					break;
-					
-					//SetWindowPos(
-					//	m_hWnd,                          // hWnd
-					//	NULL,                            // hWndInsertAfter
-					//	rcWindow.left,                   // X
-					//	rcWindow.top,                    // Y
-					//	rcWindow.right  - rcWindow.left, // cx
-					//	rcWindow.bottom - rcWindow.top,  // cy
-					//	SWP_NOZORDER                     // uFlags
-					//);
 
 					m_bRestoreHandled = true;
 					return 0;
@@ -763,19 +753,11 @@ namespace rlGameCanvasLib
 			const auto iClientX = GET_X_LPARAM(lParam);
 			const auto iClientY = GET_Y_LPARAM(lParam);
 
-			const bool bClientOverCanvas =
+			m_bMouseOverCanvas =
 				iClientX >= (int)m_oDrawRect.iLeft && (UInt)iClientX <= m_oDrawRect.iRight &&
 				iClientY >= (int)m_oDrawRect.iTop  && (UInt)iClientY <= m_oDrawRect.iBottom;
 
-			if (!bClientOverCanvas)
-			{
-				if (m_bMouseOverCanvas)
-				{
-					m_bMouseOverCanvas = false;
-					sendMessage(RL_GAMECANVAS_MSG_MOUSELEAVE, 0, 0);
-				}
-			}
-			else
+			if (m_bMouseOverCanvas)
 			{
 				const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
 				const double dPixelSize =
@@ -783,17 +765,11 @@ namespace rlGameCanvasLib
 
 				const int iCanvasX = iClientX - m_oDrawRect.iLeft;
 				const int iCanvasY = iClientY - m_oDrawRect.iTop;
-				const Resolution oMousePos =
+				m_oCursorPos =
 				{
-					.x = UInt(iCanvasX / dPixelSize),
-					.y = UInt(iCanvasY / dPixelSize)
+					.x = std::min(UInt(iCanvasX / dPixelSize), oScreenSize.x - 1),
+					.y = std::min(UInt(iCanvasY / dPixelSize), oScreenSize.y - 1)
 				};
-				if (!m_bMouseOverCanvas || oMousePos != m_oPrevCursorPos)
-				{
-					m_bMouseOverCanvas = true;
-					sendMessage(RL_GAMECANVAS_MSG_MOUSEMOVE, oMousePos.x, oMousePos.y);
-					m_oPrevCursorPos = oMousePos;
-				}
 
 			}
 
@@ -801,11 +777,7 @@ namespace rlGameCanvasLib
 		}
 
 		case WM_MOUSELEAVE:
-			if (m_bMouseOverCanvas)
-			{
-				m_bMouseOverCanvas = false;
-				sendMessage(RL_GAMECANVAS_MSG_MOUSELEAVE, 0, 0);
-			}
+			m_bMouseOverCanvas = false;
 			break;
 
 		case WM_SIZE:
@@ -1180,12 +1152,20 @@ namespace rlGameCanvasLib
 				|
 				UInt(m_bHideMouseCursor                          ? RL_GAMECANVAS_CFG_HIDECURSOR : 0)
 		};
+
 		Config cfgNew = cfgOld;
 		if (m_bFullscreenToggled)
 		{
 			cfgNew.iFlags ^= RL_GAMECANVAS_CFG_FULLSCREEN;
 			m_bFullscreenToggled = false;
 		}
+
+		const bool bMouseOverCanvas = m_bMouseOverCanvas && m_bHasFocus;
+		const State oCurrentState =
+		{
+			.oMousePos = m_oCursorPos,
+			.iFlags    = (bMouseOverCanvas ? RL_GAMECANVAS_STA_MOUSE_ON_CANVAS : 0u)
+		};
 
 
 
@@ -1199,6 +1179,7 @@ namespace rlGameCanvasLib
 		m_bRunningUpdate = true;
 		m_fnUpdateState(
 			m_oHandle,          // canvas
+			&oCurrentState,     // pcoReadonlyState
 			m_pvState_Updating, // pvState
 			dElapsedSeconds,    // dSecsSinceLastCall
 			&cfgNew             // poConfig

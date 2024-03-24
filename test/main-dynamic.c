@@ -8,12 +8,15 @@
 
 #define WIDTH  256
 #define HEIGHT 240
+#define LAYER_COUNT 3
 
 bool bPaused = false;
 typedef struct
 {
-	unsigned iAnimFrame;
-	double   dFrameTime;
+	unsigned                iAnimFrame;
+	double                  dFrameTime;
+	bool                    bMouseOnCanvas;
+	rlGameCanvas_Resolution oMousePos;
 } GraphicsData;
 
 #define RESIZETEST 1
@@ -32,10 +35,11 @@ bool bMouseCursorOnCanvas = false;
 rlGameCanvas_Resolution oMouseCursorPos;
 
 void __stdcall Update(
-	rlGameCanvas         canvas,
-	void                *pvState,
-	double               dSecsSinceLastCall,
-	rlGameCanvas_Config *poConfig
+	rlGameCanvas              canvas,
+	const rlGameCanvas_State *pcoReadonlyState,
+	void                     *pvState,
+	double                    dSecsSinceLastCall,
+	rlGameCanvas_Config      *poConfig
 )
 {
 	GraphicsData *pDataT = pvState;
@@ -58,6 +62,9 @@ void __stdcall Update(
 		poConfig->iFlags ^= RL_GAMECANVAS_CFG_HIDECURSOR;
 		bHideCursorToggled = false;
 	}
+
+	pDataT->bMouseOnCanvas = pcoReadonlyState->iFlags & RL_GAMECANVAS_STA_MOUSE_ON_CANVAS;
+	pDataT->oMousePos      = pcoReadonlyState->oMousePos;
 }
 
 void __stdcall CanvasMsg(
@@ -89,19 +96,6 @@ void __stdcall CanvasMsg(
 		printf("MINIMIZE received\n");
 		bPaused = iParam1;
 		printf("  %s minimization\n", bPaused ? "Entered" : "Exited");
-		break;
-
-	case RL_GAMECANVAS_MSG_MOUSEMOVE:
-		printf("MOUSEMOVE received\n");
-		bMouseCursorOnCanvas = true;
-		oMouseCursorPos.x = iParam1;
-		oMouseCursorPos.y = iParam2;
-		printf("  Mouse now at (%u,%u)\n", oMouseCursorPos.x, oMouseCursorPos.y);
-		break;
-
-	case RL_GAMECANVAS_MSG_MOUSELEAVE:
-		printf("MOUSELEAVE received\n");
-		bMouseCursorOnCanvas = false;
 		break;
 	}
 }
@@ -201,9 +195,12 @@ void __stdcall Draw(
 		}
 	}
 
+
+
 	// clear the horizontal line layer
 	memset(poLayers[1].ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
 
+	// draw the horizontal lines
 	double dOffset = (HEIGHT / 2) - FRAMECOUNT + pDataT->iAnimFrame;
 	double dOldOffset = dOffset + 2;
 	while (1)
@@ -224,6 +221,16 @@ void __stdcall Draw(
 
 		dOldOffset = dOffset;
 		dOffset *= YFACTOR;
+	}
+
+
+
+	// if applicable, draw a cursor indicator
+	memset(poLayers[2].ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
+	if (pDataT->bMouseOnCanvas)
+	{
+		poLayers[2].ppxData[pDataT->oMousePos.y * iWidth + pDataT->oMousePos.x] =
+			RLGAMECANVAS_MAKEPIXEL_RGB(255, 0, 0);
 	}
 }
 
@@ -254,8 +261,8 @@ int main(int argc, char* argv[])
 
 	const char szTitle[] = "rlGameCanvas test in C";
 
-	const rlGameCanvas_LayerMetadata LAYERS[2] = { 0 };
-	const rlGameCanvas_Mode MODE = { { WIDTH, HEIGHT }, 2, LAYERS };
+	const rlGameCanvas_LayerMetadata LAYERS[LAYER_COUNT] = { 0 };
+	const rlGameCanvas_Mode MODE = { { WIDTH, HEIGHT }, LAYER_COUNT, LAYERS };
 
 	sc.szWindowCaption = szTitle;
 	sc.hIconBig        = LoadIconW(GetModuleHandleW(NULL), L"ROBINLE_ICON");

@@ -81,6 +81,23 @@ typedef struct
 
 
 /*
+	The current non-changable, internal canvas state.
+
+	oMousePos
+		The current mouse position, in pixels.
+		Only valid if RL_GAMECANVAS_STA_MOUSE_ON_CANVAS is set in iFlags.
+	iFlags
+		A combination of the RL_GAMECANVAS_STA_[...] values.
+*/
+typedef struct
+{
+	rlGameCanvas_Resolution oMousePos;
+	rlGameCanvas_UInt       iFlags;
+} rlGameCanvas_State;
+
+
+
+/*
 	Metadata defining a layer.
 
 	oLayerSize
@@ -221,10 +238,11 @@ typedef void(__stdcall *rlGameCanvas_DrawStateCallback)(
 		On exit, this is the configuration to be used for the next frame.
 */
 typedef void (__stdcall *rlGameCanvas_UpdateStateCallback)(
-	rlGameCanvas         canvas,
-	void                *pvState,
-	double               dSecsSinceLastCall,
-	rlGameCanvas_Config *poConfig
+	rlGameCanvas              canvas,
+	const rlGameCanvas_State *pcoReadonlyState,
+	void                     *pvState,
+	double                    dSecsSinceLastCall,
+	rlGameCanvas_Config      *poConfig
 );
 
 

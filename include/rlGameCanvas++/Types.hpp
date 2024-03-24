@@ -30,6 +30,8 @@ namespace rlGameCanvasLib
 
 	using Config = rlGameCanvas_Config;
 
+	using State = rlGameCanvas_State;
+
 	using LayerMetadata = rlGameCanvas_LayerMetadata;
 	using LayerData     = rlGameCanvas_LayerData;
 
