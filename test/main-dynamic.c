@@ -316,6 +316,15 @@ int main(int argc, char* argv[])
 	else
 		printf("rlGameCanvas_Create succeeded.\n");
 
+	printf(
+		"==================================================\n"
+		"CONTROLS:\n"
+		"[C]ursor     - Toggle mouse cursor visiblity.\n"
+		"[R]estrict   - Toggle mouse cursor restriction.\n"
+		"[F]ullscreen - Toggle fullscreen mode.\n"
+		"==================================================\n"
+	);
+
 	printf("Calling rlGameCanvas_Run...\n");
 	if (!rlGameCanvas_Run(canvas))
 	{
