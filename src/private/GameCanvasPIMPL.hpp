@@ -96,6 +96,12 @@ namespace rlGameCanvasLib
 		// Updates m_iPixelSize and m_oDrawRect.
 		void calcRenderParams();
 
+		// Re-enable the cursor restriction.
+		void setCursorRestriction();
+
+		// Get the draw rectangle, in screen coordinates.
+		RECT getDrawRect();
+
 
 		LRESULT localWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -183,6 +189,7 @@ namespace rlGameCanvasLib
 		std::vector<Mode_CPP>      m_oModes;
 		const bool                 m_bFullscreenOnMaximize;
 		const bool                 m_bDontOversample;
+		const bool                 m_bRestrictCursor;
 		// configurable data: runtime ==============================================================
 		bool         m_bHideMouseCursor;
 		Maximization m_eMaximization;

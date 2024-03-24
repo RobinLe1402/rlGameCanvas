@@ -229,8 +229,26 @@ void __stdcall Draw(
 	memset(poLayers[2].ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
 	if (pDataT->bMouseOnCanvas)
 	{
-		poLayers[2].ppxData[pDataT->oMousePos.y * iWidth + pDataT->oMousePos.x] =
-			RLGAMECANVAS_MAKEPIXEL_RGB(255, 0, 0);
+		const rlGameCanvas_UInt iX = pDataT->oMousePos.x;
+		const rlGameCanvas_UInt iY = pDataT->oMousePos.y;
+		const rlGameCanvas_Pixel px = rlGameCanvas_Color_White;
+
+		if (iX > 0)
+			poLayers[2].ppxData[iY * iWidth + iX - 1] = px;
+		if (iX > 1)
+			poLayers[2].ppxData[iY * iWidth + iX - 2] = px;
+		if (iY > 0)
+			poLayers[2].ppxData[(iY - 1) * iWidth + iX] = px;
+		if (iY > 1)
+			poLayers[2].ppxData[(iY - 2) * iWidth + iX] = px;
+		if (iWidth - 1 - iX > 0)
+			poLayers[2].ppxData[iY * iWidth + iX + 1] = px;
+		if (iWidth - 1 - iX > 1)
+			poLayers[2].ppxData[iY * iWidth + iX + 2] = px;
+		if (iHeight - 1 - iY > 0)
+			poLayers[2].ppxData[(iY + 1) * iWidth + iX] = px;
+		if (iHeight - 1 - iY > 1)
+			poLayers[2].ppxData[(iY + 2) * iWidth + iX] = px;
 	}
 }
 
@@ -274,7 +292,8 @@ int main(int argc, char* argv[])
 	sc.fnCopyState     = CopyData;
 	sc.fnOnMsg         = CanvasMsg;
 	sc.fnOnWinMsg      = WinMsg;
-	sc.iFlags          = RL_GAMECANVAS_SUP_WINDOWED | RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE;
+	sc.iFlags          = RL_GAMECANVAS_SUP_WINDOWED | RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE |
+		RL_GAMECANVAS_SUP_RESTRICT_CURSOR;
 	sc.iModeCount      = 1;
 	sc.pcoModes        = &MODE;
 

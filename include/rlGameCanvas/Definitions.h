@@ -81,6 +81,9 @@
 		When the user tries to maximize the window, switch to fullscreen mode instead.
 		If this flag is set, RL_GAMECANVAS_SUP_MAXIMIZED cannot be set, as maximization is disabled
 		altogether.
+	RL_GAMECANVAS_SUP_RESTRICT_CURSOR
+		If this flag is set, the mouse cursor position will be restricted to the canvas while the
+		window has focus.
 	RL_GAMECANVAS_SUP_DONT_OVERSAMPLE
 		If this flag is not set, the screen will allways be upscaled to fill the maximum area while
 		retaining the original aspect ratio.
@@ -95,7 +98,8 @@
 // (0x00000008) is reserved for future use.
 #define RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE (0x00000010)
 #define RL_GAMECANVAS_SUP_DONT_OVERSAMPLE       (0x00000020)
-#define RL_GAMECANVAS_SUP_HIDECURSOR            (0x00000040)
+#define RL_GAMECANVAS_SUP_RESTRICT_CURSOR       (0x00000040)
+#define RL_GAMECANVAS_SUP_HIDE_CURSOR           (0x00000080)
 
 
 

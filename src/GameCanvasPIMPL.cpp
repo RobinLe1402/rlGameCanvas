@@ -210,7 +210,8 @@ namespace rlGameCanvasLib
 		m_oModes               (config.iModeCount), // set values later
 		m_bFullscreenOnMaximize(config.iFlags & RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE),
 		m_bDontOversample      (config.iFlags & RL_GAMECANVAS_SUP_DONT_OVERSAMPLE      ),
-		m_bHideMouseCursor     (config.iFlags & RL_GAMECANVAS_SUP_HIDECURSOR           ),
+		m_bRestrictCursor      (config.iFlags & RL_GAMECANVAS_SUP_RESTRICT_CURSOR      ),
+		m_bHideMouseCursor     (config.iFlags & RL_GAMECANVAS_SUP_HIDE_CURSOR          ),
 		m_eMaximization        (StartupFlagsToMaximizationEnum(config.iFlags)),
 		m_eNonFullscreenMaximization(
 			(m_eMaximization != Maximization::Fullscreen) ? m_eMaximization :
@@ -669,10 +670,50 @@ namespace rlGameCanvasLib
 		m_oDrawRect.iRight  = m_oDrawRect.iLeft + iDisplayWidth;
 		m_oDrawRect.iTop    = (m_oClientSize.y - iDisplayHeight) / 2;
 		m_oDrawRect.iBottom = m_oDrawRect.iTop + iDisplayHeight;
+		setCursorRestriction();
 
 
 		if (m_bFBO && iOldPixelSize != m_iPixelSize)
 			m_bGraphicsThread_NewFBOSize = true;
+	}
+
+	void GameCanvas::PIMPL::setCursorRestriction()
+	{
+		if (!m_bRestrictCursor || !m_bHasFocus || !m_bMouseOverCanvas)
+			return;
+
+
+		const RECT rcClipCursor = getDrawRect();
+		ClipCursor(&rcClipCursor);
+
+		printf("> Cursor restriction enabled\n");
+	}
+
+	RECT GameCanvas::PIMPL::getDrawRect()
+	{
+		POINT ptTopLeft =
+		{
+			.x = LONG(m_oDrawRect.iLeft),
+			.y = LONG(m_oDrawRect.iTop)
+		};
+		ClientToScreen(m_hWnd, &ptTopLeft);
+
+		POINT ptBottomRight =
+		{
+			.x = LONG(m_oDrawRect.iRight),
+			.y = LONG(m_oDrawRect.iBottom)
+		};
+		ClientToScreen(m_hWnd, &ptBottomRight);
+
+		RECT rcResult =
+		{
+			.left   = ptTopLeft.x,
+			.top    = ptTopLeft.y,
+			.right  = ptBottomRight.x,
+			.bottom = ptBottomRight.y
+		};
+
+		return rcResult;
 	}
 
 	LRESULT GameCanvas::PIMPL::localWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -748,21 +789,26 @@ namespace rlGameCanvasLib
 			}
 			break;
 
+		case WM_NCMOUSEMOVE:
+			m_bMouseOverCanvas = false;
+			break;
+
 		case WM_MOUSEMOVE:
 		{
 			const auto iClientX = GET_X_LPARAM(lParam);
 			const auto iClientY = GET_Y_LPARAM(lParam);
 
+			const bool bMouseOverCanvasBefore = m_bHasFocus && m_bMouseOverCanvas;
 			m_bMouseOverCanvas =
 				iClientX >= (int)m_oDrawRect.iLeft && (UInt)iClientX <= m_oDrawRect.iRight &&
 				iClientY >= (int)m_oDrawRect.iTop  && (UInt)iClientY <= m_oDrawRect.iBottom;
 
+			const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
+			const double dPixelSize =
+				double(m_oDrawRect.iRight - m_oDrawRect.iLeft) / oScreenSize.x;
+
 			if (m_bMouseOverCanvas)
 			{
-				const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
-				const double dPixelSize =
-					double(m_oDrawRect.iRight - m_oDrawRect.iLeft) / oScreenSize.x;
-
 				const int iCanvasX = iClientX - m_oDrawRect.iLeft;
 				const int iCanvasY = iClientY - m_oDrawRect.iTop;
 				m_oCursorPos =
@@ -771,6 +817,8 @@ namespace rlGameCanvasLib
 					.y = std::min(UInt(iCanvasY / dPixelSize), oScreenSize.y - 1)
 				};
 
+				if (m_bRestrictCursor && !bMouseOverCanvasBefore)
+					setCursorRestriction();
 			}
 
 			break;
@@ -857,17 +905,20 @@ namespace rlGameCanvasLib
 			}
 			else
 				handleResize(LOWORD(lParam), HIWORD(lParam));
+
 			return 0;
 		}
 
 		case WM_KILLFOCUS:
 			m_bHasFocus = false;
 			sendMessage(RL_GAMECANVAS_MSG_LOSEFOCUS, 0, 0);
+			m_bMouseOverCanvas = false; // todo: still true sometimes?
 			break;
 
 		case WM_SETFOCUS:
 			m_bHasFocus = true;
 			sendMessage(RL_GAMECANVAS_MSG_GAINFOCUS, 0, 0);
+			setCursorRestriction();
 			break;
 
 		case WM_CLOSE:
