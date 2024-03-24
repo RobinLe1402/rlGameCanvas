@@ -116,12 +116,15 @@
 	RL_GAMECANVAS_CFG_FULLSCREEN
 		If this flag is set, the canvas enters fullscreen mode.
 		If it's cleared, the canvas exists fullscreen mode.
+	RL_GAMECANVAS_CFG_RESTRICT_CURSOR
+		If this flag is set, the mouse cursor position will be restricted to the canvas area.
 	RL_GAMECANVAS_CFG_HIDECURSOR
 		If this flag is set, the mouse cursor will be hidden over the client area when the window
 		has focus.
 */
-#define RL_GAMECANVAS_CFG_FULLSCREEN (0x00000001)
-#define RL_GAMECANVAS_CFG_HIDECURSOR (0x00000002)
+#define RL_GAMECANVAS_CFG_FULLSCREEN      (0x00000001)
+#define RL_GAMECANVAS_CFG_RESTRICT_CURSOR (0x00000002)
+#define RL_GAMECANVAS_CFG_HIDE_CURSOR     (0x00000004)
 
 
 

@@ -211,7 +211,7 @@ namespace rlGameCanvasLib
 		m_bFullscreenOnMaximize(config.iFlags & RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE),
 		m_bDontOversample      (config.iFlags & RL_GAMECANVAS_SUP_DONT_OVERSAMPLE      ),
 		m_bRestrictCursor      (config.iFlags & RL_GAMECANVAS_SUP_RESTRICT_CURSOR      ),
-		m_bHideMouseCursor     (config.iFlags & RL_GAMECANVAS_SUP_HIDE_CURSOR          ),
+		m_bHideCursor          (config.iFlags & RL_GAMECANVAS_SUP_HIDE_CURSOR          ),
 		m_eMaximization        (StartupFlagsToMaximizationEnum(config.iFlags)),
 		m_eNonFullscreenMaximization(
 			(m_eMaximization != Maximization::Fullscreen) ? m_eMaximization :
@@ -781,7 +781,7 @@ namespace rlGameCanvasLib
 		case WM_SETCURSOR:
 			if (LOWORD(lParam) == HTCLIENT)
 			{
-				if (m_bHasFocus && m_bHideMouseCursor)
+				if (m_bHasFocus && m_bHideCursor)
 					SetCursor(NULL);
 				else
 					SetCursor(m_hCursor);
@@ -1195,13 +1195,14 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::doUpdate()
 	{
+		const bool bPrevFullscreen = m_eMaximization == Maximization::Fullscreen;
 		const Config cfgOld =
 		{
 			.iMode  = m_iCurrentMode,
 			.iFlags =
-				UInt(m_eMaximization == Maximization::Fullscreen ? RL_GAMECANVAS_CFG_FULLSCREEN : 0)
-				|
-				UInt(m_bHideMouseCursor                          ? RL_GAMECANVAS_CFG_HIDECURSOR : 0)
+				UInt(bPrevFullscreen   ? RL_GAMECANVAS_CFG_FULLSCREEN      : 0) |
+				UInt(m_bRestrictCursor ? RL_GAMECANVAS_CFG_RESTRICT_CURSOR : 0) |
+				UInt(m_bHideCursor     ? RL_GAMECANVAS_CFG_HIDE_CURSOR     : 0)
 		};
 
 		Config cfgNew = cfgOld;
@@ -1246,17 +1247,27 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::updateConfig(const Config &cfg, bool bForceUpdateAll)
 	{
-		const bool bFullscreen = cfg.iFlags & RL_GAMECANVAS_CFG_FULLSCREEN;
-		const bool bHideCursor = cfg.iFlags & RL_GAMECANVAS_CFG_HIDECURSOR;
+		const bool bFullscreen     = cfg.iFlags & RL_GAMECANVAS_CFG_FULLSCREEN;
+		const bool bRestrictCursor = cfg.iFlags & RL_GAMECANVAS_CFG_RESTRICT_CURSOR;
+		const bool bHideCursor     = cfg.iFlags & RL_GAMECANVAS_CFG_HIDE_CURSOR;
 
 		const bool bNewMode           = bForceUpdateAll || cfg.iMode != m_iCurrentMode;
 		const bool bFullscreenToggled = bForceUpdateAll ||
 			bFullscreen != (m_eMaximization == Maximization::Fullscreen);
 
 
-		if (m_bHideMouseCursor != bHideCursor)
+		if (m_bRestrictCursor != bRestrictCursor)
 		{
-			m_bHideMouseCursor = bHideCursor;
+			m_bRestrictCursor = bRestrictCursor;
+			if (bRestrictCursor)
+				setCursorRestriction();
+			else
+				ClipCursor(NULL);
+		}
+		
+		if (m_bHideCursor != bHideCursor)
+		{
+			m_bHideCursor = bHideCursor;
 
 			// if the mouse cursor is currently on top of the client area, manually refresh the
 			// cursor immediately, as by default it will only change once it moves.
@@ -1269,7 +1280,7 @@ namespace rlGameCanvasLib
 					(UInt)ptCursor.x < m_oClientSize.x &&
 					(UInt)ptCursor.y < m_oClientSize.y)
 				{
-					if (m_bHideMouseCursor)
+					if (m_bHideCursor)
 						SetCursor(NULL);
 					else
 						SetCursor(m_hCursor);

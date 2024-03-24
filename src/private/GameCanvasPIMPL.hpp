@@ -189,9 +189,9 @@ namespace rlGameCanvasLib
 		std::vector<Mode_CPP>      m_oModes;
 		const bool                 m_bFullscreenOnMaximize;
 		const bool                 m_bDontOversample;
-		const bool                 m_bRestrictCursor;
+		bool                       m_bRestrictCursor;
 		// configurable data: runtime ==============================================================
-		bool         m_bHideMouseCursor;
+		bool         m_bHideCursor;
 		Maximization m_eMaximization;
 		UInt         m_iCurrentMode = 0;
 		Pixel        m_pxBackground = rlGameCanvas_Color_Black;

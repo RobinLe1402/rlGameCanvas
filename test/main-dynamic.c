@@ -28,8 +28,9 @@ typedef struct
 #define DIST_ADD_PER_LINE (0.7)
 #define FRAMECOUNT ((HEIGHT / 2) - (unsigned)((HEIGHT / 2) * YFACTOR - 1))
 
-bool bFullscreenToggled = false;
-bool bHideCursorToggled = false;
+bool bFullscreenToggled     = false;
+bool bRestrictCursorToggled = false;
+bool bHideCursorToggled     = false;
 
 bool bMouseCursorOnCanvas = false;
 rlGameCanvas_Resolution oMouseCursorPos;
@@ -57,9 +58,14 @@ void __stdcall Update(
 		poConfig->iFlags  ^= RL_GAMECANVAS_CFG_FULLSCREEN;
 		bFullscreenToggled = false;
 	}
+	if (bRestrictCursorToggled)
+	{
+		poConfig->iFlags ^= RL_GAMECANVAS_CFG_RESTRICT_CURSOR;
+		bRestrictCursorToggled = false;
+	}
 	if (bHideCursorToggled)
 	{
-		poConfig->iFlags ^= RL_GAMECANVAS_CFG_HIDECURSOR;
+		poConfig->iFlags ^= RL_GAMECANVAS_CFG_HIDE_CURSOR;
 		bHideCursorToggled = false;
 	}
 
@@ -119,6 +125,10 @@ void __stdcall WinMsg(
 
 		case 'F':
 			bFullscreenToggled = true;
+			break;
+
+		case 'R':
+			bRestrictCursorToggled = true;
 			break;
 		}
 		break;
