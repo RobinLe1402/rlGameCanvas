@@ -134,7 +134,7 @@ namespace rlGameCanvasLib
 			Resolution result =
 			{
 				.x = UInt((rcWindow.right  - rcBorder.right)  - (rcWindow.left - rcBorder.left)),
-				.y = UInt((rcWindow.bottom - rcBorder.bottom) - (rcWindow.top  - rcBorder.top ))
+				.y = UInt((rcWindow.bottom - rcBorder.bottom) - (rcWindow.top  - rcBorder.top))
 			};
 			return result;
 		}
@@ -196,23 +196,23 @@ namespace rlGameCanvasLib
 
 
 	GameCanvas::PIMPL::PIMPL(rlGameCanvas oHandle, const StartupConfig &config) :
-		m_oHandle              (oHandle),
-		m_sWindowCaption       (config.szWindowCaption ? config.szWindowCaption : u8"rlGameCanvas"),
-		m_hIconSmall           (config.hIconSmall),
-		m_hIconBig             (config.hIconBig),
-		m_fnUpdateState        (config.fnUpdateState),
-		m_fnDrawState          (config.fnDrawState),
-		m_fnCreateState        (config.fnCreateState),
-		m_fnCopyState          (config.fnCopyState),
-		m_fnDestroyState       (config.fnDestroyState),
-		m_fnOnMsg              (config.fnOnMsg),
-		m_fnOnWinMsg           (config.fnOnWinMsg),
-		m_oModes               (config.iModeCount), // set values later
+		m_oHandle(oHandle),
+		m_sWindowCaption(config.szWindowCaption ? config.szWindowCaption : u8"rlGameCanvas"),
+		m_hIconSmall(config.hIconSmall),
+		m_hIconBig(config.hIconBig),
+		m_fnUpdateState(config.fnUpdateState),
+		m_fnDrawState(config.fnDrawState),
+		m_fnCreateState(config.fnCreateState),
+		m_fnCopyState(config.fnCopyState),
+		m_fnDestroyState(config.fnDestroyState),
+		m_fnOnMsg(config.fnOnMsg),
+		m_fnOnWinMsg(config.fnOnWinMsg),
+		m_oModes(config.iModeCount), // set values later
 		m_bFullscreenOnMaximize(config.iFlags & RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE),
-		m_bDontOversample      (config.iFlags & RL_GAMECANVAS_SUP_DONT_OVERSAMPLE      ),
-		m_bRestrictCursor      (config.iFlags & RL_GAMECANVAS_SUP_RESTRICT_CURSOR      ),
-		m_bHideCursor          (config.iFlags & RL_GAMECANVAS_SUP_HIDE_CURSOR          ),
-		m_eMaximization        (StartupFlagsToMaximizationEnum(config.iFlags)),
+		m_bDontOversample(config.iFlags & RL_GAMECANVAS_SUP_DONT_OVERSAMPLE),
+		m_bRestrictCursor(config.iFlags & RL_GAMECANVAS_SUP_RESTRICT_CURSOR),
+		m_bHideCursor(config.iFlags & RL_GAMECANVAS_SUP_HIDE_CURSOR),
+		m_eMaximization(StartupFlagsToMaximizationEnum(config.iFlags)),
 		m_eNonFullscreenMaximization(
 			(m_eMaximization != Maximization::Fullscreen) ? m_eMaximization :
 			(m_bFullscreenOnMaximize ? Maximization::Windowed : Maximization::Maximized)
@@ -235,7 +235,7 @@ namespace rlGameCanvasLib
 			{
 				auto &input  = config.pcoModes[iMode];
 				auto &output = m_oModes[iMode];
-				
+
 				bValidConfig =
 					input.iLayerCount   > 0 &&
 					input.oScreenSize.x > 0 && input.oScreenSize.y > 0;
@@ -247,9 +247,9 @@ namespace rlGameCanvasLib
 				for (size_t iLayer = 0; iLayer < input.iLayerCount; ++iLayer)
 				{
 					output.oLayerMetadata.push_back(input.pcoLayerMetadata[iLayer]);
-					
+
 					auto &oLayerSize = output.oLayerMetadata.back().oLayerSize;
-					
+
 					if (oLayerSize.x == 0)
 						oLayerSize.x = output.oScreenSize.x;
 					if (oLayerSize.y == 0)
@@ -465,7 +465,7 @@ namespace rlGameCanvasLib
 			resumeGraphicsThread();
 		}
 	lbClose:
-				
+
 		m_oMainThreadID = {};
 
 		// TODO: might cause problems when closing the window. maybe move to WM_DESTROY.
@@ -509,7 +509,7 @@ namespace rlGameCanvasLib
 	void GameCanvas::PIMPL::initializeCurrentMode()
 	{
 		createGraphicsData();
-		
+
 		if (m_eMaximization == Maximization::Windowed)
 			setWindowSize(m_hWnd);
 
@@ -670,23 +670,41 @@ namespace rlGameCanvasLib
 		m_oDrawRect.iRight  = m_oDrawRect.iLeft + iDisplayWidth;
 		m_oDrawRect.iTop    = (m_oClientSize.y - iDisplayHeight) / 2;
 		m_oDrawRect.iBottom = m_oDrawRect.iTop + iDisplayHeight;
-		setCursorRestriction();
 
+
+		applyCursorRestriction();
 
 		if (m_bFBO && iOldPixelSize != m_iPixelSize)
 			m_bGraphicsThread_NewFBOSize = true;
 	}
 
-	void GameCanvas::PIMPL::setCursorRestriction()
+	void GameCanvas::PIMPL::applyCursorRestriction()
 	{
-		if (!m_bRestrictCursor || !m_bHasFocus || !m_bMouseOverCanvas)
-			return;
+		if (!m_bRestrictCursor)
+		{
+			ClipCursor(NULL);
 
+#ifndef NDEBUG
+			printf("> Cursor restriction disabled\n");
+#endif // NDEBUG
+		}
+		else if (m_bHasFocus && m_bMouseOverCanvas)
+		{
+			const RECT rcClipCursor = getDrawRect();
+			ClipCursor(&rcClipCursor);
 
-		const RECT rcClipCursor = getDrawRect();
-		ClipCursor(&rcClipCursor);
+#ifndef NDEBUG
+			printf("> Cursor restriction enabled\n");
+#endif // NDEBUG
+		}
+	}
 
-		printf("> Cursor restriction enabled\n");
+	void GameCanvas::PIMPL::applyCursor()
+	{
+		if (m_bHideCursor && m_bHasFocus)
+			SetCursor(NULL);
+		else
+			SetCursor(m_hCursor);
 	}
 
 	RECT GameCanvas::PIMPL::getDrawRect()
@@ -781,10 +799,7 @@ namespace rlGameCanvasLib
 		case WM_SETCURSOR:
 			if (LOWORD(lParam) == HTCLIENT)
 			{
-				if (m_bHasFocus && m_bHideCursor)
-					SetCursor(NULL);
-				else
-					SetCursor(m_hCursor);
+				applyCursor();
 				return TRUE;
 			}
 			break;
@@ -818,7 +833,7 @@ namespace rlGameCanvasLib
 				};
 
 				if (m_bRestrictCursor && !bMouseOverCanvasBefore)
-					setCursorRestriction();
+					applyCursorRestriction();
 			}
 
 			break;
@@ -892,7 +907,7 @@ namespace rlGameCanvasLib
 						return 0;
 					}
 				}
-				
+
 				break;
 
 			default:
@@ -918,7 +933,7 @@ namespace rlGameCanvasLib
 		case WM_SETFOCUS:
 			m_bHasFocus = true;
 			sendMessage(RL_GAMECANVAS_MSG_GAINFOCUS, 0, 0);
-			setCursorRestriction();
+			applyCursorRestriction();
 			break;
 
 		case WM_CLOSE:
@@ -928,9 +943,10 @@ namespace rlGameCanvasLib
 			m_cvNextFrame.notify_one();
 			if (m_eGraphicsThreadState == GraphicsThreadState::Running)
 				m_cvAppState.wait(lock);
-		}
+
 			DestroyWindow(m_hWnd);
 			return 0;
+		}
 
 		case WM_DESTROY:
 			sendMessage(RL_GAMECANVAS_MSG_DESTROY, 0, 0);
@@ -1259,15 +1275,19 @@ namespace rlGameCanvasLib
 		if (m_bRestrictCursor != bRestrictCursor)
 		{
 			m_bRestrictCursor = bRestrictCursor;
-			if (bRestrictCursor)
-				setCursorRestriction();
-			else
-				ClipCursor(NULL);
+			applyCursorRestriction();
 		}
 		
 		if (m_bHideCursor != bHideCursor)
 		{
 			m_bHideCursor = bHideCursor;
+
+#ifndef NDEBUG
+			if (bHideCursor)
+				printf("> Cursor is hidden\n");
+			else
+				printf("> Cursor is visible\n");
+#endif // NDEBUG
 
 			// if the mouse cursor is currently on top of the client area, manually refresh the
 			// cursor immediately, as by default it will only change once it moves.
@@ -1280,10 +1300,7 @@ namespace rlGameCanvasLib
 					(UInt)ptCursor.x < m_oClientSize.x &&
 					(UInt)ptCursor.y < m_oClientSize.y)
 				{
-					if (m_bHideCursor)
-						SetCursor(NULL);
-					else
-						SetCursor(m_hCursor);
+					applyCursor();
 				}
 			}
 		}

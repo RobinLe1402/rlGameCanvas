@@ -96,8 +96,11 @@ namespace rlGameCanvasLib
 		// Updates m_iPixelSize and m_oDrawRect.
 		void calcRenderParams();
 
-		// Re-enable the cursor restriction.
-		void setCursorRestriction();
+		// Apply the current cursor restriction setting.
+		void applyCursorRestriction();
+
+		// Apply the current cursor visibility setting.
+		void applyCursor();
 
 		// Get the draw rectangle, in screen coordinates.
 		RECT getDrawRect();
