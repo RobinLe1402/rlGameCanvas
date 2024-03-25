@@ -816,6 +816,7 @@ namespace rlGameCanvasLib
 			break;
 
 		case WM_NCMOUSEMOVE:
+			m_dTimeSinceLastMouseMove = 0.0;
 			m_bMouseCursorOutsideClient = true;
 			m_bMouseOverCanvas = false;
 			applyCursor();
@@ -823,6 +824,8 @@ namespace rlGameCanvasLib
 
 		case WM_MOUSEMOVE:
 		{
+			m_dTimeSinceLastMouseMove = 0.0;
+
 			m_bMouseCursorOutsideClient = false;
 			bool bCursorChanged = false;
 
