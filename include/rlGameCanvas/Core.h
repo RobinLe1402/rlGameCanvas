@@ -1,3 +1,11 @@
+/***************************************************************************************************
+  rlGameCanvas CORE API
+  =====================
+
+  This file contains the core function definitions for the rlGameCanvas dynamic library.
+
+  (c) 2024 RobinLe
+***************************************************************************************************/
 #ifndef RLGAMECANVAS_CORE_C
 #define RLGAMECANVAS_CORE_C
 
@@ -6,7 +14,6 @@
 
 
 #include "ExportSpecs.h"
-#include "Definitions.h"
 #include "Types.h"
 
 /// <summary>

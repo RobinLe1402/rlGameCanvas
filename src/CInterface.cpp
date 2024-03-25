@@ -1,6 +1,8 @@
 #include <rlGameCanvas/Core.h>
+#include <rlGameCanvas/Bitmap.h>
 
 #include <rlGameCanvas++/GameCanvas.hpp>
+#include <rlGameCanvas++/Bitmap.hpp>
 
 #include <exception>
 #include <string>
@@ -93,4 +95,34 @@ RLGAMECANVAS_API void RLGAMECANVAS_LIB rlGameCanvas_Quit(
 		return;
 
 	HandleToPointer(canvas)->quit();
+}
+
+
+
+RLGAMECANVAS_API rlGameCanvas_Bool RLGAMECANVAS_LIB rlGameCanvas_ApplyBitmapOverlay(
+	rlGameCanvas_Bitmap       *poBase,
+	const rlGameCanvas_Bitmap *poOverlay,
+	rlGameCanvas_Int           iOverlayX,
+	rlGameCanvas_Int           iOverlayY,
+	rlGameCanvas_UInt          iOverlayStrategy
+)
+{
+	lib::BitmapOverlayStrategy eOverlayStrategy;
+	switch (iOverlayStrategy)
+	{
+	case RL_GAMECANVAS_BMP_OVERLAY_REPLACE:
+		eOverlayStrategy = lib::BitmapOverlayStrategy::Replace;
+		break;
+
+	case RL_GAMECANVAS_BMP_OVERLAY_BLEND:
+		eOverlayStrategy = lib::BitmapOverlayStrategy::Blend;
+		break;
+
+	default:
+		return 0;
+	}
+
+
+
+	return lib::ApplyBitmapOverlay(poBase, poOverlay, iOverlayX, iOverlayY, eOverlayStrategy);
 }

@@ -17,6 +17,7 @@
 
 typedef unsigned rlGameCanvas_Bool;
 typedef uint32_t rlGameCanvas_UInt;
+typedef  int32_t rlGameCanvas_Int; // TODO: mark sizes > 0x7FFFFFFF invalid
 
 #if defined(__cplusplus) && __cplusplus >= 201811L
 typedef char8_t rlGameCanvas_U8Char;
@@ -42,6 +43,21 @@ typedef uint32_t rlGameCanvas_Pixel;
 
 
 
+typedef struct
+{
+	rlGameCanvas_UInt x, y;
+} rlGameCanvas_Resolution;
+
+
+
+typedef struct
+{
+	rlGameCanvas_Pixel *ppxData;
+	rlGameCanvas_Resolution size;
+} rlGameCanvas_Bitmap;
+
+
+
 typedef struct rlGameCanvas_OpaquePtrStruct
 {
 	int iUnused;
@@ -52,13 +68,6 @@ typedef struct rlGameCanvas_OpaquePtrStruct
 typedef void (__stdcall *rlGameCanvas_CreateStateCallback)(void **ppvData);
 typedef void (__stdcall *rlGameCanvas_DestroyStateCallback)(void *pvData);
 typedef void (__stdcall *rlGameCanvas_CopyStateCallback)(const void *pcvSrc, void *pvDest);
-
-
-
-typedef struct
-{
-	rlGameCanvas_UInt x, y;
-} rlGameCanvas_Resolution;
 
 
 
@@ -119,11 +128,9 @@ typedef struct
 /*
 	Layer data to be used in the Draw callback.
 
-	ppxData
-		The actual pixel data of the layer.
-		Indexed left to right, top to bottom. Position (x,y) translates to index [y * width + x].
-	oLayerSize
-		The size, in pixels, of the layer.
+	bmp
+		The layer bitmap.
+		Changes to the size member variable will be ignored.
 	poScreenPos
 		The top-left position of the "camera".
 	pbVisible
@@ -131,8 +138,7 @@ typedef struct
 */
 typedef struct
 {
-	rlGameCanvas_Pixel        *ppxData;
-	rlGameCanvas_Resolution    oLayerSize;
+	rlGameCanvas_Bitmap bmp;
 
 	rlGameCanvas_Resolution   *poScreenPos;
 	rlGameCanvas_Bool         *pbVisible;

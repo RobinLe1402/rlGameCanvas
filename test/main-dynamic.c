@@ -1,4 +1,5 @@
 #include <rlGameCanvas/Core.h>
+#include <rlGameCanvas/Bitmap.h>
 #include <rlGameCanvas/Definitions.h>
 #include <rlGameCanvas/Pixel.h>
 
@@ -45,6 +46,56 @@ bool bCloseRequested        = false;
 
 bool bMouseCursorOnCanvas = false;
 rlGameCanvas_Resolution oMouseCursorPos;
+
+
+
+
+
+
+
+
+#define X 0xFFFFFFFF
+#define o 0xFF000000
+#define _ 0x00000000
+
+const rlGameCanvas_Pixel pxCURSOR[] =
+{
+	X,_,_,_,_,_,_,_,_,_,_,_,
+	X,X,_,_,_,_,_,_,_,_,_,_,
+	X,o,X,_,_,_,_,_,_,_,_,_,
+	X,o,o,X,_,_,_,_,_,_,_,_,
+	X,o,o,o,X,_,_,_,_,_,_,_,
+	X,o,o,o,o,X,_,_,_,_,_,_,
+	X,o,o,o,o,o,X,_,_,_,_,_,
+	X,o,o,o,o,o,o,X,_,_,_,_,
+	X,o,o,o,o,o,o,o,X,_,_,_,
+	X,o,o,o,o,o,o,o,o,X,_,_,
+	X,o,o,o,o,o,o,o,o,o,X,_,
+	X,o,o,o,o,o,o,o,o,o,o,X,
+	X,o,o,o,o,o,o,X,X,X,X,X,
+	X,o,o,o,X,o,o,X,_,_,_,_,
+	X,o,o,X,_,X,o,o,X,_,_,_,
+	X,o,X,_,_,X,o,o,X,_,_,_,
+	X,X,_,_,_,_,X,o,o,X,_,_,
+	_,_,_,_,_,_,X,o,o,X,_,_,
+	_,_,_,_,_,_,_,X,X,_,_,_
+};
+#define iCURSOR_WIDTH  12
+#define iCURSOR_HEIGHT 19
+
+const rlGameCanvas_Bitmap bmpCURSOR =
+{
+	(rlGameCanvas_Pixel *)pxCURSOR,
+	iCURSOR_WIDTH,
+	iCURSOR_HEIGHT
+};
+
+
+
+
+
+
+
 
 void __stdcall Update(
 	rlGameCanvas              canvas,
@@ -197,13 +248,13 @@ void __stdcall Draw(
 		{
 			const rlGameCanvas_Pixel px = RLGAMECANVAS_MAKEPIXEL(255, 255, 255, 48);
 
-			poLayers[LAYERID_BG].ppxData[0] = px;
-			poLayers[LAYERID_BG].ppxData[3] = px;
+			poLayers[LAYERID_BG].bmp.ppxData[0] = px;
+			poLayers[LAYERID_BG].bmp.ppxData[3] = px;
 		}
 
 		for (unsigned iY = 0; iOffset + iY < HEIGHT; ++iY)
 		{
-			poLayers[LAYERID_VLINES].ppxData[iLineOffset] = px; // center line
+			poLayers[LAYERID_VLINES].bmp.ppxData[iLineOffset] = px; // center line
 
 			const double dXOffset = iY * DIST_ADD_PER_LINE;
 
@@ -225,8 +276,8 @@ void __stdcall Draw(
 						break;
 					}
 
-					poLayers[LAYERID_VLINES].ppxData[iLineOffset + iOffset] = px;
-					poLayers[LAYERID_VLINES].ppxData[iLineOffset - iOffset] = px;
+					poLayers[LAYERID_VLINES].bmp.ppxData[iLineOffset + iOffset] = px;
+					poLayers[LAYERID_VLINES].bmp.ppxData[iLineOffset - iOffset] = px;
 				}
 
 				if (bOutOfBounds)
@@ -244,7 +295,7 @@ void __stdcall Draw(
 
 
 	// clear the horizontal line layer
-	memset(poLayers[LAYERID_HLINES].ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
+	memset(poLayers[LAYERID_HLINES].bmp.ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
 
 	// draw the horizontal lines
 	double dOffset = (HEIGHT / 2) - FRAMECOUNT + pDataT->iAnimFrame;
@@ -257,7 +308,7 @@ void __stdcall Draw(
 		{
 			for (unsigned x = 0; x < WIDTH; ++x)
 			{
-				poLayers[LAYERID_HLINES].ppxData[iY * iWidth + x] = px;
+				poLayers[LAYERID_HLINES].bmp.ppxData[iY * iWidth + x] = px;
 			}
 		}
 
@@ -272,29 +323,15 @@ void __stdcall Draw(
 
 
 	// if applicable, draw a cursor indicator
-	memset(poLayers[LAYERID_CURSOR].ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
+	memset(poLayers[LAYERID_CURSOR].bmp.ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
 	if (pDataT->bMouseOnCanvas)
 	{
 		const rlGameCanvas_UInt iX = pDataT->oMousePos.x;
 		const rlGameCanvas_UInt iY = pDataT->oMousePos.y;
-		const rlGameCanvas_Pixel px = rlGameCanvas_Color_White;
-
-		if (iX > 0)
-			poLayers[LAYERID_CURSOR].ppxData[iY * iWidth + iX - 1] = px;
-		if (iX > 1)
-			poLayers[LAYERID_CURSOR].ppxData[iY * iWidth + iX - 2] = px;
-		if (iY > 0)
-			poLayers[LAYERID_CURSOR].ppxData[(iY - 1) * iWidth + iX] = px;
-		if (iY > 1)
-			poLayers[LAYERID_CURSOR].ppxData[(iY - 2) * iWidth + iX] = px;
-		if (iWidth - 1 - iX > 0)
-			poLayers[LAYERID_CURSOR].ppxData[iY * iWidth + iX + 1] = px;
-		if (iWidth - 1 - iX > 1)
-			poLayers[LAYERID_CURSOR].ppxData[iY * iWidth + iX + 2] = px;
-		if (iHeight - 1 - iY > 0)
-			poLayers[LAYERID_CURSOR].ppxData[(iY + 1) * iWidth + iX] = px;
-		if (iHeight - 1 - iY > 1)
-			poLayers[LAYERID_CURSOR].ppxData[(iY + 2) * iWidth + iX] = px;
+		
+		rlGameCanvas_ApplyBitmapOverlay(&poLayers[LAYERID_CURSOR].bmp, &bmpCURSOR,
+			(rlGameCanvas_Int)iX - 1, (rlGameCanvas_Int)iY - 1,
+			RL_GAMECANVAS_BMP_OVERLAY_BLEND);
 	}
 }
 

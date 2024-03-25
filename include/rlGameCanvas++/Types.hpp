@@ -20,13 +20,16 @@ namespace rlGameCanvasLib
 
 	// Bool doesn't need a definition in C++ - the built-in bool type can be used
 	using UInt         = rlGameCanvas_UInt;
+	using Int          = rlGameCanvas_Int;
 	using U8Char       = rlGameCanvas_U8Char;
+
+	using Resolution = rlGameCanvas_Resolution;
+
+	using Bitmap = rlGameCanvas_Bitmap;
 
 	using CreateStateCallback  = rlGameCanvas_CreateStateCallback;
 	using DestroyStateCallback = rlGameCanvas_DestroyStateCallback;
 	using CopyStateCallback    = rlGameCanvas_CopyStateCallback;
-
-	using Resolution = rlGameCanvas_Resolution;
 
 	using Config = rlGameCanvas_Config;
 

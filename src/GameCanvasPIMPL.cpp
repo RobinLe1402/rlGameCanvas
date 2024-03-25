@@ -547,9 +547,12 @@ namespace rlGameCanvasLib
 
 			m_oLayersForCallback[iLayer] =
 			{
-				.ppxData =
-					reinterpret_cast<rlGameCanvas_Pixel*>(m_oGraphicsData.scanline(iLayer, 0)),
-				.oLayerSize  = oLayerSpecs.oLayerSize,
+				.bmp =
+				{
+					.ppxData =
+						reinterpret_cast<rlGameCanvas_Pixel*>(m_oGraphicsData.scanline(iLayer, 0)),
+					.size  = oLayerSpecs.oLayerSize,
+				},
 				.poScreenPos = &oLayerSettings.oScreenPos,
 				.pbVisible   = &oLayerSettings.bVisible
 			};

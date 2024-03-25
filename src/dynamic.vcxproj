@@ -142,7 +142,9 @@
   <ItemGroup>
     <ClInclude Include="..\include\gl\glext.h" />
     <ClInclude Include="..\include\KHR\khrplatform.h" />
+    <ClInclude Include="..\include\rlGameCanvas++\Bitmap.hpp" />
     <ClInclude Include="..\include\rlGameCanvas++\GameCanvas.hpp" />
+    <ClInclude Include="..\include\rlGameCanvas\Bitmap.h" />
     <ClInclude Include="..\include\rlGameCanvas\Core.h" />
     <ClInclude Include="..\include\rlGameCanvas\Definitions.h" />
     <ClInclude Include="..\include\rlGameCanvas\ExportSpecs.h" />
@@ -155,6 +157,7 @@
     <ClInclude Include="private\Windows.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Bitmap.cpp" />
     <ClCompile Include="CInterface.cpp" />
     <ClCompile Include="GameCanvas.cpp" />
     <ClCompile Include="GameCanvasPIMPL.cpp" />

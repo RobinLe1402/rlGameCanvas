@@ -36,6 +36,9 @@
     <ClCompile Include="GraphicsData.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Bitmap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\rlGameCanvas++\GameCanvas.hpp">
@@ -64,6 +67,9 @@
     </ClInclude>
     <ClInclude Include="private\GraphicsData.hpp">
       <Filter>Header Files\Private</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\rlGameCanvas++\Bitmap.hpp">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
