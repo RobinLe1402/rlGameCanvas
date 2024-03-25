@@ -26,6 +26,25 @@ namespace rlGameCanvasLib
 		BitmapOverlayStrategy eOverlayStrategy
 	);
 
+
+
+	enum class BitmapScalingStrategy
+	{
+		NearestNeighbor,
+		Bilinear
+	};
+
+	bool ApplyBitmapOverlay_Scaled(
+		Bitmap               *poBase,
+		const Bitmap         *poOverlay,
+		Int                   iOverlayX,
+		Int                   iOverlayY,
+		UInt                  iOverlayScaledWidth,
+		UInt                  iOverlayScaledHeight,
+		BitmapOverlayStrategy eOverlayStrategy,
+		BitmapScalingStrategy eScalingStrategy
+	);
+
 }
 
 

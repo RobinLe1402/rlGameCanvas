@@ -126,3 +126,53 @@ RLGAMECANVAS_API rlGameCanvas_Bool RLGAMECANVAS_LIB rlGameCanvas_ApplyBitmapOver
 
 	return lib::ApplyBitmapOverlay(poBase, poOverlay, iOverlayX, iOverlayY, eOverlayStrategy);
 }
+
+RLGAMECANVAS_API rlGameCanvas_Bool RLGAMECANVAS_LIB rlGameCanvas_ApplyBitmapOverlay_Scaled(
+	rlGameCanvas_Bitmap       *poBase,
+	const rlGameCanvas_Bitmap *poOverlay,
+	rlGameCanvas_Int           iOverlayX,
+	rlGameCanvas_Int           iOverlayY,
+	rlGameCanvas_UInt          iOverlayScaledWidth,
+	rlGameCanvas_UInt          iOverlayScaledHeight,
+	rlGameCanvas_UInt          iOverlayStrategy,
+	rlGameCanvas_UInt          iScalingStrategy
+)
+{
+	lib::BitmapOverlayStrategy eOverlayStrategy;
+	switch (iOverlayStrategy)
+	{
+	case RL_GAMECANVAS_BMP_OVERLAY_REPLACE:
+		eOverlayStrategy = lib::BitmapOverlayStrategy::Replace;
+		break;
+
+	case RL_GAMECANVAS_BMP_OVERLAY_BLEND:
+		eOverlayStrategy = lib::BitmapOverlayStrategy::Blend;
+		break;
+
+	default:
+		return 0;
+	}
+
+
+	lib::BitmapScalingStrategy eScalingStrategy;
+	switch (iScalingStrategy)
+	{
+	case RL_GAMECANVAS_BMP_SCALE_NEAREST_NEIGHBOR:
+		eScalingStrategy = lib::BitmapScalingStrategy::NearestNeighbor;
+		break;
+
+	case RL_GAMECANVAS_BMP_SCALE_BILINEAR:
+		eScalingStrategy = lib::BitmapScalingStrategy::Bilinear;
+		break;
+
+	default:
+		return 0;
+	}
+
+
+
+	return lib::ApplyBitmapOverlay_Scaled(
+		poBase, poOverlay, iOverlayX, iOverlayY,
+		iOverlayScaledWidth, iOverlayScaledHeight, eOverlayStrategy, eScalingStrategy
+	);
+}

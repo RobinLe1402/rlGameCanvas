@@ -1,6 +1,10 @@
 #include <rlGameCanvas++/Bitmap.hpp>
 
 #include <algorithm> // std::min
+#include <cmath>     // std::round
+#include <memory>    // std::unique_ptr
+
+
 
 namespace rlGameCanvasLib
 {
@@ -16,9 +20,6 @@ namespace rlGameCanvasLib
 		if (poBase == nullptr || poOverlay == nullptr)
 			return false;
 
-		// todo: fix disappearing around border
-
-
 
 		// check if visible at all
 
@@ -29,6 +30,8 @@ namespace rlGameCanvasLib
 			(iOverlayY > 0 && UInt( iOverlayY) >= poBase   ->size.y)
 		)
 			return true;
+
+
 
 		const UInt iVisibleLeft = (iOverlayX < 0) ? UInt(-iOverlayX) : 0;
 		const UInt iVisibleTop  = (iOverlayY < 0) ? UInt(-iOverlayY) : 0;
@@ -126,6 +129,189 @@ namespace rlGameCanvasLib
 
 
 		return true;
+	}
+
+	bool ApplyBitmapOverlay_Scaled(
+		Bitmap               *poBase,
+		const Bitmap         *poOverlay,
+		Int                   iOverlayX,
+		Int                   iOverlayY,
+		UInt                  iOverlayScaledWidth,
+		UInt                  iOverlayScaledHeight,
+		BitmapOverlayStrategy eOverlayStrategy,
+		BitmapScalingStrategy eScalingStrategy
+	)
+	{
+		if (iOverlayScaledWidth == 0 || iOverlayScaledHeight == 0)
+			return false;
+
+
+		// create temporary bitmap
+		auto up_pxScaled = std::make_unique<Pixel[]>(
+			(size_t)iOverlayScaledWidth * iOverlayScaledHeight
+		);
+		Bitmap bmpTemp =
+		{
+			.ppxData = reinterpret_cast<rlGameCanvas_Pixel *>(up_pxScaled.get()),
+			.size =
+			{
+				.x = iOverlayScaledWidth,
+				.y = iOverlayScaledHeight
+			}
+		};
+
+		const auto &src = poOverlay->ppxData;
+
+
+
+		// scale to temporary bitmap
+		const double dHalfPixelWidth  = 1.0 / (2.0 * poOverlay->size.x);
+		const double dHalfPixelHeight = 1.0 / (2.0 * poOverlay->size.y);
+		switch (eScalingStrategy)
+		{
+		case BitmapScalingStrategy::NearestNeighbor:
+		{
+			auto up_oSamplePixels = std::make_unique<UInt[]>(iOverlayScaledWidth);
+			for (size_t iX = 0; iX < iOverlayScaledWidth; ++iX)
+			{
+				const double dX = (double)iX / iOverlayScaledWidth;
+				up_oSamplePixels[iX] =
+					(UInt)std::min<double>(
+						poOverlay->size.x - 1,
+						std::round(dX * poOverlay->size.x + dHalfPixelWidth)
+					);
+			}
+
+			Pixel *pDest         = up_pxScaled.get();
+			for (size_t iY = 0; iY < iOverlayScaledHeight; ++iY)
+			{
+				const double dY       = (double)iY / iOverlayScaledHeight;
+				const UInt   iSampleY =
+					(UInt)std::min<double>(
+						poOverlay->size.y - 1,
+						std::round(dY * poOverlay->size.y + dHalfPixelHeight)
+					);
+				const size_t iSampleOffset = (size_t)iSampleY * poOverlay->size.x;
+
+				for (size_t iX = 0; iX < iOverlayScaledWidth; ++iX, ++pDest)
+				{
+					*pDest = src[iSampleOffset + up_oSamplePixels[iX]];
+				}
+			}
+			break;
+		}
+
+
+		case BitmapScalingStrategy::Bilinear:
+		{
+			const double dScaleX = (double)poOverlay->size.x / iOverlayScaledWidth;
+			const double dScaleY = (double)poOverlay->size.y / iOverlayScaledHeight;
+
+			struct HSamplingInfo
+			{
+				UInt   iIndexLeft,      iIndexRight;
+				// positive values that sum up to 0.5
+				double dVisibilityLeft, dVisibilityRight;
+			};
+
+			auto up_oSamplePixels = std::make_unique<HSamplingInfo[]>(iOverlayScaledWidth);
+			{
+				auto pDest = up_oSamplePixels.get();
+				for (size_t iX = 0; iX < iOverlayScaledWidth; ++iX, ++pDest)
+				{
+					const double dXAbs = dScaleX * iX;
+
+					pDest->iIndexLeft  = UInt(dXAbs);
+					pDest->iIndexRight =
+						UInt(std::min<double>(poOverlay->size.x - 1, pDest->iIndexLeft + 1));
+
+					const double dXRel = dXAbs - pDest->iIndexLeft;
+
+					pDest->dVisibilityLeft  = 1.0 - dXRel;
+					pDest->dVisibilityRight =       dXRel;
+				}
+			}
+
+			Pixel *pDest         = up_pxScaled.get();
+			for (size_t iY = 0; iY < iOverlayScaledHeight; ++iY)
+			{
+				const double dYAbs = dScaleY * iY;
+
+				const UInt iIndexTop    = UInt(dYAbs);
+				const UInt iIndexBottom = UInt(std::min<double>(
+					poOverlay->size.y - 1,
+					iIndexTop + 1
+				));
+
+				const double dYRel = dYAbs - iIndexTop;
+
+				const double dVisibilityTop    = 1.0 - dYRel;
+				const double dVisibilityBottom =       dYRel;
+
+				for (size_t iX = 0; iX < iOverlayScaledWidth; ++iX, ++pDest)
+				{
+					const auto &si = up_oSamplePixels[iX];
+
+					const Pixel pxSample[4] =
+					{
+						src[iIndexTop    * poOverlay->size.x + si.iIndexLeft ],
+						src[iIndexTop    * poOverlay->size.x + si.iIndexRight],
+						src[iIndexBottom * poOverlay->size.x + si.iIndexLeft ],
+						src[iIndexBottom * poOverlay->size.x + si.iIndexRight]
+					};
+					const double dVisibility[4] =
+					{
+						(si.dVisibilityLeft  + dVisibilityTop   ) / 4,
+						(si.dVisibilityRight + dVisibilityTop   ) / 4,
+						(si.dVisibilityLeft  + dVisibilityBottom) / 4,
+						(si.dVisibilityRight + dVisibilityBottom) / 4
+					};
+
+
+
+					pDest->rgba.a = uint8_t(std::min(
+						255.0,
+						dVisibility[0] * pxSample[0].rgba.a +
+						dVisibility[1] * pxSample[1].rgba.a +
+						dVisibility[2] * pxSample[2].rgba.a +
+						dVisibility[3] * pxSample[3].rgba.a
+					));
+					if (pDest->rgba.a != 0)
+					{
+						pDest->rgba.r = uint8_t(std::min(
+							255.0,
+							dVisibility[0] * pxSample[0].rgba.r +
+							dVisibility[1] * pxSample[1].rgba.r +
+							dVisibility[2] * pxSample[2].rgba.r +
+							dVisibility[3] * pxSample[3].rgba.r
+						));
+						pDest->rgba.g = uint8_t(std::min(
+							255.0,
+							dVisibility[0] * pxSample[0].rgba.g +
+							dVisibility[1] * pxSample[1].rgba.g +
+							dVisibility[2] * pxSample[2].rgba.g +
+							dVisibility[3] * pxSample[3].rgba.g
+						));
+						pDest->rgba.b = uint8_t(std::min(
+							255.0,
+							dVisibility[0] * pxSample[0].rgba.b +
+							dVisibility[1] * pxSample[1].rgba.b +
+							dVisibility[2] * pxSample[2].rgba.b +
+							dVisibility[3] * pxSample[3].rgba.b
+						));
+					}
+				}
+			}
+			break;
+		}
+			
+		default:
+			return false;
+		}
+
+
+
+		return ApplyBitmapOverlay(poBase, &bmpTemp, iOverlayX, iOverlayY, eOverlayStrategy);
 	}
 
 }
