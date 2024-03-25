@@ -27,11 +27,19 @@
 #define LAYERID_LOGO   3
 #define LAYERID_CURSOR 4
 
+#define LOGO_ANIM_SECONDS 2
+
 bool bPaused = false;
 typedef struct
 {
 	unsigned                iAnimFrame;
 	double                  dFrameTime;
+
+	double                  dLogoAnimTime;
+	bool                    bLogoAnimFinishing;
+	bool                    bLogoAnimFinished;
+	double                  dLogoAnimState;
+
 	bool                    bMouseOnCanvas;
 	rlGameCanvas_Resolution oMousePos;
 } GraphicsData;
@@ -69,6 +77,16 @@ void __stdcall Update(
 	GraphicsData *pDataT = pvState;
 
 	pDataT->dFrameTime += dSecsSinceLastCall;
+	if (!pDataT->bLogoAnimFinishing)
+	{
+		pDataT->dLogoAnimTime += dSecsSinceLastCall;
+		pDataT->dLogoAnimState = pDataT->dLogoAnimTime / LOGO_ANIM_SECONDS;
+
+		if (pDataT->dLogoAnimState >= 1.0)
+			pDataT->bLogoAnimFinishing = true;
+	}
+	else
+		pDataT->bLogoAnimFinished = true;
 
 	const unsigned iPassedFrames = (unsigned)(pDataT->dFrameTime / SECSPERFRAME);
 	pDataT->dFrameTime -= iPassedFrames * SECSPERFRAME;
@@ -251,11 +269,6 @@ void __stdcall Draw(
 
 			iLineOffset += iWidth;
 		}
-
-		rlGameCanvas_ApplyBitmapOverlay(&poLayers[LAYERID_LOGO].bmp, &bmpLOGO_ROBINLE,
-			(WIDTH - bmpLOGO_ROBINLE.size.x) / 2, ((HEIGHT / 2) - bmpLOGO_ROBINLE.size.y) / 2,
-			RL_GAMECANVAS_BMP_OVERLAY_REPLACE
-		);
 	}
 
 
@@ -288,6 +301,37 @@ void __stdcall Draw(
 
 
 
+	// draw the logo
+	if (!pDataT->bLogoAnimFinished)
+		memset(poLayers[LAYERID_LOGO].bmp.ppxData, 0,
+			sizeof(rlGameCanvas_Pixel) * iWidth * iHeight
+		);
+	if (!pDataT->bLogoAnimFinished && !pDataT->bLogoAnimFinishing)
+	{
+		const rlGameCanvas_UInt iLogoSize =
+			(rlGameCanvas_UInt)(bmpLOGO_ROBINLE.size.x * pDataT->dLogoAnimState);
+
+		const rlGameCanvas_UInt iX = ( WIDTH       - iLogoSize) / 2;
+		const rlGameCanvas_UInt iY = ((HEIGHT / 2) - iLogoSize) / 2;
+
+		rlGameCanvas_ApplyBitmapOverlay_Scaled(
+			&poLayers[LAYERID_LOGO].bmp, &bmpLOGO_ROBINLE,
+			iX, iY, iLogoSize, iLogoSize,
+			RL_GAMECANVAS_BMP_OVERLAY_REPLACE, RL_GAMECANVAS_BMP_SCALE_BILINEAR
+		);
+	}
+	else if ((!pDataT->bLogoAnimFinished && pDataT->bLogoAnimFinishing) ||
+		iFlags & RL_GAMECANVAS_DRW_NEWMODE)
+	{
+		// todo: fix timing! fix thread synchronization!
+		rlGameCanvas_ApplyBitmapOverlay(&poLayers[LAYERID_LOGO].bmp, &bmpLOGO_ROBINLE,
+			(WIDTH - bmpLOGO_ROBINLE.size.x) / 2, ((HEIGHT / 2) - bmpLOGO_ROBINLE.size.y) / 2,
+			RL_GAMECANVAS_BMP_OVERLAY_REPLACE
+		);
+	}
+
+
+
 	// if applicable, draw a cursor indicator
 	memset(poLayers[LAYERID_CURSOR].bmp.ppxData, 0, sizeof(rlGameCanvas_Pixel) * iWidth * iHeight);
 	if (pDataT->bMouseOnCanvas)
@@ -308,10 +352,7 @@ void __stdcall CreateData(void** pData)
 	GraphicsData *pDataT = *pData = malloc(sizeof(GraphicsData));
 
 	if (pDataT)
-	{
-		pDataT->iAnimFrame = 0;
-		pDataT->dFrameTime = 0.0;
-	}
+		memset(pDataT, 0, sizeof(GraphicsData));
 }
 
 void __stdcall DestroyData(void* pData)
