@@ -137,10 +137,14 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="TestBitmaps.c" />
     <ClCompile Include="main-dynamic.c" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\res\robinle-icon.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="TestBitmaps.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

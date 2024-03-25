@@ -18,10 +18,18 @@
     <ClCompile Include="main-dynamic.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="TestBitmaps.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\res\robinle-icon.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="TestBitmaps.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

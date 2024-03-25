@@ -3,9 +3,15 @@
 #include <rlGameCanvas/Definitions.h>
 #include <rlGameCanvas/Pixel.h>
 
+#include "TestBitmaps.h"
+
 #include <malloc.h>
 #include <stdbool.h>
 #include <stdio.h>
+
+
+
+
 
 #define WIDTH  256
 #define HEIGHT 240
@@ -14,11 +20,12 @@
 #define MODEID_DEFAULT 0
 #define MODEID_DEBUG   1
 
-#define LAYER_COUNT 4
+#define LAYER_COUNT 5
 #define LAYERID_BG     0
 #define LAYERID_VLINES 1
 #define LAYERID_HLINES 2
-#define LAYERID_CURSOR 3
+#define LAYERID_LOGO   3
+#define LAYERID_CURSOR 4
 
 bool bPaused = false;
 typedef struct
@@ -46,52 +53,6 @@ bool bCloseRequested        = false;
 
 bool bMouseCursorOnCanvas = false;
 rlGameCanvas_Resolution oMouseCursorPos;
-
-
-
-
-
-
-
-
-#define X 0xFFFFFFFF
-#define o 0xFF000000
-#define _ 0x00000000
-
-const rlGameCanvas_Pixel pxCURSOR[] =
-{
-	X,_,_,_,_,_,_,_,_,_,_,_,
-	X,X,_,_,_,_,_,_,_,_,_,_,
-	X,o,X,_,_,_,_,_,_,_,_,_,
-	X,o,o,X,_,_,_,_,_,_,_,_,
-	X,o,o,o,X,_,_,_,_,_,_,_,
-	X,o,o,o,o,X,_,_,_,_,_,_,
-	X,o,o,o,o,o,X,_,_,_,_,_,
-	X,o,o,o,o,o,o,X,_,_,_,_,
-	X,o,o,o,o,o,o,o,X,_,_,_,
-	X,o,o,o,o,o,o,o,o,X,_,_,
-	X,o,o,o,o,o,o,o,o,o,X,_,
-	X,o,o,o,o,o,o,o,o,o,o,X,
-	X,o,o,o,o,o,o,X,X,X,X,X,
-	X,o,o,o,X,o,o,X,_,_,_,_,
-	X,o,o,X,_,X,o,o,X,_,_,_,
-	X,o,X,_,_,X,o,o,X,_,_,_,
-	X,X,_,_,_,_,X,o,o,X,_,_,
-	_,_,_,_,_,_,X,o,o,X,_,_,
-	_,_,_,_,_,_,_,X,X,_,_,_
-};
-#define iCURSOR_WIDTH  12
-#define iCURSOR_HEIGHT 19
-
-const rlGameCanvas_Bitmap bmpCURSOR =
-{
-	(rlGameCanvas_Pixel *)pxCURSOR,
-	iCURSOR_WIDTH,
-	iCURSOR_HEIGHT
-};
-
-
-
 
 
 
@@ -290,6 +251,11 @@ void __stdcall Draw(
 
 			iLineOffset += iWidth;
 		}
+
+		rlGameCanvas_ApplyBitmapOverlay(&poLayers[LAYERID_LOGO].bmp, &bmpLOGO_ROBINLE,
+			(WIDTH - bmpLOGO_ROBINLE.size.x) / 2, ((HEIGHT / 2) - bmpLOGO_ROBINLE.size.y) / 2,
+			RL_GAMECANVAS_BMP_OVERLAY_REPLACE
+		);
 	}
 
 
@@ -329,9 +295,11 @@ void __stdcall Draw(
 		const rlGameCanvas_UInt iX = pDataT->oMousePos.x;
 		const rlGameCanvas_UInt iY = pDataT->oMousePos.y;
 		
-		rlGameCanvas_ApplyBitmapOverlay(&poLayers[LAYERID_CURSOR].bmp, &bmpCURSOR,
+		rlGameCanvas_ApplyBitmapOverlay(
+			&poLayers[LAYERID_CURSOR].bmp, &bmpCURSOR,
 			(rlGameCanvas_Int)iX - 1, (rlGameCanvas_Int)iY - 1,
-			RL_GAMECANVAS_BMP_OVERLAY_BLEND);
+			RL_GAMECANVAS_BMP_OVERLAY_REPLACE
+		);
 	}
 }
 
