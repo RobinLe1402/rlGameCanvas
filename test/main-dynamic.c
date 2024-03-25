@@ -351,7 +351,7 @@ int main(int argc, char* argv[])
 	sc.fnOnMsg         = CanvasMsg;
 	sc.fnOnWinMsg      = WinMsg;
 	sc.iFlags          = RL_GAMECANVAS_SUP_WINDOWED | RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE |
-		RL_GAMECANVAS_SUP_RESTRICT_CURSOR;
+	                     RL_GAMECANVAS_SUP_HIDE_CURSOR;
 	sc.iModeCount      = MODE_COUNT;
 	sc.pcoModes        = oModes;
 
