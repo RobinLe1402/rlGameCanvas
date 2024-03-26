@@ -1034,6 +1034,8 @@ namespace rlGameCanvasLib
 			m_eGraphicsThreadState = GraphicsThreadState::Waiting;
 			m_cvNextFrame.notify_one();
 			m_cvNextFrame.wait(lock);
+			m_cvNextFrame.notify_one();
+			lock.unlock();
 			
 			std::unique_lock lock_state(m_muxAppState);
 			if (!m_bRunning) // app is being shut down
@@ -1213,7 +1215,10 @@ namespace rlGameCanvasLib
 	void GameCanvas::PIMPL::resumeGraphicsThread()
 	{
 		m_fnCopyState(m_pvState_Updating, m_pvState_Drawing);
+
+		std::unique_lock lock(m_muxNextFrame);
 		m_cvNextFrame.notify_one();
+		m_cvNextFrame.wait(lock);
 	}
 
 	void GameCanvas::PIMPL::setFullscreenOnMaximize()
