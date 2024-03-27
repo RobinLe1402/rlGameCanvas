@@ -1,4 +1,5 @@
 #include <rlGameCanvas++/Bitmap.hpp>
+#include "private/PrivateTypes.hpp" // Rect
 
 #include <algorithm> // std::min
 #include <cmath>     // std::round
@@ -24,6 +25,51 @@ namespace rlGameCanvasLib
 			return pxResult;
 		}
 
+
+		bool DeFactoCoords(
+			const Resolution &resDest,
+			Int iOverlayX, Int iOverlayY, const Resolution &resOverlay,
+			UInt &iStartX, UInt &iStartY,       Resolution &resVisible,
+			Rect &rectVisible
+		)
+		{
+			// check if too far right and/or down
+			if (
+				(iOverlayX > 0 && UInt(iOverlayX) >= resDest.x) ||
+				(iOverlayY > 0 && UInt(iOverlayY) >= resDest.y)
+			)
+				return false;
+
+
+			iStartX = (iOverlayX < 0) ? UInt(-iOverlayX) : 0;
+			iStartY = (iOverlayY < 0) ? UInt(-iOverlayY) : 0;
+
+			if (iStartX >= resOverlay.x || iStartY >= resOverlay.y)
+				return false; // too far left and/or up
+
+
+			resVisible =
+			{
+				.x = resOverlay.x - iStartX,
+				.y = resOverlay.y - iStartY
+			};
+
+			const UInt iRightmost  = UInt(iOverlayX + Int(resOverlay.x));
+			const UInt iBottommost = UInt(iOverlayY + Int(resOverlay.y));
+
+			if (iRightmost >= resDest.x)
+				resVisible.x -= iRightmost  - resDest.x;
+			if (iBottommost >= resDest.y)
+				resVisible.y -= iBottommost - resDest.y;
+
+			rectVisible.iLeft   = UInt(iOverlayX + Int(iStartX));
+			rectVisible.iTop    = UInt(iOverlayY + Int(iStartY));
+			rectVisible.iRight  = rectVisible.iLeft + resVisible.x;
+			rectVisible.iBottom = rectVisible.iTop  + resVisible.y;
+
+			return true;
+		}
+
 	}
 
 
@@ -39,39 +85,25 @@ namespace rlGameCanvasLib
 		if (poBase == nullptr || poOverlay == nullptr)
 			return false;
 
-
-		// check if visible at all
-
-		if (
-			(iOverlayX < 0 && UInt(-iOverlayX) >  poOverlay->size.x) ||
-			(iOverlayX > 0 && UInt( iOverlayX) >= poBase   ->size.x) ||
-			(iOverlayY < 0 && UInt(-iOverlayY) >  poOverlay->size.y) ||
-			(iOverlayY > 0 && UInt( iOverlayY) >= poBase   ->size.y)
+		UInt       iStartX, iStartY;
+		Resolution resVisible;
+		Rect       rectVisible;
+		if (!DeFactoCoords(poBase->size, iOverlayX, iOverlayY, poOverlay->size,
+			iStartX, iStartY, resVisible, rectVisible)
 		)
 			return true;
 
 
 
-		const UInt iVisibleLeft = (iOverlayX < 0) ? UInt(-iOverlayX) : 0;
-		const UInt iVisibleTop  = (iOverlayY < 0) ? UInt(-iOverlayY) : 0;
-
-		const UInt iVisibleX = UInt(iOverlayX + Int(iVisibleLeft));
-		const UInt iVisibleY = UInt(iOverlayY + Int(iVisibleTop));
-
-		UInt iVisibleWidth =
-			std::min(poOverlay->size.x - iVisibleLeft, poBase->size.x - iOverlayX);
-		UInt iVisibleHeight =
-			std::min(poOverlay->size.y - iVisibleTop,  poBase->size.y - iOverlayY);
-
 		switch (eOverlayStrategy)
 		{
 		case BitmapOverlayStrategy::Replace:
 		{
-			const size_t iRowDataSize = iVisibleWidth * sizeof(Pixel);
-			size_t iOffsetBase    = (size_t)iVisibleY   * poBase   ->size.x + iVisibleX;
-			size_t iOffsetOverlay = (size_t)iVisibleTop * poOverlay->size.x + iVisibleLeft;
+			const size_t iRowDataSize = resVisible.x * sizeof(Pixel);
+			size_t iOffsetBase    = (size_t)rectVisible.iTop * poBase->size.x + rectVisible.iLeft;
+			size_t iOffsetOverlay = (size_t)iStartY       * poOverlay->size.x + iStartX;
 
-			for (size_t iY = iVisibleTop; iY < poOverlay->size.y; ++iY)
+			for (size_t iY = iStartY; iY < poOverlay->size.y; ++iY)
 			{
 				if (UInt(iOverlayY + (Int)iY) >= poBase->size.y)
 					break;
@@ -89,21 +121,21 @@ namespace rlGameCanvasLib
 
 		case BitmapOverlayStrategy::Blend:
 		{
-			const size_t iIgnoredPixels_Overlay = (size_t)poOverlay->size.x - iVisibleWidth;
-			const size_t iIgnoredPixels_Base    = (size_t)poBase   ->size.x - iVisibleWidth;
+			const size_t iIgnoredPixels_Overlay = (size_t)poOverlay->size.x - resVisible.x;
+			const size_t iIgnoredPixels_Base    = (size_t)poBase   ->size.x - resVisible.x;
 
 
 			const Pixel *pSrc = reinterpret_cast<Pixel *>(poOverlay->ppxData) +
-				(iVisibleTop * poOverlay->size.x + iVisibleLeft);
+				(iStartY * poOverlay->size.x + iStartX);
 			Pixel *pDest = reinterpret_cast<Pixel *>(poBase->ppxData +
-				(iVisibleY   * poBase   ->size.x + iVisibleX));
+				(rectVisible.iTop * poBase->size.x + rectVisible.iLeft));
 
-			for (size_t iY = iVisibleTop; iY < poOverlay->size.y; ++iY)
+			for (size_t iY = iStartY; iY < poOverlay->size.y; ++iY)
 			{
 				if (UInt(iOverlayY + (Int)iY) >= poBase->size.y)
 					break;
 
-				for (size_t iX = iVisibleLeft; iX < poOverlay->size.x; ++iX, ++pSrc, ++pDest)
+				for (size_t iX = iStartX; iX < poOverlay->size.x; ++iX, ++pSrc, ++pDest)
 				{
 					if (UInt(iOverlayX + (Int)iX) >= poBase->size.x)
 						break;
@@ -164,18 +196,36 @@ namespace rlGameCanvasLib
 		if (iOverlayScaledWidth == 0 || iOverlayScaledHeight == 0)
 			return false;
 
+		// same size --> draw directly
+		if (iOverlayScaledWidth == poOverlay->size.x && iOverlayScaledHeight == poOverlay->size.y)
+			return ApplyBitmapOverlay(poBase, poOverlay, iOverlayX, iOverlayY, eOverlayStrategy);
+
+		const Resolution resScaled =
+		{
+			.x = iOverlayScaledWidth,
+			.y = iOverlayScaledHeight
+		};
+		UInt       iStartX, iStartY;
+		Resolution resVisible;
+		Rect       rectVisible;
+		if (!DeFactoCoords(
+			poBase->size, iOverlayX, iOverlayY, resScaled,
+			iStartX, iStartY, resVisible, rectVisible
+		))
+			return true;
+
 
 		// create temporary bitmap
 		auto up_pxScaled = std::make_unique<Pixel[]>(
-			(size_t)iOverlayScaledWidth * iOverlayScaledHeight
+			(size_t)resVisible.x * resVisible.y
 		);
 		Bitmap bmpTemp =
 		{
 			.ppxData = reinterpret_cast<rlGameCanvas_Pixel *>(up_pxScaled.get()),
 			.size =
 			{
-				.x = iOverlayScaledWidth,
-				.y = iOverlayScaledHeight
+				.x = resVisible.x,
+				.y = resVisible.y
 			}
 		};
 
@@ -190,10 +240,11 @@ namespace rlGameCanvasLib
 		{
 		case BitmapScalingStrategy::NearestNeighbor:
 		{
-			auto up_oSamplePixels = std::make_unique<UInt[]>(iOverlayScaledWidth);
-			for (size_t iX = 0; iX < iOverlayScaledWidth; ++iX)
+			auto up_oSamplePixels = std::make_unique<UInt[]>(resVisible.x);
+			for (size_t iX = 0; iX < resVisible.x; ++iX)
 			{
-				const double dX = (double)iX / iOverlayScaledWidth;
+				size_t iAbsX = iStartX + iX;
+				const double dX = (double)iAbsX / iOverlayScaledWidth;
 				up_oSamplePixels[iX] =
 					(UInt)std::min<double>(
 						poOverlay->size.x - 1,
@@ -201,8 +252,8 @@ namespace rlGameCanvasLib
 					);
 			}
 
-			Pixel *pDest         = up_pxScaled.get();
-			for (size_t iY = 0; iY < iOverlayScaledHeight; ++iY)
+			Pixel *pDest = up_pxScaled.get();
+			for (size_t iY = iStartY; iY < resVisible.y; ++iY)
 			{
 				const double dY       = (double)iY / iOverlayScaledHeight;
 				const UInt   iSampleY =
@@ -212,7 +263,7 @@ namespace rlGameCanvasLib
 					);
 				const size_t iSampleOffset = (size_t)iSampleY * poOverlay->size.x;
 
-				for (size_t iX = 0; iX < iOverlayScaledWidth; ++iX, ++pDest)
+				for (size_t iX = 0; iX < resVisible.x; ++iX, ++pDest)
 				{
 					*pDest = src[iSampleOffset + up_oSamplePixels[iX]];
 				}
@@ -233,12 +284,12 @@ namespace rlGameCanvasLib
 				double dOffsetX;
 			};
 
-			auto up_oSamplePixels = std::make_unique<HSamplingInfo[]>(iOverlayScaledWidth);
+			auto up_oSamplePixels = std::make_unique<HSamplingInfo[]>(resVisible.x);
 			{
 				auto pDest = up_oSamplePixels.get();
-				for (size_t iX = 0; iX < iOverlayScaledWidth; ++iX, ++pDest)
+				for (size_t iX = 0; iX < resVisible.x; ++iX, ++pDest)
 				{
-					const double dXAbs = dScaleX * iX;
+					const double dXAbs = dScaleX * (iStartX + iX);
 
 					pDest->iIndexLeft  = UInt(dXAbs);
 					pDest->iIndexRight =
@@ -249,9 +300,9 @@ namespace rlGameCanvasLib
 			}
 
 			Pixel *pDest = up_pxScaled.get();
-			for (size_t iY = 0; iY < iOverlayScaledHeight; ++iY)
+			for (size_t iY = 0; iY < resVisible.y; ++iY)
 			{
-				const double dYAbs = dScaleY * iY;
+				const double dYAbs = dScaleY * (iStartY + iY);
 
 				const UInt iIndexTop    = UInt(dYAbs);
 				const UInt iIndexBottom = UInt(std::min<double>(
@@ -261,7 +312,7 @@ namespace rlGameCanvasLib
 
 				const double dOffsetY = dYAbs - iIndexTop;
 
-				for (size_t iX = 0; iX < iOverlayScaledWidth; ++iX, ++pDest)
+				for (size_t iX = 0; iX < resVisible.x; ++iX, ++pDest)
 				{
 					const auto &si = up_oSamplePixels[iX];
 
@@ -288,7 +339,8 @@ namespace rlGameCanvasLib
 
 
 
-		return ApplyBitmapOverlay(poBase, &bmpTemp, iOverlayX, iOverlayY, eOverlayStrategy);
+		return ApplyBitmapOverlay(poBase, &bmpTemp, rectVisible.iLeft, rectVisible.iTop,
+			eOverlayStrategy);
 	}
 
 }
