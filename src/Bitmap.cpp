@@ -9,6 +9,25 @@
 namespace rlGameCanvasLib
 {
 
+	namespace
+	{
+
+		Pixel PixelLerp(const Pixel &px1, const Pixel &px2, double dOffset)
+		{
+			Pixel pxResult;
+
+			pxResult.rgba.a = (uint8_t)std::lerp(px1.rgba.a, px2.rgba.a, dOffset);
+			pxResult.rgba.r = (uint8_t)std::lerp(px1.rgba.r, px2.rgba.r, dOffset);
+			pxResult.rgba.g = (uint8_t)std::lerp(px1.rgba.g, px2.rgba.g, dOffset);
+			pxResult.rgba.b = (uint8_t)std::lerp(px1.rgba.b, px2.rgba.b, dOffset);
+
+			return pxResult;
+		}
+
+	}
+
+
+
 	bool ApplyBitmapOverlay(
 		Bitmap               *poBase,
 		const Bitmap         *poOverlay,
@@ -209,9 +228,9 @@ namespace rlGameCanvasLib
 
 			struct HSamplingInfo
 			{
-				UInt   iIndexLeft,      iIndexRight;
+				UInt   iIndexLeft, iIndexRight;
 				// positive values that sum up to 0.5
-				double dVisibilityLeft, dVisibilityRight;
+				double dOffsetX;
 			};
 
 			auto up_oSamplePixels = std::make_unique<HSamplingInfo[]>(iOverlayScaledWidth);
@@ -225,14 +244,11 @@ namespace rlGameCanvasLib
 					pDest->iIndexRight =
 						UInt(std::min<double>(poOverlay->size.x - 1, pDest->iIndexLeft + 1));
 
-					const double dXRel = dXAbs - pDest->iIndexLeft;
-
-					pDest->dVisibilityLeft  = 1.0 - dXRel;
-					pDest->dVisibilityRight =       dXRel;
+					pDest->dOffsetX = dXAbs - pDest->iIndexLeft;
 				}
 			}
 
-			Pixel *pDest         = up_pxScaled.get();
+			Pixel *pDest = up_pxScaled.get();
 			for (size_t iY = 0; iY < iOverlayScaledHeight; ++iY)
 			{
 				const double dYAbs = dScaleY * iY;
@@ -243,10 +259,7 @@ namespace rlGameCanvasLib
 					iIndexTop + 1
 				));
 
-				const double dYRel = dYAbs - iIndexTop;
-
-				const double dVisibilityTop    = 1.0 - dYRel;
-				const double dVisibilityBottom =       dYRel;
+				const double dOffsetY = dYAbs - iIndexTop;
 
 				for (size_t iX = 0; iX < iOverlayScaledWidth; ++iX, ++pDest)
 				{
@@ -259,47 +272,11 @@ namespace rlGameCanvasLib
 						src[iIndexBottom * poOverlay->size.x + si.iIndexLeft ],
 						src[iIndexBottom * poOverlay->size.x + si.iIndexRight]
 					};
-					const double dVisibility[4] =
-					{
-						(si.dVisibilityLeft  + dVisibilityTop   ) / 4,
-						(si.dVisibilityRight + dVisibilityTop   ) / 4,
-						(si.dVisibilityLeft  + dVisibilityBottom) / 4,
-						(si.dVisibilityRight + dVisibilityBottom) / 4
-					};
 
+					const Pixel pxTop    = PixelLerp(pxSample[0], pxSample[1], si.dOffsetX);
+					const Pixel pxBottom = PixelLerp(pxSample[2], pxSample[3], si.dOffsetX);
 
-
-					pDest->rgba.a = uint8_t(std::min(
-						255.0,
-						dVisibility[0] * pxSample[0].rgba.a +
-						dVisibility[1] * pxSample[1].rgba.a +
-						dVisibility[2] * pxSample[2].rgba.a +
-						dVisibility[3] * pxSample[3].rgba.a
-					));
-					if (pDest->rgba.a != 0)
-					{
-						pDest->rgba.r = uint8_t(std::min(
-							255.0,
-							dVisibility[0] * pxSample[0].rgba.r +
-							dVisibility[1] * pxSample[1].rgba.r +
-							dVisibility[2] * pxSample[2].rgba.r +
-							dVisibility[3] * pxSample[3].rgba.r
-						));
-						pDest->rgba.g = uint8_t(std::min(
-							255.0,
-							dVisibility[0] * pxSample[0].rgba.g +
-							dVisibility[1] * pxSample[1].rgba.g +
-							dVisibility[2] * pxSample[2].rgba.g +
-							dVisibility[3] * pxSample[3].rgba.g
-						));
-						pDest->rgba.b = uint8_t(std::min(
-							255.0,
-							dVisibility[0] * pxSample[0].rgba.b +
-							dVisibility[1] * pxSample[1].rgba.b +
-							dVisibility[2] * pxSample[2].rgba.b +
-							dVisibility[3] * pxSample[3].rgba.b
-						));
-					}
+					*pDest = PixelLerp(pxTop, pxBottom, dOffsetY);
 				}
 			}
 			break;
