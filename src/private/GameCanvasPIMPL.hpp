@@ -146,6 +146,7 @@ namespace rlGameCanvasLib
 		GLuint m_iIntScaledBufferFBO     = 0;
 		GLuint m_iIntScaledBufferTexture = 0;
 
+		std::mutex              m_muxGraphicsThread;
 		std::mutex              m_muxNextFrame;
 		std::condition_variable m_cvNextFrame;
 

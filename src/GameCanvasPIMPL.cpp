@@ -426,9 +426,12 @@ namespace rlGameCanvasLib
 
 		wglMakeCurrent(NULL, NULL); // give up control over OpenGL
 
-		// TODO: do in WM_CREATE or WM_SHOW instead?
-		m_eGraphicsThreadState = GraphicsThreadState::Running;
-		m_oGraphicsThread = std::thread(&GameCanvas::PIMPL::graphicsThreadProc, this);
+		// initialize + wait for graphics thread
+		{
+			std::unique_lock lock(m_muxAppState);
+			m_oGraphicsThread = std::thread(&GameCanvas::PIMPL::graphicsThreadProc, this);
+			m_cvAppState.wait(lock);
+		}
 
 		MSG msg{};
 		while (true)
@@ -998,10 +1001,19 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::graphicsThreadProc()
 	{
+		std::unique_lock lock_thread(m_muxGraphicsThread);
+		m_eGraphicsThreadState = GraphicsThreadState::Running;
 		wglMakeCurrent(m_hDC, m_hOpenGL);
+
+		// tell main thread that the graphics thread is set up
+		{
+			std::unique_lock lock_state(m_muxAppState);
+			m_cvAppState.notify_one();
+		}
 
 		while (true)
 		{
+
 			// check if still running
 			{
 				std::unique_lock lock(m_muxAppState);
@@ -1015,6 +1027,27 @@ namespace rlGameCanvasLib
 					m_cvAppState.wait(lock);
 				}
 			}
+
+
+			std::unique_lock lock_frame(m_muxNextFrame);
+			lock_thread.unlock();
+
+			m_eGraphicsThreadState = GraphicsThreadState::Waiting;
+
+			m_cvNextFrame.wait(lock_frame);
+			lock_thread.lock();
+
+			m_cvNextFrame.notify_one();
+			lock_frame.unlock();
+
+
+			std::unique_lock lock_state(m_muxAppState);
+			if (!m_bRunning) // app is being shut down
+				return; // cancel current frame rendering
+			lock_state.unlock();
+
+
+			m_eGraphicsThreadState = GraphicsThreadState::Running;
 
 			renderFrame();
 		}
@@ -1030,21 +1063,6 @@ namespace rlGameCanvasLib
 		// sync up with logic thread
 		if (std::this_thread::get_id() == m_oGraphicsThread.get_id())
 		{
-			std::unique_lock lock(m_muxNextFrame);
-			m_eGraphicsThreadState = GraphicsThreadState::Waiting;
-			m_cvNextFrame.notify_one();
-			m_cvNextFrame.wait(lock);
-			m_cvNextFrame.notify_one();
-			lock.unlock();
-			
-			std::unique_lock lock_state(m_muxAppState);
-			if (!m_bRunning) // app is being shut down
-				return; // cancel current frame rendering
-			lock_state.unlock();
-			
-
-			m_eGraphicsThreadState = GraphicsThreadState::Running;
-
 			if (m_bGraphicsThread_NewViewport)
 			{
 				glViewport(0, 0, m_oClientSize.x, m_oClientSize.y);
@@ -1205,18 +1223,17 @@ namespace rlGameCanvasLib
 	// control over OpenGL.
 	void GameCanvas::PIMPL::waitForGraphicsThread()
 	{
-		std::unique_lock lock(m_muxNextFrame);
-
-		if (m_eGraphicsThreadState == GraphicsThreadState::Running)
-			m_cvNextFrame.wait(lock); // wait for the graphics thread to finish drawing
+		std::unique_lock lock(m_muxGraphicsThread);
 	}
 
 	// This function shall only be called after calling waitForGraphicsThread.
 	void GameCanvas::PIMPL::resumeGraphicsThread()
 	{
+		waitForGraphicsThread();
+		std::unique_lock lock(m_muxNextFrame);
+
 		m_fnCopyState(m_pvState_Updating, m_pvState_Drawing);
 
-		std::unique_lock lock(m_muxNextFrame);
 		m_cvNextFrame.notify_one();
 		m_cvNextFrame.wait(lock);
 	}
