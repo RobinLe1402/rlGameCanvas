@@ -53,6 +53,7 @@ typedef struct
 #define DIST_ADD_PER_LINE (0.7)
 #define FRAMECOUNT ((HEIGHT / 2) - (unsigned)((HEIGHT / 2) * YFACTOR - 1))
 
+bool bAnimationToggled      = false;
 bool bFullscreenToggled     = false;
 bool bRestrictCursorToggled = false;
 bool bHideCursorToggled     = false;
@@ -82,7 +83,7 @@ void __stdcall Update(
 		pDataT->dLogoAnimTime += dSecsSinceLastCall;
 		pDataT->dLogoAnimState = pDataT->dLogoAnimTime / LOGO_ANIM_SECONDS;
 
-		if (pDataT->dLogoAnimState >= 1.0)
+		if (pDataT->dLogoAnimState + 0.01 >= 1.0)
 			pDataT->bLogoAnimFinishing = true;
 	}
 	else
@@ -94,6 +95,15 @@ void __stdcall Update(
 
 	pDataT->iAnimFrame %= FRAMECOUNT;
 
+	if (bAnimationToggled)
+	{
+		pDataT->bLogoAnimFinishing = false;
+		pDataT->bLogoAnimFinished  = false;
+		pDataT->dLogoAnimTime      = 0.0;
+		pDataT->dLogoAnimState     = 0.0;
+
+		bAnimationToggled = false;
+	}
 	if (bFullscreenToggled)
 	{
 		poConfig->iFlags  ^= RL_GAMECANVAS_CFG_FULLSCREEN;
@@ -101,18 +111,18 @@ void __stdcall Update(
 	}
 	if (bRestrictCursorToggled)
 	{
-		poConfig->iFlags ^= RL_GAMECANVAS_CFG_RESTRICT_CURSOR;
+		poConfig->iFlags      ^= RL_GAMECANVAS_CFG_RESTRICT_CURSOR;
 		bRestrictCursorToggled = false;
 	}
 	if (bHideCursorToggled)
 	{
-		poConfig->iFlags ^= RL_GAMECANVAS_CFG_HIDE_CURSOR;
+		poConfig->iFlags  ^= RL_GAMECANVAS_CFG_HIDE_CURSOR;
 		bHideCursorToggled = false;
 	}
 	if (bModeToggled)
 	{
 		poConfig->iMode = ++poConfig->iMode % MODE_COUNT;
-		bModeToggled = false;
+		bModeToggled    = false;
 	}
 	if (bCloseRequested)
 		rlGameCanvas_Quit(canvas);
@@ -167,6 +177,10 @@ void __stdcall WinMsg(
 	case WM_KEYDOWN:
 		switch (wParam)
 		{
+		case 'A':
+			bAnimationToggled = true;
+			break;
+
 		case 'C':
 			bHideCursorToggled = true;
 			break;
@@ -413,6 +427,7 @@ int main(int argc, char* argv[])
 	printf(
 		"==================================================\n"
 		"CONTROLS:\n"
+		"[A]nimation  - Restart the logo animation.\n"
 		"[C]ursor     - Toggle mouse cursor visiblity.\n"
 		"[F]ullscreen - Toggle fullscreen.\n"
 		"[M]ode       - Toggle debug mode.\n"
