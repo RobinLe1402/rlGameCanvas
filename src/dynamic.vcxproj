@@ -24,7 +24,7 @@
     <ProjectGuid>{e534f965-4adf-48a5-8009-9d3258fac29a}</ProjectGuid>
     <RootNamespace>dynamic</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>library (dynamic)</ProjectName>
+    <ProjectName>rlGameCanvas (dynamic)</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
