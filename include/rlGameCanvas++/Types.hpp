@@ -13,8 +13,6 @@
 #define RLGAMECANVAS_NO_CHAR8
 #endif
 
-#include "Pixel.hpp"
-
 namespace rlGameCanvasLib
 {
 
@@ -22,6 +20,7 @@ namespace rlGameCanvasLib
 	using UInt         = rlGameCanvas_UInt;
 	using Int          = rlGameCanvas_Int;
 	using U8Char       = rlGameCanvas_U8Char;
+	using PixelInt     = rlGameCanvas_Pixel; // only used for the interface.
 
 	using Resolution = rlGameCanvas_Resolution;
 
@@ -50,6 +49,8 @@ namespace rlGameCanvasLib
 	using StartupConfig = rlGameCanvas_StartupConfig;
 
 }
+
+#include "Pixel.hpp"
 
 
 

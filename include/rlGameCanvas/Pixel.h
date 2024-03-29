@@ -21,9 +21,17 @@
 
 #define RLGAMECANVAS_MAKEPIXELOPAQUE(px) (px | 0xFF000000)
 
-const rlGameCanvas_Pixel rlGameCanvas_Color_Blank = RLGAMECANVAS_MAKEPIXEL(0, 0, 0, 0);
-const rlGameCanvas_Pixel rlGameCanvas_Color_Black = RLGAMECANVAS_MAKEPIXEL_RGB(0, 0, 0);
-const rlGameCanvas_Pixel rlGameCanvas_Color_White = RLGAMECANVAS_MAKEPIXEL_RGB(255, 255, 255);
+#ifndef __cplusplus
+#define RL_CONST const
+#else
+#define RL_CONST constexpr
+#endif
+
+RL_CONST rlGameCanvas_Pixel rlGameCanvas_Color_Blank = RLGAMECANVAS_MAKEPIXEL(0, 0, 0, 0);
+RL_CONST rlGameCanvas_Pixel rlGameCanvas_Color_Black = RLGAMECANVAS_MAKEPIXEL_RGB(0, 0, 0);
+RL_CONST rlGameCanvas_Pixel rlGameCanvas_Color_White = RLGAMECANVAS_MAKEPIXEL_RGB(255, 255, 255);
+
+#undef RL_CONST
 
 
 

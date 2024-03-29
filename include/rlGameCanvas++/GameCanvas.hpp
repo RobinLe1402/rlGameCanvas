@@ -17,6 +17,7 @@ namespace rlGameCanvasLib
 	public: // methods
 
 		GameCanvas(const StartupConfig &config);
+		GameCanvas(const GameCanvas &) = delete;
 		~GameCanvas();
 
 		bool run();

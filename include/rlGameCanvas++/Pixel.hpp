@@ -22,17 +22,18 @@ namespace rlGameCanvasLib
 			uint8_t b;
 			uint8_t a;
 		} rgba;
-		rlGameCanvas_Pixel val;
+
+		PixelInt val;
 
 
 		constexpr Pixel(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) :
 			rgba({ r, g, b, a })
 		{}
 
-		constexpr Pixel(rlGameCanvas_Pixel val = rlGameCanvas_Color_Blank) : val(val) {}
+		constexpr Pixel(PixelInt val = rlGameCanvas_Color_Blank) : val(val) {}
 
 
-		operator rlGameCanvas_Pixel() const { return val; }
+		operator PixelInt() const { return val; }
 	};
 
 	namespace Color
