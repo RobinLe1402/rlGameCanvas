@@ -942,6 +942,8 @@ namespace rlGameCanvasLib
 							rcWindow.bottom - rcWindow.top,  // cy
 							SWP_NOZORDER                     // uFlags
 						);
+						const auto oClientSize = GetActualClientSize(m_hWnd);
+						handleResize(oClientSize.x, oClientSize.y);
 						return 0;
 					}
 				}
