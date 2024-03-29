@@ -142,6 +142,8 @@ int main(int argc, char* argv[])
 	constexpr char8_t szCAPTION[] = u8"Hi there! :)";
 	sc.szWindowCaption = szCAPTION;
 
+	sc.hIconBig = LoadIconW(GetModuleHandleW(NULL), L"ROBINLE_ICON");
+
 	sc.fnCreateState  = CreateState;
 	sc.fnDestroyState = DestroyState;
 	sc.fnCopyState    = CopyState;
