@@ -955,6 +955,23 @@ namespace rlGameCanvasLib
 
 		case WM_WINDOWPOSCHANGING:
 		{
+			// this message is only handled manually whenever the user "part-maximizes" the window,
+			// i.e. dragging e.g. the bottom of the window to the very bottom of the screen, causing
+			// it to get stretched over the entire height of the monitor:
+			//
+			// +           + - - - - - - - +           +
+			//                   ^
+			//             |     |         |
+			//
+			//             +-----------+   |
+			//             |-----------|
+			//             |           | ->|
+			//             |           |
+			//             +-----------+   |
+			//
+			//             |     |         |
+			//                   V
+			// +           + - - - - - - - +           +
 			if (!m_bResizing)
 				break;
 
@@ -976,22 +993,43 @@ namespace rlGameCanvasLib
 				.y = (UInt)wp.cy - oBorderSize.y
 			};
 
-			UInt iNewHeight = oClientSize.y;
-			UInt iNewWidth  = UInt((double)oClientSize.y / mode.oScreenSize.y * mode.oScreenSize.x);
-			if (iNewWidth > oClientSize.x)
+			Resolution oNewSize = oClientSize;
+
+			// only enforce aspect ratio
+			if (
+				!m_bDontOversample ||
+				oClientSize.x < mode.oScreenSize.x || oClientSize.y < mode.oScreenSize.y
+			)
 			{
-				iNewWidth  = oClientSize.x;
-				iNewHeight = UInt((double)oClientSize.x / mode.oScreenSize.x * mode.oScreenSize.y);
-				// todo: limit height?
+				oNewSize.x  = UInt((double)oClientSize.y / mode.oScreenSize.y * mode.oScreenSize.x);
+				if (oNewSize.x > oClientSize.x)
+				{
+					oNewSize.x  = oClientSize.x;
+					oNewSize.y =
+						UInt((double)oClientSize.x / mode.oScreenSize.x * mode.oScreenSize.y);
+					// todo: limit height?
+				}
 			}
 
-			if (iNewWidth < m_oMinClientSize.x)
-				iNewWidth = m_oMinClientSize.x;
-			if (iNewHeight < m_oMinClientSize.y)
-				iNewHeight = m_oMinClientSize.y;
+			// integer scaling
+			else
+			{
+				const UInt iPixelSize = std::min(
+					oClientSize.x / mode.oScreenSize.x,
+					oClientSize.y / mode.oScreenSize.y
+				);
 
-			wp.cx = iNewWidth  + oBorderSize.x;
-			wp.cy = iNewHeight + oBorderSize.y;
+				oNewSize.x = iPixelSize * mode.oScreenSize.x;
+				oNewSize.y = iPixelSize * mode.oScreenSize.y;
+			}
+
+			if (oNewSize.x < m_oMinClientSize.x)
+				oNewSize.x = m_oMinClientSize.x;
+			if (oNewSize.y < m_oMinClientSize.y)
+				oNewSize.y = m_oMinClientSize.y;
+
+			wp.cx = oNewSize.x + oBorderSize.x;
+			wp.cy = oNewSize.y + oBorderSize.y;
 
 			return 0;
 		}
@@ -1014,11 +1052,19 @@ namespace rlGameCanvasLib
 			const bool bLeft =
 				wParam == WMSZ_BOTTOMLEFT  || wParam == WMSZ_LEFT   || wParam == WMSZ_TOPLEFT;
 
-			Resolution oNewClientSize =
+			const bool bOneWay =
+				wParam == WMSZ_LEFT  || wParam == WMSZ_TOP ||
+				wParam == WMSZ_RIGHT || wParam == WMSZ_BOTTOM;
+
+			const bool bHorizontal = bLeft || bRight;
+			const bool bVertical   = bTop  || bBottom;
+
+			const Resolution oRequestedClientSize =
 			{
 				.x = UInt((rect.right  - rect.left) - (rcBorder.right  - rcBorder.left)),
 				.y = UInt((rect.bottom - rect.top ) - (rcBorder.bottom - rcBorder.top ))
 			};
+			Resolution oNewClientSize = oRequestedClientSize;
 
 
 			// only validate aspect ratio
@@ -1027,58 +1073,79 @@ namespace rlGameCanvasLib
 				oNewClientSize.x < mode.oScreenSize.x || oNewClientSize.y < mode.oScreenSize.y
 			)
 			{
-				const UInt iAdjustedWidth =
-					UInt((double)oNewClientSize.y / mode.oScreenSize.y * mode.oScreenSize.x);
-
-				if (iAdjustedWidth <= oNewClientSize.x)
+				// resizing only horizontally/vertically => always adjust other size
+				if (bOneWay)
 				{
-					const UInt iDiffX = oNewClientSize.x - iAdjustedWidth;
-
-					if (bLeft)
-						rect.left += iDiffX;
-					else
-						rect.right -= iDiffX;
-
-					oNewClientSize.x -= iDiffX;
+					if (bHorizontal)
+						oNewClientSize.y = UInt(
+							(double)oNewClientSize.x / mode.oScreenSize.x * mode.oScreenSize.y
+						);
+					else // bVertical
+						oNewClientSize.x = UInt(
+							(double)oNewClientSize.y / mode.oScreenSize.y * mode.oScreenSize.x
+						);
 				}
+
+				// resizing both horizontally and vertically => choose minimum
 				else
 				{
-					const UInt iAdjustedHeight =
-						UInt((double)oNewClientSize.x / mode.oScreenSize.x * mode.oScreenSize.y);
+					const UInt iAdjustedWidth =
+						UInt((double)oNewClientSize.y / mode.oScreenSize.y * mode.oScreenSize.x);
 
-					const UInt iDiffY = oNewClientSize.y - iAdjustedHeight;
-					if (bTop)
-						rect.top += iDiffY;
+					if (iAdjustedWidth <= oNewClientSize.x)
+						oNewClientSize.x = iAdjustedWidth;
 					else
-						rect.bottom -= iDiffY;
-
-					oNewClientSize.y -= iDiffY;
+						oNewClientSize.y = UInt(
+							(double)oNewClientSize.x / mode.oScreenSize.x * mode.oScreenSize.y
+						);
 				}
 			}
 
 			// validate overall size
 			else
 			{
-				const UInt iPixelSize = std::min(
-					oNewClientSize.x / mode.oScreenSize.x,
-					oNewClientSize.y / mode.oScreenSize.y
-				);
+				// resizing only horizontally/vertically => always adjust other size
+				if (bOneWay)
+				{
+					const UInt iPixelSize = (bHorizontal) ?
+						oNewClientSize.x / mode.oScreenSize.x :
+						oNewClientSize.y / mode.oScreenSize.y;
 
-				const UInt iDiffX = oNewClientSize.x - (mode.oScreenSize.x * iPixelSize);
-				const UInt iDiffY = oNewClientSize.y - (mode.oScreenSize.y * iPixelSize);
+					oNewClientSize.x = mode.oScreenSize.x * iPixelSize;
+					oNewClientSize.y = mode.oScreenSize.y * iPixelSize;
+				}
 
-				oNewClientSize.x -= iDiffX;
-				oNewClientSize.y -= iDiffY;
-
-				if (bLeft)
-					rect.left += iDiffX;
+				// resizing both horizontally and vertically => choose minimum
 				else
-					rect.right -= iDiffX;
+				{
+					const UInt iPixelSize = std::min(
+						oNewClientSize.x / mode.oScreenSize.x,
+						oNewClientSize.y / mode.oScreenSize.y
+					);
 
-				if (bTop)
-					rect.top += iDiffY;
-				else
-					rect.bottom -= iDiffY;
+					oNewClientSize.x = mode.oScreenSize.x * iPixelSize;
+					oNewClientSize.y = mode.oScreenSize.y * iPixelSize;
+				}
+			}
+
+			if (oNewClientSize != oRequestedClientSize)
+			{
+				if (oNewClientSize.x != oRequestedClientSize.x)
+				{
+					const int iDiff = int(oRequestedClientSize.x - oNewClientSize.x);
+					if (bLeft)
+						rect.left += iDiff;
+					else
+						rect.right -= iDiff;
+				}
+				if (oNewClientSize.y != oRequestedClientSize.y)
+				{
+					const int iDiff = int(oRequestedClientSize.y - oNewClientSize.y);
+					if (bTop)
+						rect.top += iDiff;
+					else
+						rect.bottom -= iDiff;
+				}
 			}
 
 
