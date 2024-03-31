@@ -428,9 +428,9 @@ namespace rlGameCanvasLib
 
 		// initialize + wait for graphics thread
 		{
-			std::unique_lock lock(m_muxAppState);
+			std::unique_lock lock(m_muxGraphicsThread);
 			m_oGraphicsThread = std::thread(&GameCanvas::PIMPL::graphicsThreadProc, this);
-			m_cvAppState.wait(lock);
+			m_cvGraphicsThread.wait(lock);
 		}
 
 		MSG msg{};
@@ -449,9 +449,7 @@ namespace rlGameCanvasLib
 
 				if (m_bMinimized)
 				{
-					std::unique_lock lock(m_muxAppState);
-					m_bMinimized_Waiting = true;
-					m_cvAppState.wait(lock);
+					runGraphicsTask(GraphicsThreadTask::Pause);
 					while (m_bMinimized)
 					{
 						if (GetMessageW(&msg, m_hWnd, 0, 0) == 0)
@@ -459,9 +457,8 @@ namespace rlGameCanvasLib
 						TranslateMessage(&msg);
 						DispatchMessageW(&msg);
 					}
-					m_bMinimized         = false;
-					m_bMinimized_Waiting = false;
-					m_cvAppState.notify_one(); // continue graphics thread
+					m_bMinimized = false;
+					m_cvGraphicsThread.notify_one(); // continue graphics thread
 
 					if (!m_bRunning)
 						goto lbClose;
@@ -469,14 +466,13 @@ namespace rlGameCanvasLib
 			}
 
 			doUpdate();
-			resumeGraphicsThread();
+			runGraphicsTask(GraphicsThreadTask::Draw);
 		}
 	lbClose:
 
 		m_oMainThreadID = {};
 
-		// TODO: might cause problems when closing the window. maybe move to WM_DESTROY.
-
+		runGraphicsTask(GraphicsThreadTask::Stop);
 		if (m_oGraphicsThread.joinable())
 			m_oGraphicsThread.join();
 
@@ -507,8 +503,8 @@ namespace rlGameCanvasLib
 	void GameCanvas::PIMPL::quit()
 	{
 		if (
-			m_eGraphicsThreadState != GraphicsThreadState::Running &&
-			m_eGraphicsThreadState != GraphicsThreadState::Waiting
+			m_eGraphicsThreadState == GraphicsThreadState::NotStarted ||
+			m_eGraphicsThreadState == GraphicsThreadState::Stopped
 		)
 			return;
 
@@ -915,6 +911,8 @@ namespace rlGameCanvasLib
 		case WM_ENTERSIZEMOVE:
 		{
 			m_bResizing = true;
+			runGraphicsTask(GraphicsThreadTask::GiveUpOpenGL);
+
 			m_oMinClientSize.x = (UInt)GetSystemMetrics(SM_CXMIN);
 			m_oMinClientSize.y = (UInt)GetSystemMetrics(SM_CYMIN);
 
@@ -1031,7 +1029,33 @@ namespace rlGameCanvasLib
 			wp.cx = oNewSize.x + oBorderSize.x;
 			wp.cy = oNewSize.y + oBorderSize.y;
 
+			InvalidateRect(m_hWnd, NULL, FALSE); // trigger WM_PAINT
+
 			return 0;
+		}
+
+		case WM_WINDOWPOSCHANGED:
+		{
+			if (!m_bResizing)
+				break;
+
+			const auto &wp = *reinterpret_cast<LPWINDOWPOS>(lParam);
+			RECT rcBorder = {};
+			AdjustWindowRect(&rcBorder, GetWindowLongW(m_hWnd, GWL_STYLE), FALSE);
+			// TODO: move WM_SIZE handling to this message, return instead of calling DefWindowProcW
+			break;
+		}
+
+		case WM_PAINT:
+		{
+			if (!m_bResizing)
+				break;
+
+			RECT rcClient;
+			GetClientRect(m_hWnd, &rcClient);
+			handleResize(rcClient.right - rcClient.left, rcClient.bottom - rcClient.top);
+			logicFrame();
+			break;
 		}
 
 		case WM_SIZING:
@@ -1175,7 +1199,7 @@ namespace rlGameCanvasLib
 			if (oNewClientSize != m_oClientSize)
 				handleResize(oNewClientSize.x, oNewClientSize.y);
 
-			// TODO
+			InvalidateRect(m_hWnd, NULL, FALSE); // trigger WM_PAINT
 
 			return TRUE;
 		}
@@ -1281,11 +1305,8 @@ namespace rlGameCanvasLib
 
 		case WM_CLOSE:
 		{
-			std::unique_lock lock(m_muxAppState);
 			m_bRunning = false;
-			m_cvNextFrame.notify_one();
-			if (m_eGraphicsThreadState == GraphicsThreadState::Running)
-				m_cvAppState.wait(lock);
+			runGraphicsTask(GraphicsThreadTask::Stop);
 
 			DestroyWindow(m_hWnd);
 			return 0;
@@ -1306,85 +1327,80 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::graphicsThreadProc()
 	{
-		std::unique_lock lock_thread(m_muxGraphicsThread);
-		m_eGraphicsThreadState = GraphicsThreadState::Running;
+		std::unique_lock lock(m_muxGraphicsThread);
 		wglMakeCurrent(m_hDC, m_hOpenGL);
+		m_bGraphicsThreadHasControlOverGL = true;
 
 		// tell main thread that the graphics thread is set up
-		{
-			std::unique_lock lock_state(m_muxAppState);
-			m_cvAppState.notify_one();
-		}
+		m_cvGraphicsThread.notify_one();
 
-		while (true)
+		bool bRunning = true;
+		do
 		{
+			m_eGraphicsThreadState = GraphicsThreadState::Waiting;
+			m_cvGraphicsThread.wait(lock);
 
-			// check if still running
+			std::unique_lock lockTask(m_muxGraphicsTask);
+			m_cvGraphicsTask.notify_one();
+			lockTask.unlock();
+
+			switch (m_eGraphicsThreadTask)
 			{
-				std::unique_lock lock(m_muxAppState);
-				if (!m_bRunning)
-					break; // while
-				if (m_bMinimized_Waiting)
+			case GraphicsThreadTask::Draw:
+				m_eGraphicsThreadState = GraphicsThreadState::Drawing;
+				if (!m_bGraphicsThreadHasControlOverGL)
 				{
-					// notify logic thread that minimization state was entered
-					m_cvAppState.notify_one();
-					// wait for logic thread to wake up graphics thread
-					m_cvAppState.wait(lock);
+					if (!wglMakeCurrent(m_hDC, m_hOpenGL))
+						fprintf(stderr, "Error: Graphics thread couldn't re-claim OpenGL.\n");
+					// todo: proper error handling
+
+					m_bGraphicsThreadHasControlOverGL = true;
 				}
+				renderFrame();
+				break;
+
+
+			case GraphicsThreadTask::GiveUpOpenGL:
+				m_bGraphicsThreadHasControlOverGL = false;
+				wglMakeCurrent(NULL, NULL);
+				break;
+
+
+			case GraphicsThreadTask::Pause:
+				m_eGraphicsThreadState = GraphicsThreadState::Asleep;
+				m_cvGraphicsThread.wait(lock); // wait for logic thread to wake up graphics thread
+				break;
+
+			case GraphicsThreadTask::Stop:
+				bRunning = false;
+
+				m_eGraphicsThreadState = GraphicsThreadState::Stopped;
+				wglMakeCurrent(NULL, NULL);
+				break;
 			}
 
 
-			std::unique_lock lock_frame(m_muxNextFrame);
-			lock_thread.unlock();
-
-			m_eGraphicsThreadState = GraphicsThreadState::Waiting;
-
-			m_cvNextFrame.wait(lock_frame);
-			lock_thread.lock();
-
-			m_cvNextFrame.notify_one();
-			lock_frame.unlock();
-
-
-			std::unique_lock lock_state(m_muxAppState);
-			if (!m_bRunning) // app is being shut down
-				return; // cancel current frame rendering
-			lock_state.unlock();
-
-
-			m_eGraphicsThreadState = GraphicsThreadState::Running;
-
-			renderFrame();
-		}
-
-		std::unique_lock lock(m_muxAppState);
-		m_eGraphicsThreadState = GraphicsThreadState::Stopped;
-		wglMakeCurrent(NULL, NULL);
-		m_cvAppState.notify_one(); // notify main thread that the graphics thread is now terminating
+		} while (bRunning);
 	}
 
 	void GameCanvas::PIMPL::renderFrame()
 	{
-		// sync up with logic thread
-		if (std::this_thread::get_id() == m_oGraphicsThread.get_id())
+		if (m_bGraphicsThread_NewViewport)
 		{
-			if (m_bGraphicsThread_NewViewport)
-			{
-				glViewport(0, 0, m_oClientSize.x, m_oClientSize.y);
-				m_bGraphicsThread_NewViewport = false;
-			}
-			if (m_bGraphicsThread_NewFBOSize)
-			{
-				const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
+			glViewport(0, 0, m_oClientSize.x, m_oClientSize.y);
+			m_bGraphicsThread_NewViewport = false;
+		}
+		if (m_bGraphicsThread_NewFBOSize)
+		{
+			const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
 
-				glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-					oScreenSize.x * m_iPixelSize, oScreenSize.y * m_iPixelSize,
-					0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr
-				);
+			glBindTexture(GL_TEXTURE_2D, m_iIntScaledBufferTexture);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+				oScreenSize.x * m_iPixelSize, oScreenSize.y * m_iPixelSize,
+				0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr
+			);
 
-				m_bGraphicsThread_NewFBOSize = false;
-			}
+			m_bGraphicsThread_NewFBOSize = false;
 		}
 
 		// update the canvas
@@ -1531,16 +1547,57 @@ namespace rlGameCanvasLib
 		std::unique_lock lock(m_muxGraphicsThread);
 	}
 
-	// This function shall only be called after calling waitForGraphicsThread.
-	void GameCanvas::PIMPL::resumeGraphicsThread()
+	void GameCanvas::PIMPL::runGraphicsTask(GraphicsThreadTask eTask)
 	{
+		if (m_eGraphicsThreadState == GraphicsThreadState::Stopped)
+			return;
+
+		// wait for graphics thread to finish current task
 		waitForGraphicsThread();
-		std::unique_lock lock(m_muxNextFrame);
 
+
+		switch (eTask)
+		{
+		case GraphicsThreadTask::Draw:
+			if (!m_bGraphicsThreadHasControlOverGL)
+				wglMakeCurrent(NULL, NULL);
+			m_fnCopyState(m_pvState_Updating, m_pvState_Drawing);
+			break;
+
+		case GraphicsThreadTask::GiveUpOpenGL:
+			if (!m_bGraphicsThreadHasControlOverGL)
+				return; // already in control
+		}
+
+		std::unique_lock lock(m_muxGraphicsTask);
+		m_eGraphicsThreadTask = eTask;
+		m_cvGraphicsThread.notify_one(); // notify graphics thread about new task
+		m_cvGraphicsTask.wait(lock);   // wait for verification that the task was accepted
+		lock.unlock();
+
+		switch (eTask)
+		{
+		case GraphicsThreadTask::Draw:
+			// return immediately
+			break;
+
+		case GraphicsThreadTask::GiveUpOpenGL:
+			waitForGraphicsThread();
+			wglMakeCurrent(m_hDC, m_hOpenGL);
+			break;
+		default:
+			waitForGraphicsThread();
+			break;
+		}
+	}
+
+	// Updates the state and draws the next frame.
+	// Assumes that the logic has already aquired ownership of OpenGL.
+	void GameCanvas::PIMPL::logicFrame()
+	{
+		doUpdate();
 		m_fnCopyState(m_pvState_Updating, m_pvState_Drawing);
-
-		m_cvNextFrame.notify_one();
-		m_cvNextFrame.wait(lock);
+		renderFrame();
 	}
 
 	void GameCanvas::PIMPL::setFullscreenOnMaximize()

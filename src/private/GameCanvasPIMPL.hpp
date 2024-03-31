@@ -28,8 +28,9 @@ namespace rlGameCanvasLib
 		enum class GraphicsThreadState
 		{
 			NotStarted, // graphics thread hasn't been created yet
-			Running,    // run() was called, graphics thread is working.
-			Waiting,    // finished previous frame, waiting for next one
+			Waiting,    // waiting for a task
+			Drawing,    // drawing a frame
+			Asleep,     // waiting to be woken up (e.g. on minimization)
 			Stopped     // graphics thread was stopped after working.
 		};
 
@@ -39,6 +40,14 @@ namespace rlGameCanvasLib
 			Windowed,
 			Maximized,
 			Fullscreen
+		};
+
+		enum class GraphicsThreadTask
+		{
+			Draw,         // draw next frame (default)
+			GiveUpOpenGL, // logic thread needs control over OpenGL
+			Pause,        // for minimization
+			Stop          // canvas is being shut down
 		};
 
 		struct LayerSettings
@@ -114,7 +123,9 @@ namespace rlGameCanvasLib
 
 		void renderFrame();
 		void waitForGraphicsThread();
-		void resumeGraphicsThread(); // copy data, resume graphics thread
+		void runGraphicsTask(GraphicsThreadTask eTask);
+
+		void logicFrame(); // update + draw state (to be called from the logic thread
 
 		void setFullscreenOnMaximize();
 
@@ -147,18 +158,19 @@ namespace rlGameCanvasLib
 		GLuint m_iIntScaledBufferFBO     = 0;
 		GLuint m_iIntScaledBufferTexture = 0;
 
+		GraphicsThreadTask      m_eGraphicsThreadTask = GraphicsThreadTask::Draw;
 		std::mutex              m_muxGraphicsThread;
-		std::mutex              m_muxNextFrame;
-		std::condition_variable m_cvNextFrame;
+		std::condition_variable m_cvGraphicsThread;
+		std::mutex              m_muxGraphicsTask;
+		std::condition_variable m_cvGraphicsTask;
 
 
 		std::thread::id     m_oMainThreadID;
 		std::thread         m_oGraphicsThread;
 		GraphicsThreadState m_eGraphicsThreadState = GraphicsThreadState::NotStarted;
 
-		// for minimization and closing
-		std::mutex              m_muxAppState;
-		std::condition_variable m_cvAppState;
+		std::condition_variable m_cvControlOverGL;
+		bool m_bGraphicsThreadHasControlOverGL = false;
 
 
 		Resolution m_oCursorPos          = {};
@@ -167,11 +179,10 @@ namespace rlGameCanvasLib
 
 		bool m_bResizing = false;
 
-		bool m_bHasFocus            = false;
-		bool m_bMinimized           = false;
-		bool m_bMinimized_Waiting   = false;
-		bool m_bRestoreHandled      = false;
-		bool m_bFullscreenToggled   = false;
+		bool m_bHasFocus          = false;
+		bool m_bMinimized         = false;
+		bool m_bRestoreHandled    = false;
+		bool m_bFullscreenToggled = false;
 
 		bool m_bRunning       = false; // is the game logic running?
 		bool m_bRunningUpdate = false; // is the fnUpdate callback currently being run?
