@@ -68,10 +68,10 @@ namespace rlGameCanvasLib
 				return WS_POPUP;
 
 			case Maximization::Maximized:
-				return (WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX) | WS_MAXIMIZE;
+				return WS_OVERLAPPEDWINDOW | WS_MAXIMIZE;
 
 			case Maximization::Windowed:
-				return WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX;
+				return WS_OVERLAPPEDWINDOW;
 
 			default:
 				throw std::exception{};
@@ -679,6 +679,9 @@ namespace rlGameCanvasLib
 			}
 		}
 
+		if (m_eMaximization == Maximization::Windowed)
+			m_iPixelSize_Restored = m_iPixelSize;
+
 		// calculate the actual drawing rectangle
 		m_oDrawRect.iLeft   = (m_oClientSize.x  - iDisplayWidth) / 2;
 		m_oDrawRect.iRight  = m_oDrawRect.iLeft + iDisplayWidth;
@@ -715,13 +718,16 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::applyCursor()
 	{
-		if (m_bHasFocus &&
-			((m_bMouseOverCanvas && m_bHideCursor) ||
+		if (!m_bHasFocus)
+			return;
+
+
+		if (((m_bMouseOverCanvas && m_bHideCursor) ||
 				(!m_bMouseOverCanvas && m_bHideCursorEx && !m_bMouseCursorOutsideClient))
 		)
 			SetCursor(NULL);
-		else
-			SetCursor(m_hCursor);
+		else if (!m_bMouseCursorOutsideClient)
+			SetCursor(LoadCursorW(NULL, IDC_ARROW));
 	}
 
 	RECT GameCanvas::PIMPL::getDrawRect()
@@ -814,12 +820,37 @@ namespace rlGameCanvasLib
 			break;
 
 		case WM_SETCURSOR:
-			if (LOWORD(lParam) == HTCLIENT)
+			switch (LOWORD(lParam))
 			{
+			case HTCLIENT:
 				applyCursor();
 				return TRUE;
+
+			case HTTOP:
+			case HTBOTTOM:
+				SetCursor(LoadCursorW(NULL, IDC_SIZENS));
+				break;
+
+			case HTLEFT:
+			case HTRIGHT:
+				SetCursor(LoadCursorW(NULL, IDC_SIZEWE));
+				break;
+
+			case HTTOPRIGHT:
+			case HTBOTTOMLEFT:
+				SetCursor(LoadCursorW(NULL, IDC_SIZENESW));
+				break;
+
+			case HTTOPLEFT:
+			case HTBOTTOMRIGHT:
+				SetCursor(LoadCursorW(NULL, IDC_SIZENWSE));
+				break;
+
+			default:
+				SetCursor(LoadCursorW(NULL, IDC_ARROW));
+				break;
 			}
-			break;
+			return TRUE;
 
 		case WM_NCMOUSEMOVE:
 			m_dTimeSinceLastMouseMove = 0.0;
@@ -881,9 +912,214 @@ namespace rlGameCanvasLib
 			m_bMouseOverCanvas = false;
 			break;
 
+		case WM_ENTERSIZEMOVE:
+		{
+			m_bResizing = true;
+			m_oMinClientSize.x = (UInt)GetSystemMetrics(SM_CXMIN);
+			m_oMinClientSize.y = (UInt)GetSystemMetrics(SM_CYMIN);
+
+			RECT rcBorder = {};
+			AdjustWindowRect(&rcBorder, GetWindowLong(m_hWnd, GWL_STYLE), FALSE);
+			// TODO: error handling?
+
+			m_oMinClientSize.x -= UInt(rcBorder.right  - rcBorder.left);
+			m_oMinClientSize.y -= UInt(rcBorder.bottom - rcBorder.top );
+
+			break;
+		}
+
+		case WM_EXITSIZEMOVE:
+			m_bResizing = false;
+			break;
+
+		case WM_GETMINMAXINFO:
+		{
+			auto &mmi = *reinterpret_cast<LPMINMAXINFO>(lParam);
+
+			const auto &mode = currentMode();
+
+			RECT rc =
+			{
+				.left   = 0,
+				.top    = 0,
+				.right  = (LONG)mode.oScreenSize.x,
+				.bottom = (LONG)mode.oScreenSize.y
+			};
+			AdjustWindowRect(&rc, GetWindowLong(m_hWnd, GWL_STYLE), FALSE);
+
+			mmi.ptMinTrackSize.x = rc.right  - rc.left;
+			mmi.ptMinTrackSize.y = rc.bottom - rc.top;
+
+			break;
+		}
+
+		case WM_WINDOWPOSCHANGING:
+		{
+			if (!m_bResizing)
+				break;
+
+			auto &wp = *reinterpret_cast<LPWINDOWPOS>(lParam);
+			const auto &mode = currentMode();
+
+			RECT rcBorder = {};
+			AdjustWindowRect(&rcBorder, GetWindowLongW(m_hWnd, GWL_STYLE), FALSE);
+
+			const Resolution oBorderSize =
+			{
+				.x = UInt(rcBorder.right  - rcBorder.left),
+				.y = UInt(rcBorder.bottom - rcBorder.top)
+			};
+
+			const Resolution oClientSize =
+			{
+				.x = (UInt)wp.cx - oBorderSize.x,
+				.y = (UInt)wp.cy - oBorderSize.y
+			};
+
+			UInt iNewHeight = oClientSize.y;
+			UInt iNewWidth  = UInt((double)oClientSize.y / mode.oScreenSize.y * mode.oScreenSize.x);
+			if (iNewWidth > oClientSize.x)
+			{
+				iNewWidth  = oClientSize.x;
+				iNewHeight = UInt((double)oClientSize.x / mode.oScreenSize.x * mode.oScreenSize.y);
+				// todo: limit height?
+			}
+
+			if (iNewWidth < m_oMinClientSize.x)
+				iNewWidth = m_oMinClientSize.x;
+			if (iNewHeight < m_oMinClientSize.y)
+				iNewHeight = m_oMinClientSize.y;
+
+			wp.cx = iNewWidth  + oBorderSize.x;
+			wp.cy = iNewHeight + oBorderSize.y;
+
+			return 0;
+		}
+
+		case WM_SIZING:
+		{
+			auto &rect = *reinterpret_cast<LPRECT>(lParam);
+			const auto &mode = currentMode();
+
+			RECT rcBorder = {};
+			AdjustWindowRect(&rcBorder, GetWindowLongW(m_hWnd, GWL_STYLE), FALSE);
+			// todo: error handling?
+
+			const bool bTop =
+				wParam == WMSZ_TOPLEFT     || wParam == WMSZ_TOP    || wParam == WMSZ_TOPRIGHT;
+			const bool bRight =
+				wParam == WMSZ_TOPRIGHT    || wParam == WMSZ_RIGHT  || wParam == WMSZ_BOTTOMRIGHT;
+			const bool bBottom =
+				wParam == WMSZ_BOTTOMRIGHT || wParam == WMSZ_BOTTOM || wParam == WMSZ_BOTTOMLEFT;
+			const bool bLeft =
+				wParam == WMSZ_BOTTOMLEFT  || wParam == WMSZ_LEFT   || wParam == WMSZ_TOPLEFT;
+
+			Resolution oNewClientSize =
+			{
+				.x = UInt((rect.right  - rect.left) - (rcBorder.right  - rcBorder.left)),
+				.y = UInt((rect.bottom - rect.top ) - (rcBorder.bottom - rcBorder.top ))
+			};
+
+
+			// only validate aspect ratio
+			if (
+				!m_bDontOversample ||
+				oNewClientSize.x < mode.oScreenSize.x || oNewClientSize.y < mode.oScreenSize.y
+			)
+			{
+				const UInt iAdjustedWidth =
+					UInt((double)oNewClientSize.y / mode.oScreenSize.y * mode.oScreenSize.x);
+
+				if (iAdjustedWidth <= oNewClientSize.x)
+				{
+					const UInt iDiffX = oNewClientSize.x - iAdjustedWidth;
+
+					if (bLeft)
+						rect.left += iDiffX;
+					else
+						rect.right -= iDiffX;
+
+					oNewClientSize.x -= iDiffX;
+				}
+				else
+				{
+					const UInt iAdjustedHeight =
+						UInt((double)oNewClientSize.x / mode.oScreenSize.x * mode.oScreenSize.y);
+
+					const UInt iDiffY = oNewClientSize.y - iAdjustedHeight;
+					if (bTop)
+						rect.top += iDiffY;
+					else
+						rect.bottom -= iDiffY;
+
+					oNewClientSize.y -= iDiffY;
+				}
+			}
+
+			// validate overall size
+			else
+			{
+				const UInt iPixelSize = std::min(
+					oNewClientSize.x / mode.oScreenSize.x,
+					oNewClientSize.y / mode.oScreenSize.y
+				);
+
+				const UInt iDiffX = oNewClientSize.x - (mode.oScreenSize.x * iPixelSize);
+				const UInt iDiffY = oNewClientSize.y - (mode.oScreenSize.y * iPixelSize);
+
+				oNewClientSize.x -= iDiffX;
+				oNewClientSize.y -= iDiffY;
+
+				if (bLeft)
+					rect.left += iDiffX;
+				else
+					rect.right -= iDiffX;
+
+				if (bTop)
+					rect.top += iDiffY;
+				else
+					rect.bottom -= iDiffY;
+			}
+
+
+			if (oNewClientSize.x < m_oMinClientSize.x)
+			{
+				const UInt iDiffX = m_oMinClientSize.x - oNewClientSize.x;
+				if (bLeft)
+					rect.left  -= iDiffX;
+				else
+					rect.right += iDiffX;
+
+				oNewClientSize.x = m_oMinClientSize.x;
+			}
+			if (oNewClientSize.y < m_oMinClientSize.y)
+			{
+				const UInt iDiffY = m_oMinClientSize.y - oNewClientSize.y;
+
+				if (bTop)
+					rect.top    -= iDiffY;
+				else
+					rect.bottom += iDiffY;
+
+				oNewClientSize.y = m_oMinClientSize.y;
+			}
+
+
+			if (oNewClientSize != m_oClientSize)
+				handleResize(oNewClientSize.x, oNewClientSize.y);
+
+			// TODO
+
+			return TRUE;
+		}
+
 		case WM_SIZE:
 		{
-			if (m_eGraphicsThreadState == GraphicsThreadState::NotStarted || m_bIgnoreResize)
+			if (
+				m_bResizing ||
+				m_eGraphicsThreadState == GraphicsThreadState::NotStarted ||
+				m_bIgnoreResize
+			)
 				break;
 
 			switch (wParam)

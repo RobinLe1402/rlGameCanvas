@@ -78,6 +78,8 @@ namespace rlGameCanvasLib
 
 	private: // methods
 
+		const Mode_CPP &currentMode() { return m_oModes[m_iCurrentMode]; }
+
 		// Prepare everything for the current mode.
 		// Creates graphics data, maybe sets the window size and calculates the drawing area.
 		void initializeCurrentMode();
@@ -134,7 +136,6 @@ namespace rlGameCanvasLib
 
 		const rlGameCanvas m_oHandle;
 
-		const HCURSOR m_hCursor = LoadCursorW(NULL, IDC_ARROW);
 		HWND          m_hWnd    = NULL;
 		HACCEL        m_hAccel  = NULL;
 		HGLRC         m_hOpenGL = NULL;
@@ -163,6 +164,8 @@ namespace rlGameCanvasLib
 		Resolution m_oCursorPos          = {};
 		bool m_bMouseCursorOutsideClient = true;
 		bool m_bMouseOverCanvas          = false;
+
+		bool m_bResizing = false;
 
 		bool m_bHasFocus            = false;
 		bool m_bMinimized           = false;
@@ -209,9 +212,10 @@ namespace rlGameCanvasLib
 
 
 
-		Resolution m_oClientSize = {};
-		UInt       m_iPixelSize  = 1;
-		Rect       m_oDrawRect   = {};
+		Resolution m_oMinClientSize = {};
+		Resolution m_oClientSize    = {};
+		UInt       m_iPixelSize     = 1;
+		Rect       m_oDrawRect      = {};
 
 		UInt m_iPixelSize_Restored = 1;
 
