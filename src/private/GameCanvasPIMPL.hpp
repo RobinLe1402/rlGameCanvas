@@ -42,6 +42,15 @@ namespace rlGameCanvasLib
 			Fullscreen
 		};
 
+		enum class WindowResizeReason
+		{
+			None,
+			DragResize,
+			Maximize,
+			Minimize,
+			Restore
+		};
+
 		enum class GraphicsThreadTask
 		{
 			Draw,         // draw next frame (default)
@@ -177,6 +186,8 @@ namespace rlGameCanvasLib
 		bool m_bMouseCursorOutsideClient = true;
 		bool m_bMouseOverCanvas          = false;
 
+		WindowResizeReason m_eResizeReason = WindowResizeReason::None;
+		bool m_bMoving   = false;
 		bool m_bResizing = false;
 
 		bool m_bHasFocus          = false;

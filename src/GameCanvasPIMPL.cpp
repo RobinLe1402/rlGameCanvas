@@ -35,6 +35,11 @@ namespace rlGameCanvasLib
 			return memcmp(&o1, &o2, sizeof(Resolution)) != 0;
 		}
 
+		bool operator==(const Resolution &o1, const Resolution &o2)
+		{
+			return memcmp(&o1, &o2, sizeof(Resolution)) == 0;
+		}
+
 		bool operator!=(const Config &o1, const Config &o2)
 		{
 			return memcmp(&o1, &o2, sizeof(Config)) != 0;
@@ -92,7 +97,7 @@ namespace rlGameCanvasLib
 		}
 
 		void GetRestoredCoordAndSize(HWND hWndOnDestMonitor,
-			const Resolution &oRes, UInt iPixelSize, RECT &rcWindow_Necessary)
+			const Resolution &oRes, UInt iPixelSize, RECT &rcWindow)
 		{
 			constexpr DWORD dwStyle = GenWindowStyle(Maximization::Windowed);
 
@@ -105,24 +110,26 @@ namespace rlGameCanvasLib
 				hMonitor = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
 
 			MONITORINFO mi{ sizeof(mi) };
-			if (GetMonitorInfoW(hMonitor, &mi))
-			{
-				const int iWorkWidth  = mi.rcWork.right  - mi.rcWork.left;
-				const int iWorkHeight = mi.rcWork.bottom - mi.rcWork.top;
+			GetMonitorInfoW(hMonitor, &mi); // todo: error handling
 
-				RECT rcBorder{};
-				AdjustWindowRect(&rcBorder, dwStyle, FALSE); // TODO: error handling
+			const int iWorkWidth  = mi.rcWork.right  - mi.rcWork.left;
+			const int iWorkHeight = mi.rcWork.bottom - mi.rcWork.top;
 
-				const int iWinWidth =
-					oRes.x * iPixelSize + (rcBorder.right - rcBorder.left);
-				const int iWinHeight =
-					oRes.y * iPixelSize + (rcBorder.bottom - rcBorder.top);
+			RECT rcBorder{};
+			AdjustWindowRect(&rcBorder, dwStyle, FALSE); // TODO: error handling
 
-				rcWindow_Necessary.left   = mi.rcWork.left + (iWorkWidth  / 2 - iWinWidth  / 2);
-				rcWindow_Necessary.top    = mi.rcWork.top  + (iWorkHeight / 2 - iWinHeight / 2);
-				rcWindow_Necessary.right  = rcWindow_Necessary.left + iWinWidth;
-				rcWindow_Necessary.bottom = rcWindow_Necessary.top  + iWinHeight;
-			}
+			const UInt iBorderWidth  = UInt(rcBorder.right  - rcBorder.left);
+			const UInt iBorderHeight = UInt(rcBorder.bottom - rcBorder.top);
+
+			const int iWinWidth =
+				std::max<int>(oRes.x * iPixelSize + iBorderWidth,  GetSystemMetrics(SM_CXMIN));
+			const int iWinHeight =
+				std::max<int>(oRes.y * iPixelSize + iBorderHeight, GetSystemMetrics(SM_CYMIN));
+
+			rcWindow.left   = mi.rcWork.left + (iWorkWidth  / 2 - iWinWidth  / 2);
+			rcWindow.top    = mi.rcWork.top  + (iWorkHeight / 2 - iWinHeight / 2);
+			rcWindow.right  = rcWindow.left  +                    iWinWidth;
+			rcWindow.bottom = rcWindow.top   +                    iWinHeight;
 		}
 
 		Resolution GetActualClientSize(HWND hWnd)
@@ -422,6 +429,7 @@ namespace rlGameCanvasLib
 
 		m_bRunning = true;
 		ShowWindow(m_hWnd, SW_SHOW);
+		logicFrame(); // draw 1st frame immediately
 		SetForegroundWindow(m_hWnd);
 
 		wglMakeCurrent(NULL, NULL); // give up control over OpenGL
@@ -765,6 +773,17 @@ namespace rlGameCanvasLib
 			m_hDC  = GetDC(m_hWnd);
 			break;
 
+		case WM_NCLBUTTONDBLCLK:
+			if (wParam == HTCAPTION)
+			{
+				if (m_eMaximization != Maximization::Maximized)
+					PostMessageW(m_hWnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+				else
+					PostMessageW(m_hWnd, WM_SYSCOMMAND, SC_RESTORE, 0);
+				return 0;
+			}
+			break;
+
 		case WM_SYSCOMMAND:
 			switch (wParam)
 			{
@@ -774,34 +793,28 @@ namespace rlGameCanvasLib
 					setFullscreenOnMaximize();
 					return 0;
 				}
+				else
+					m_eResizeReason = WindowResizeReason::Maximize;
+				break;
+
+			case SC_MINIMIZE:
+				m_eResizeReason = WindowResizeReason::Minimize;
 				break;
 
 			case SC_RESTORE:
 				if (m_eMaximization != Maximization::Windowed)
-				{
-					m_eMaximization = Maximization::Windowed;
-					const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
+					m_eResizeReason = WindowResizeReason::Restore;
+				else
+					m_eResizeReason = WindowResizeReason::DragResize;
+				break;
 
-					const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
-					RECT rcWindow;
+			case SC_MOVE:
+				m_bMoving = true;
+				printf("SC_MOVE\n");
+				break;
 
-					if (m_iPixelSize != m_iPixelSize_Restored)
-						m_bGraphicsThread_NewFBOSize = true;
-					m_iPixelSize = m_iPixelSize_Restored;
-
-					GetRestoredCoordAndSize(m_hWnd, oScreenSize, m_iPixelSize, rcWindow);
-
-					waitForGraphicsThread();
-
-					WINDOWPLACEMENT wp = { sizeof(wp) };
-					GetWindowPlacement(m_hWnd, &wp);
-					wp.rcNormalPosition = rcWindow;
-					SetWindowPlacement(m_hWnd, &wp);
-					break;
-
-					m_bRestoreHandled = true;
-					return 0;
-				}
+			case SC_SIZE:
+				// todo: remove?
 				break;
 			}
 			break;
@@ -909,25 +922,31 @@ namespace rlGameCanvasLib
 			break;
 
 		case WM_ENTERSIZEMOVE:
-		{
-			m_bResizing = true;
-			runGraphicsTask(GraphicsThreadTask::GiveUpOpenGL);
+			{
+				if (m_bMoving)
+					break;
 
-			m_oMinClientSize.x = (UInt)GetSystemMetrics(SM_CXMIN);
-			m_oMinClientSize.y = (UInt)GetSystemMetrics(SM_CYMIN);
+				m_eResizeReason = WindowResizeReason::DragResize;
+				m_bResizing = true;
+				runGraphicsTask(GraphicsThreadTask::GiveUpOpenGL);
 
-			RECT rcBorder = {};
-			AdjustWindowRect(&rcBorder, GetWindowLong(m_hWnd, GWL_STYLE), FALSE);
-			// TODO: error handling?
+				m_oMinClientSize.x = (UInt)GetSystemMetrics(SM_CXMIN);
+				m_oMinClientSize.y = (UInt)GetSystemMetrics(SM_CYMIN);
 
-			m_oMinClientSize.x -= UInt(rcBorder.right  - rcBorder.left);
-			m_oMinClientSize.y -= UInt(rcBorder.bottom - rcBorder.top );
+				RECT rcBorder = {};
+				AdjustWindowRect(&rcBorder, GetWindowLong(m_hWnd, GWL_STYLE), FALSE);
+				// TODO: error handling?
 
-			break;
-		}
+				m_oMinClientSize.x -= UInt(rcBorder.right  - rcBorder.left);
+				m_oMinClientSize.y -= UInt(rcBorder.bottom - rcBorder.top);
+
+				break;
+			}
 
 		case WM_EXITSIZEMOVE:
+			m_eResizeReason = WindowResizeReason::None;
 			m_bResizing = false;
+			m_bMoving   = false;
 			break;
 
 		case WM_GETMINMAXINFO:
@@ -953,6 +972,37 @@ namespace rlGameCanvasLib
 
 		case WM_WINDOWPOSCHANGING:
 		{
+			auto &wp = *reinterpret_cast<LPWINDOWPOS>(lParam);
+
+			WINDOWPLACEMENT wpl = { sizeof(wp) };
+			GetWindowPlacement(m_hWnd, &wpl);
+
+			if (wpl.flags == SW_MAXIMIZE || wpl.flags == SW_SHOWMINIMIZED)
+			{
+				m_eResizeReason = WindowResizeReason::Maximize;
+				break;
+			}
+			else if (m_eMaximization == Maximization::Maximized)
+				m_eResizeReason = WindowResizeReason::Restore;
+
+
+			if (wp.flags ^ SWP_NOSIZE)
+			{
+				const bool bDocked =
+					wpl.showCmd == SW_NORMAL &&
+					(
+						wpl.rcNormalPosition.left         != wp.x                       ||
+						wpl.rcNormalPosition.top          != wp.y                       ||
+						wpl.rcNormalPosition.left + wp.cx != wpl.rcNormalPosition.right ||
+						wpl.rcNormalPosition.top  + wp.cy != wpl.rcNormalPosition.bottom
+					);
+
+				if (bDocked)
+					break;
+			}
+
+
+
 			// this message is only handled manually whenever the user "part-maximizes" the window,
 			// i.e. dragging e.g. the bottom of the window to the very bottom of the screen, causing
 			// it to get stretched over the entire height of the monitor:
@@ -970,10 +1020,12 @@ namespace rlGameCanvasLib
 			//             |     |         |
 			//                   V
 			// +           + - - - - - - - +           +
-			if (!m_bResizing)
+			if (m_bIgnoreResize || !m_bResizing || m_bMoving)
 				break;
 
-			auto &wp = *reinterpret_cast<LPWINDOWPOS>(lParam);
+			if (wp.flags & SWP_NOSIZE)
+				break;
+
 			const auto &mode = currentMode();
 
 			RECT rcBorder = {};
@@ -1036,14 +1088,86 @@ namespace rlGameCanvasLib
 
 		case WM_WINDOWPOSCHANGED:
 		{
-			if (!m_bResizing)
+			const auto &wp = *reinterpret_cast<LPWINDOWPOS>(lParam);
+
+			if (m_bIgnoreResize || (wp.flags & SWP_NOSIZE))
 				break;
 
-			const auto &wp = *reinterpret_cast<LPWINDOWPOS>(lParam);
+
+			if (m_bMinimized)
+			{
+				m_bMinimized = false;
+				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 0, 0);
+			}
+
+			switch (m_eResizeReason)
+			{
+			case WindowResizeReason::Minimize:
+				m_bMinimized = true;
+				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 1, 0);
+				break;
+
+			case WindowResizeReason::None:
+			case WindowResizeReason::Maximize:
+				m_eMaximization = Maximization::Maximized;
+				break;
+
+			case WindowResizeReason::Restore:
+				if (!m_bRestoreHandled)
+				{
+					m_eMaximization = Maximization::Windowed;
+					const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
+
+					const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
+					RECT rcWindow;
+
+					if (m_iPixelSize != m_iPixelSize_Restored)
+						m_bGraphicsThread_NewFBOSize = true;
+					m_iPixelSize = m_iPixelSize_Restored;
+
+					GetRestoredCoordAndSize(m_hWnd, oScreenSize, m_iPixelSize, rcWindow);
+
+					if (
+						LOWORD(lParam) != m_iPixelSize * oScreenSize.x ||
+						HIWORD(lParam) != m_iPixelSize * oScreenSize.y
+					)
+					{
+						SetWindowPos(
+							m_hWnd,                          // hWnd
+							NULL,                            // hWndInsertAfter
+							rcWindow.left,                   // X
+							rcWindow.top,                    // Y
+							rcWindow.right  - rcWindow.left, // cx
+							rcWindow.bottom - rcWindow.top,  // cy
+							SWP_NOZORDER                     // uFlags
+						);
+						const auto oClientSize = GetActualClientSize(m_hWnd);
+						handleResize(oClientSize.x, oClientSize.y);
+						m_eResizeReason = WindowResizeReason::None;
+						return 0;
+					}
+				}
+				break;
+			}
+
+			if (!m_bResizing || m_eResizeReason != WindowResizeReason::DragResize)
+				m_eResizeReason = WindowResizeReason::None;
+			if (m_bMinimized)
+				break;
+
 			RECT rcBorder = {};
 			AdjustWindowRect(&rcBorder, GetWindowLongW(m_hWnd, GWL_STYLE), FALSE);
-			// TODO: move WM_SIZE handling to this message, return instead of calling DefWindowProcW
-			break;
+
+			const Resolution oNewClientSize =
+			{
+				.x = UInt(wp.cx - (rcBorder.right  - rcBorder.left)),
+				.y = UInt(wp.cy - (rcBorder.bottom - rcBorder.top ))
+			};
+
+			if (oNewClientSize != m_oClientSize)
+				handleResize(oNewClientSize.x, oNewClientSize.y);
+
+			return 0;
 		}
 
 		case WM_PAINT:
@@ -1060,6 +1184,9 @@ namespace rlGameCanvasLib
 
 		case WM_SIZING:
 		{
+			if (m_bMoving)
+				break;
+
 			auto &rect = *reinterpret_cast<LPRECT>(lParam);
 			const auto &mode = currentMode();
 
@@ -1202,93 +1329,6 @@ namespace rlGameCanvasLib
 			InvalidateRect(m_hWnd, NULL, FALSE); // trigger WM_PAINT
 
 			return TRUE;
-		}
-
-		case WM_SIZE:
-		{
-			if (
-				m_bResizing ||
-				m_eGraphicsThreadState == GraphicsThreadState::NotStarted ||
-				m_bIgnoreResize
-			)
-				break;
-
-			switch (wParam)
-			{
-			case SIZE_MAXIMIZED:
-			{
-				if (!m_bFullscreenOnMaximize)
-					m_eMaximization = Maximization::Maximized;
-				else
-				{
-					setFullscreenOnMaximize();
-					return 0;
-				}
-				break;
-			}
-
-			case SIZE_MINIMIZED:
-				if (m_bMinimized)
-					return 0;
-				m_bMinimized = true;
-				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 1, 0);
-				return 0;
-
-			case SIZE_RESTORED:
-				if (m_bMaxFullscreen)
-				{
-					m_bMaxFullscreen = false;
-					break;
-				}
-
-				if (!m_bRestoreHandled)
-				{
-					m_eMaximization = Maximization::Windowed;
-					const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
-
-					const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
-					RECT rcWindow;
-
-					if (m_iPixelSize != m_iPixelSize_Restored)
-						m_bGraphicsThread_NewFBOSize = true;
-					m_iPixelSize                 = m_iPixelSize_Restored;
-
-					GetRestoredCoordAndSize(m_hWnd, oScreenSize, m_iPixelSize, rcWindow);
-
-					if (
-						LOWORD(lParam) != m_iPixelSize * oScreenSize.x ||
-						HIWORD(lParam) != m_iPixelSize * oScreenSize.y
-					)
-					{
-						SetWindowPos(
-							m_hWnd,                          // hWnd
-							NULL,                            // hWndInsertAfter
-							rcWindow.left,                   // X
-							rcWindow.top,                    // Y
-							rcWindow.right  - rcWindow.left, // cx
-							rcWindow.bottom - rcWindow.top,  // cy
-							SWP_NOZORDER                     // uFlags
-						);
-						const auto oClientSize = GetActualClientSize(m_hWnd);
-						handleResize(oClientSize.x, oClientSize.y);
-						return 0;
-					}
-				}
-
-				break;
-
-			default:
-				return 0;
-			}
-			if (m_bMinimized && wParam != SIZE_MINIMIZED)
-			{
-				m_bMinimized = false;
-				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 0, 0);
-			}
-			else
-				handleResize(LOWORD(lParam), HIWORD(lParam));
-
-			return 0;
 		}
 
 		case WM_KILLFOCUS:
@@ -1749,7 +1789,11 @@ namespace rlGameCanvasLib
 		const bool bHidden = bRunning &&
 			((m_bNewMode && m_eMaximization == Maximization::Windowed) || bFullscreenToggled);
 		if (bHidden)
+		{
+			m_bIgnoreResize = true;
 			ShowWindow(m_hWnd, SW_HIDE);
+			m_bIgnoreResize = false;
+		}
 
 		if (bRunning)
 			waitForGraphicsThread();
