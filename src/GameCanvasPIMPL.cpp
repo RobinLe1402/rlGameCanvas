@@ -155,13 +155,14 @@ namespace rlGameCanvasLib
 		Resolution GetScaledResolution(Resolution oResolution, Resolution oAvailableSpace,
 			bool bDontOversample)
 		{
-			Resolution oResult;
-
 			const double dRatio = (double)oResolution.x / oResolution.y;
 
 			// calculate the biggest possible size that keeps the aspect ratio
-			oResult.y = oAvailableSpace.y;
-			oResult.x  = UInt(oResult.y * dRatio);
+			Resolution oResult =
+			{
+				.x = UInt(oAvailableSpace.y * dRatio),
+				.y = oAvailableSpace.y
+			};
 
 
 			if (oResult.x > oAvailableSpace.x)
@@ -208,7 +209,7 @@ namespace rlGameCanvasLib
 
 			dispres = GetScaledResolution(oResolution, oAvailableSpace,
 				bDontOversample);
-			oResult.iPixelSize = std::max(1.0,
+			oResult.iPixelSize = (UInt)std::max(1.0,
 				std::max(
 					std::ceil((double)dispres.x / oResolution.x),
 					std::ceil((double)dispres.y / oResolution.y)
