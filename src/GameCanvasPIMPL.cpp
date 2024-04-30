@@ -150,6 +150,79 @@ namespace rlGameCanvasLib
 			return result;
 		}
 
+
+
+		Resolution GetScaledResolution(Resolution oResolution, Resolution oAvailableSpace,
+			bool bDontOversample)
+		{
+			Resolution oResult;
+
+			const double dRatio = (double)oResolution.x / oResolution.y;
+
+			// calculate the biggest possible size that keeps the aspect ratio
+			oResult.y = oAvailableSpace.y;
+			oResult.x  = UInt(oResult.y * dRatio);
+
+
+			if (oResult.x > oAvailableSpace.x)
+			{
+				oResult.x  = oAvailableSpace.x;
+				oResult.y = UInt(oResult.x / dRatio);
+
+				if (oResult.y > oAvailableSpace.y)
+					oResult.y = oAvailableSpace.y;
+			}
+
+			// canvas fits into client area at least once
+			if (oAvailableSpace.x >= oResolution.x && oAvailableSpace.y >= oResolution.y)
+			{
+				const UInt iPixelSize = std::min(
+					oAvailableSpace.x / oResolution.x,
+					oAvailableSpace.y / oResolution.y
+				);
+				if (bDontOversample ||
+					oAvailableSpace.x <= oResolution.x * iPixelSize ||
+					oAvailableSpace.y <= oResolution.y * iPixelSize)
+				{
+					oResult.x = oResolution.x * iPixelSize;
+					oResult.y = oResolution.y * iPixelSize;
+				}
+			}
+
+			return oResult;
+		}
+
+
+		struct ScaledResolution
+		{
+			Rect oDisplayRect;
+			UInt iPixelSize;
+		};
+
+		ScaledResolution GetScaledResolutionEx(Resolution oResolution, Resolution oAvailableSpace,
+			bool bDontOversample)
+		{
+			ScaledResolution oResult = {};
+
+			Resolution dispres;
+
+			dispres = GetScaledResolution(oResolution, oAvailableSpace,
+				bDontOversample);
+			oResult.iPixelSize = std::max(1.0,
+				std::max(
+					std::ceil((double)dispres.x / oResolution.x),
+					std::ceil((double)dispres.y / oResolution.y)
+				)
+			);
+
+			oResult.oDisplayRect.iLeft = (oAvailableSpace.x - dispres.x) / 2;
+			oResult.oDisplayRect.iTop  = (oAvailableSpace.y - dispres.y) / 2;
+
+			oResult.oDisplayRect.iRight  = oResult.oDisplayRect.iLeft + dispres.x;
+			oResult.oDisplayRect.iBottom = oResult.oDisplayRect.iTop  + dispres.y;
+
+			return oResult;
+		}
 	}
 
 
@@ -634,63 +707,13 @@ namespace rlGameCanvasLib
 
 		const UInt iOldPixelSize = m_iPixelSize;
 
-		// calculate drawing rectangle
-		const double dRatio = (double)oScreenSize.x / oScreenSize.y;
-
-		UInt iDisplayWidth  = 0;
-		UInt iDisplayHeight = 0;
-
-		// calculate the biggest possible size that keeps the aspect ratio
-		{
-			iDisplayHeight = m_oClientSize.y;
-			iDisplayWidth  = UInt(iDisplayHeight * dRatio);
-
-			if (iDisplayWidth > m_oClientSize.x)
-			{
-				iDisplayWidth  = m_oClientSize.x;
-				iDisplayHeight = UInt(iDisplayWidth / dRatio);
-
-				if (iDisplayHeight > m_oClientSize.y)
-					iDisplayHeight = m_oClientSize.y;
-			}
-		}
-
-		// client area smaller than canvas size --> downscale
-		if (m_oClientSize.x < oScreenSize.x || m_oClientSize.y < oScreenSize.y)
-		{
-			m_iPixelSize = 1;
-			// keep the pre-calculated size
-		}
-
-		// canvas fits into client area at least once
-		else
-		{
-			m_iPixelSize = std::min(
-				m_oClientSize.x / oScreenSize.x,
-				m_oClientSize.y / oScreenSize.y
-			);
-			if (!m_bDontOversample &&
-				m_oClientSize.x > oScreenSize.x * m_iPixelSize &&
-				m_oClientSize.y > oScreenSize.y * m_iPixelSize)
-			{
-				++m_iPixelSize;
-				// keep the pre-calculated size
-			}
-			else
-			{
-				iDisplayWidth  = oScreenSize.x * m_iPixelSize;
-				iDisplayHeight = oScreenSize.y * m_iPixelSize;
-			}
-		}
+		const auto oScaledRes =
+			GetScaledResolutionEx(oScreenSize, m_oClientSize, m_bDontOversample);
+		m_iPixelSize = oScaledRes.iPixelSize;
+		m_oDrawRect = oScaledRes.oDisplayRect;
 
 		if (m_eMaximization == Maximization::Windowed)
 			m_iPixelSize_Restored = m_iPixelSize;
-
-		// calculate the actual drawing rectangle
-		m_oDrawRect.iLeft   = (m_oClientSize.x  - iDisplayWidth) / 2;
-		m_oDrawRect.iRight  = m_oDrawRect.iLeft + iDisplayWidth;
-		m_oDrawRect.iTop    = (m_oClientSize.y - iDisplayHeight) / 2;
-		m_oDrawRect.iBottom = m_oDrawRect.iTop + iDisplayHeight;
 
 
 		applyCursorRestriction();
