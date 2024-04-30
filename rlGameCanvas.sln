@@ -7,9 +7,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "library (dynamic)", "src\dy
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "library (static)", "src\static.vcxproj", "{A4BA46C7-2C1A-469B-9265-E9213B946D43}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test (dynamic)", "test\testdynamic.vcxproj", "{0FC0A6AF-23A7-4F67-9010-1B93B875E5D3}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test (dynamic)", "examples\c_dynamic\example_dynamic.vcxproj", "{0FC0A6AF-23A7-4F67-9010-1B93B875E5D3}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test (static)", "test\teststatic.vcxproj", "{C2892C2F-686A-4576-AD94-7694EE525EF8}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test (static)", "examples\cpp_static\example_static.vcxproj", "{C2892C2F-686A-4576-AD94-7694EE525EF8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

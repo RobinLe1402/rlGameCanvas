@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main-dynamic.c">
+    <ClCompile Include="main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TestBitmaps.c">
@@ -23,7 +23,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="..\res\robinle-icon.rc">
+    <ResourceCompile Include="..\..\res\robinle-icon.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>
