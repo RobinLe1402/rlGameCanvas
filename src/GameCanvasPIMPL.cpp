@@ -148,7 +148,7 @@ namespace rlGameCanvasLib
 
 
 		Resolution GetScaledResolution(Resolution oResolution, Resolution oAvailableSpace,
-			bool bDontOversample)
+			bool bPreferPixelPerfect)
 		{
 			const double dRatio = (double)oResolution.x / oResolution.y;
 
@@ -176,7 +176,7 @@ namespace rlGameCanvasLib
 					oAvailableSpace.x / oResolution.x,
 					oAvailableSpace.y / oResolution.y
 				);
-				if (bDontOversample ||
+				if (bPreferPixelPerfect ||
 					oAvailableSpace.x <= oResolution.x * iPixelSize ||
 					oAvailableSpace.y <= oResolution.y * iPixelSize)
 				{
@@ -219,6 +219,7 @@ namespace rlGameCanvasLib
 
 			return oResult;
 		}
+
 	}
 
 
@@ -646,9 +647,9 @@ namespace rlGameCanvasLib
 		{
 			RECT rcWindow = {};
 
-			if (m_bFBO && m_iPixelSize != m_iPixelSize_Restored)
+			if (m_bFBO && m_iPixelSize != 1)
 				m_bGraphicsThread_NewFBOSize = true;
-			m_iPixelSize = m_iPixelSize_Restored;
+			m_iPixelSize = 1;
 
 			GetRestoredCoordAndSize(hWndOnTargetMonitor, m_oModes[m_iCurrentMode].oScreenSize,
 				m_iPixelSize, rcWindow);
@@ -697,9 +698,6 @@ namespace rlGameCanvasLib
 			GetScaledResolutionEx(oScreenSize, m_oClientSize, m_bPreferPixelPerfect);
 		m_iPixelSize = oScaledRes.iPixelSize;
 		m_oDrawRect = oScaledRes.oDisplayRect;
-
-		if (m_eMaximization == Maximization::Windowed)
-			m_iPixelSize_Restored = m_iPixelSize;
 
 
 		applyCursorRestriction();
@@ -797,36 +795,10 @@ namespace rlGameCanvasLib
 			break;
 
 		case WM_SETCURSOR:
-			switch (LOWORD(lParam))
-			{
-			case HTCLIENT:
+			if (LOWORD(lParam) == HTCLIENT)
 				applyCursor();
-				return TRUE;
-
-			case HTTOP:
-			case HTBOTTOM:
-				SetCursor(LoadCursorW(NULL, IDC_SIZENS));
-				break;
-
-			case HTLEFT:
-			case HTRIGHT:
-				SetCursor(LoadCursorW(NULL, IDC_SIZEWE));
-				break;
-
-			case HTTOPRIGHT:
-			case HTBOTTOMLEFT:
-				SetCursor(LoadCursorW(NULL, IDC_SIZENESW));
-				break;
-
-			case HTTOPLEFT:
-			case HTBOTTOMRIGHT:
-				SetCursor(LoadCursorW(NULL, IDC_SIZENWSE));
-				break;
-
-			default:
+			else
 				SetCursor(LoadCursorW(NULL, IDC_ARROW));
-				break;
-			}
 			return TRUE;
 
 		case WM_NCMOUSEMOVE:
@@ -889,34 +861,6 @@ namespace rlGameCanvasLib
 			m_bMouseOverCanvas = false;
 			break;
 
-		case WM_EXITSIZEMOVE:
-			m_eResizeReason = WindowResizeReason::None;
-			m_bResizing = false;
-			m_bMoving   = false;
-			break;
-
-		case WM_GETMINMAXINFO:
-		{
-			// TODO
-			auto &mmi = *reinterpret_cast<LPMINMAXINFO>(lParam);
-
-			const auto &mode = currentMode();
-
-			RECT rc =
-			{
-				.left   = 0,
-				.top    = 0,
-				.right  = (LONG)mode.oScreenSize.x,
-				.bottom = (LONG)mode.oScreenSize.y
-			};
-			AdjustWindowRect(&rc, GetWindowLong(m_hWnd, GWL_STYLE), FALSE);
-
-			mmi.ptMinTrackSize.x = rc.right  - rc.left;
-			mmi.ptMinTrackSize.y = rc.bottom - rc.top;
-
-			break;
-		}
-
 		case WM_WINDOWPOSCHANGED:
 		{
 			const auto &wp = *reinterpret_cast<LPWINDOWPOS>(lParam);
@@ -949,9 +893,9 @@ namespace rlGameCanvasLib
 					const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
 					RECT rcWindow;
 
-					if (m_iPixelSize != m_iPixelSize_Restored)
+					if (m_iPixelSize != 1)
 						m_bGraphicsThread_NewFBOSize = true;
-					m_iPixelSize = m_iPixelSize_Restored;
+					m_iPixelSize = 1;
 
 					GetRestoredCoordAndSize(m_hWnd, oScreenSize, m_iPixelSize, rcWindow);
 
@@ -1008,155 +952,6 @@ namespace rlGameCanvasLib
 			handleResize(rcClient.right - rcClient.left, rcClient.bottom - rcClient.top);
 			logicFrame();
 			break;
-		}
-
-		case WM_SIZING:
-		{
-			if (m_bMoving)
-				break;
-
-			auto &rect = *reinterpret_cast<LPRECT>(lParam);
-			const auto &mode = currentMode();
-
-			RECT rcBorder = {};
-			AdjustWindowRect(&rcBorder, GetWindowLongW(m_hWnd, GWL_STYLE), FALSE);
-			// todo: error handling?
-
-			const bool bTop =
-				wParam == WMSZ_TOPLEFT     || wParam == WMSZ_TOP    || wParam == WMSZ_TOPRIGHT;
-			const bool bRight =
-				wParam == WMSZ_TOPRIGHT    || wParam == WMSZ_RIGHT  || wParam == WMSZ_BOTTOMRIGHT;
-			const bool bBottom =
-				wParam == WMSZ_BOTTOMRIGHT || wParam == WMSZ_BOTTOM || wParam == WMSZ_BOTTOMLEFT;
-			const bool bLeft =
-				wParam == WMSZ_BOTTOMLEFT  || wParam == WMSZ_LEFT   || wParam == WMSZ_TOPLEFT;
-
-			const bool bOneWay =
-				wParam == WMSZ_LEFT  || wParam == WMSZ_TOP ||
-				wParam == WMSZ_RIGHT || wParam == WMSZ_BOTTOM;
-
-			const bool bHorizontal = bLeft || bRight;
-			const bool bVertical   = bTop  || bBottom;
-
-			const Resolution oRequestedClientSize =
-			{
-				.x = UInt((rect.right  - rect.left) - (rcBorder.right  - rcBorder.left)),
-				.y = UInt((rect.bottom - rect.top ) - (rcBorder.bottom - rcBorder.top ))
-			};
-			Resolution oNewClientSize = oRequestedClientSize;
-
-
-			// only validate aspect ratio
-			if (
-				!m_bPreferPixelPerfect ||
-				oNewClientSize.x < mode.oScreenSize.x || oNewClientSize.y < mode.oScreenSize.y
-			)
-			{
-				// resizing only horizontally/vertically => always adjust other size
-				if (bOneWay)
-				{
-					if (bHorizontal)
-						oNewClientSize.y = UInt(
-							(double)oNewClientSize.x / mode.oScreenSize.x * mode.oScreenSize.y
-						);
-					else // bVertical
-						oNewClientSize.x = UInt(
-							(double)oNewClientSize.y / mode.oScreenSize.y * mode.oScreenSize.x
-						);
-				}
-
-				// resizing both horizontally and vertically => choose minimum
-				else
-				{
-					const UInt iAdjustedWidth =
-						UInt((double)oNewClientSize.y / mode.oScreenSize.y * mode.oScreenSize.x);
-
-					if (iAdjustedWidth <= oNewClientSize.x)
-						oNewClientSize.x = iAdjustedWidth;
-					else
-						oNewClientSize.y = UInt(
-							(double)oNewClientSize.x / mode.oScreenSize.x * mode.oScreenSize.y
-						);
-				}
-			}
-
-			// validate overall size
-			else
-			{
-				// resizing only horizontally/vertically => always adjust other size
-				if (bOneWay)
-				{
-					const UInt iPixelSize = (bHorizontal) ?
-						oNewClientSize.x / mode.oScreenSize.x :
-						oNewClientSize.y / mode.oScreenSize.y;
-
-					oNewClientSize.x = mode.oScreenSize.x * iPixelSize;
-					oNewClientSize.y = mode.oScreenSize.y * iPixelSize;
-				}
-
-				// resizing both horizontally and vertically => choose minimum
-				else
-				{
-					const UInt iPixelSize = std::min(
-						oNewClientSize.x / mode.oScreenSize.x,
-						oNewClientSize.y / mode.oScreenSize.y
-					);
-
-					oNewClientSize.x = mode.oScreenSize.x * iPixelSize;
-					oNewClientSize.y = mode.oScreenSize.y * iPixelSize;
-				}
-			}
-
-			if (oNewClientSize != oRequestedClientSize)
-			{
-				if (oNewClientSize.x != oRequestedClientSize.x)
-				{
-					const int iDiff = int(oRequestedClientSize.x - oNewClientSize.x);
-					if (bLeft)
-						rect.left += iDiff;
-					else
-						rect.right -= iDiff;
-				}
-				if (oNewClientSize.y != oRequestedClientSize.y)
-				{
-					const int iDiff = int(oRequestedClientSize.y - oNewClientSize.y);
-					if (bTop)
-						rect.top += iDiff;
-					else
-						rect.bottom -= iDiff;
-				}
-			}
-
-
-			if (oNewClientSize.x < m_oMinClientSize.x)
-			{
-				const UInt iDiffX = m_oMinClientSize.x - oNewClientSize.x;
-				if (bLeft)
-					rect.left  -= iDiffX;
-				else
-					rect.right += iDiffX;
-
-				oNewClientSize.x = m_oMinClientSize.x;
-			}
-			if (oNewClientSize.y < m_oMinClientSize.y)
-			{
-				const UInt iDiffY = m_oMinClientSize.y - oNewClientSize.y;
-
-				if (bTop)
-					rect.top    -= iDiffY;
-				else
-					rect.bottom += iDiffY;
-
-				oNewClientSize.y = m_oMinClientSize.y;
-			}
-
-
-			if (oNewClientSize != m_oClientSize)
-				handleResize(oNewClientSize.x, oNewClientSize.y);
-
-			InvalidateRect(m_hWnd, NULL, FALSE); // trigger WM_PAINT
-
-			return TRUE;
 		}
 
 		case WM_KILLFOCUS:

@@ -234,8 +234,6 @@ namespace rlGameCanvasLib
 		UInt       m_iPixelSize     = 1;
 		Rect       m_oDrawRect      = {};
 
-		UInt m_iPixelSize_Restored = 1;
-
 		
 
 		void *m_pvState_Updating = nullptr; // for access in update callback
