@@ -743,8 +743,9 @@ namespace rlGameCanvasLib
 			return;
 
 
-		if (((m_bMouseOverCanvas && m_bHideCursor) ||
-				(!m_bMouseOverCanvas && m_bHideCursorEx && !m_bMouseCursorOutsideClient))
+		if (
+			(m_bMouseOverCanvas && m_bHideCursor) ||
+			(!m_bMouseOverCanvas && m_bHideCursorEx && !m_bMouseCursorOutsideClient)
 		)
 			SetCursor(NULL);
 		else if (!m_bMouseCursorOutsideClient)
@@ -788,11 +789,6 @@ namespace rlGameCanvasLib
 		case WM_CREATE:
 			m_hWnd = hWnd;
 			m_hDC  = GetDC(m_hWnd);
-			break;
-
-		case WM_SYSCOMMAND:
-			if (wParam == wParam)
-				m_eResizeReason = WindowResizeReason::Minimize;
 			break;
 
 		case WM_SYSKEYDOWN:
@@ -871,13 +867,10 @@ namespace rlGameCanvasLib
 			m_bMouseOverCanvas = false;
 			break;
 
-		case WM_WINDOWPOSCHANGED:
+		case WM_SIZE:
 		{
-			const auto &wp = *reinterpret_cast<LPWINDOWPOS>(lParam);
-
-			if (m_bIgnoreResize || (wp.flags & SWP_NOSIZE))
+			if (m_bIgnoreResize)
 				break;
-
 
 			if (m_bMinimized)
 			{
@@ -885,16 +878,14 @@ namespace rlGameCanvasLib
 				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 0, 0);
 			}
 
-			switch (m_eResizeReason)
+			switch (wParam)
 			{
-			case WindowResizeReason::Minimize:
+			case SIZE_MINIMIZED:
 				m_bMinimized = true;
 				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 1, 0);
 				break;
 
-			case WindowResizeReason::None:
-
-			case WindowResizeReason::Restore:
+			case SIZE_RESTORED:
 				if (!m_bRestoreHandled)
 				{
 					m_eMaximization = Maximization::Windowed;
@@ -925,42 +916,24 @@ namespace rlGameCanvasLib
 						);
 						const auto oClientSize = GetActualClientSize(m_hWnd);
 						handleResize(oClientSize.x, oClientSize.y);
-						m_eResizeReason = WindowResizeReason::None;
 						return 0;
 					}
 				}
 				break;
 			}
 
-			if (!m_bResizing)
-				m_eResizeReason = WindowResizeReason::None;
 			if (m_bMinimized)
 				break;
 
-			RECT rcBorder = {};
-			AdjustWindowRect(&rcBorder, GetWindowLongW(m_hWnd, GWL_STYLE), FALSE);
-
 			const Resolution oNewClientSize =
 			{
-				.x = UInt(wp.cx - (rcBorder.right  - rcBorder.left)),
-				.y = UInt(wp.cy - (rcBorder.bottom - rcBorder.top ))
+				.x = LOWORD(lParam),
+				.y = HIWORD(lParam)
 			};
 
 			if (oNewClientSize != m_oClientSize)
 				handleResize(oNewClientSize.x, oNewClientSize.y);
 
-			return 0;
-		}
-
-		case WM_PAINT:
-		{
-			if (!m_bResizing)
-				break;
-
-			RECT rcClient;
-			GetClientRect(m_hWnd, &rcClient);
-			handleResize(rcClient.right - rcClient.left, rcClient.bottom - rcClient.top);
-			logicFrame();
 			break;
 		}
 
