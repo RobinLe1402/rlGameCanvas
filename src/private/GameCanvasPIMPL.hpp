@@ -96,10 +96,9 @@ namespace rlGameCanvasLib
 		// Requires m_iCurrentMode to be up to date.
 		void createGraphicsData();
 
-		// Set window size and style without processing any of the resize-related messages.
-		// Requires m_iCurrentMode and m_eMaximization to be up to date.
-		// Updates m_oClientSize.
-		void setWindowSize(HWND hWndOnTargetMonitor);
+		void enterFullscreenMode();
+		void exitFullscreenMode();
+		void adjustWindowedSize();
 
 		// Recalculate output rectangle and pixel size.
 		// Requires m_iCurrentMode and m_oClientSize to be up to date.
@@ -126,8 +125,6 @@ namespace rlGameCanvasLib
 
 		void logicFrame(); // update + draw state (to be called from the logic thread
 
-		void setFullscreenOnMaximize();
-
 		void doUpdate();
 
 		void updateConfig(const Config &cfg);
@@ -150,6 +147,8 @@ namespace rlGameCanvasLib
 		HACCEL        m_hAccel  = NULL;
 		HGLRC         m_hOpenGL = NULL;
 		HDC           m_hDC     = NULL;
+
+		WINDOWPLACEMENT m_wndpl = {};
 
 		std::unique_ptr<OpenGL> m_upOpenGL; // extended OpenGL interface
 
@@ -205,6 +204,7 @@ namespace rlGameCanvasLib
 		bool                       m_bRestrictCursor;
 		// configurable data: runtime ==============================================================
 		bool         m_bHideCursor;
+		bool         m_bFullscreen;
 		Maximization m_eMaximization;
 		UInt         m_iCurrentMode = 0;
 		Pixel        m_pxBackground = rlGameCanvas_Color_Black;
