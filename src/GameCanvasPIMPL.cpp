@@ -63,39 +63,6 @@ namespace rlGameCanvasLib
 			++rcWindow.right; // to avoid implicit fullscreen mode
 		}
 
-		void GetRestoredCoordAndSize(HWND hWndOnDestMonitor,
-			const Resolution &oRes, UInt iPixelSize, RECT &rcWindow)
-		{
-			HMONITOR hMonitor;
-
-			if (hWndOnDestMonitor != NULL)
-				hMonitor = MonitorFromWindow(hWndOnDestMonitor, MONITOR_DEFAULTTONEAREST);
-			else
-				hMonitor = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
-
-			MONITORINFO mi{ sizeof(mi) };
-			GetMonitorInfoW(hMonitor, &mi); // todo: error handling
-
-			const int iWorkWidth  = mi.rcWork.right  - mi.rcWork.left;
-			const int iWorkHeight = mi.rcWork.bottom - mi.rcWork.top;
-
-			RECT rcBorder{};
-			AdjustWindowRect(&rcBorder, dwStyle_Windowed, FALSE); // TODO: error handling
-
-			const UInt iBorderWidth  = UInt(rcBorder.right  - rcBorder.left);
-			const UInt iBorderHeight = UInt(rcBorder.bottom - rcBorder.top);
-
-			const int iWinWidth =
-				std::max<int>(oRes.x * iPixelSize + iBorderWidth,  GetSystemMetrics(SM_CXMIN));
-			const int iWinHeight =
-				std::max<int>(oRes.y * iPixelSize + iBorderHeight, GetSystemMetrics(SM_CYMIN));
-
-			rcWindow.left   = mi.rcWork.left + (iWorkWidth  / 2 - iWinWidth  / 2);
-			rcWindow.top    = mi.rcWork.top  + (iWorkHeight / 2 - iWinHeight / 2);
-			rcWindow.right  = rcWindow.left  +                    iWinWidth;
-			rcWindow.bottom = rcWindow.top   +                    iWinHeight;
-		}
-
 		Resolution GetActualClientSize(HWND hWnd)
 		{
 			const DWORD dwStyle = (DWORD)GetWindowLongW(hWnd, GWL_STYLE);
@@ -899,40 +866,6 @@ namespace rlGameCanvasLib
 				m_bMinimized = true;
 				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 1, 0);
 				break;
-
-			case SIZE_RESTORED:
-			{
-				const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
-
-				const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
-				RECT rcWindow;
-
-				if (m_iPixelSize != 1)
-					m_bGraphicsThread_NewFBOSize = true;
-				m_iPixelSize = 1;
-
-				GetRestoredCoordAndSize(m_hWnd, oScreenSize, m_iPixelSize, rcWindow);
-
-				if (
-					LOWORD(lParam) != m_iPixelSize * oScreenSize.x ||
-					HIWORD(lParam) != m_iPixelSize * oScreenSize.y
-				)
-				{
-					SetWindowPos(
-						m_hWnd,                          // hWnd
-						NULL,                            // hWndInsertAfter
-						rcWindow.left,                   // X
-						rcWindow.top,                    // Y
-						rcWindow.right  - rcWindow.left, // cx
-						rcWindow.bottom - rcWindow.top,  // cy
-						SWP_NOZORDER                     // uFlags
-					);
-					const auto oClientSize = GetActualClientSize(m_hWnd);
-					handleResize(oClientSize.x, oClientSize.y);
-					return 0;
-				}
-				break;
-			}
 			}
 
 			if (m_bMinimized)
