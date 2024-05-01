@@ -328,15 +328,23 @@ namespace rlGameCanvasLib
 			if (m_hWnd == NULL)
 				throw std::exception{ "Failed to create the window: No handle." };
 
+
+			const bool bMaximize   = m_bMaximized;
+			const bool bFullscreen = m_bFullscreen;
+			m_bMaximized  = false;
+			m_bFullscreen = false;
 			// non-fullscreen state must be correct when calling enterFullscreenMode(),
 			// so it makes sense to always adjust the windowed size here; no matter if the window
 			// is initially set to fullscreen or not.
 			adjustWindowedSize();
 
-			if (m_bMaximized)
+			if (bMaximize)
+			{
 				SetWindowLongW(m_hWnd, GWL_STYLE, dwStyle_Windowed | WS_MAXIMIZE);
+				m_bMaximized = true;
+			}
 
-			if (m_bFullscreen)
+			if (bFullscreen)
 				enterFullscreenMode();
 
 			if (m_hIconSmall != NULL)
@@ -622,6 +630,7 @@ namespace rlGameCanvasLib
 			SWP_NOZORDER        // uFlags
 		);
 
+		m_bMaximized                  = false;
 		m_bFullscreen                 = true;
 		m_bGraphicsThread_NewViewport = true;
 

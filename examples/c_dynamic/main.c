@@ -421,7 +421,8 @@ int main(int argc, char* argv[])
 	sc.fnCopyState     = CopyData;
 	sc.fnOnMsg         = CanvasMsg;
 	sc.fnOnWinMsg      = WinMsg;
-	sc.iFlags          = RL_GAMECANVAS_SUP_HIDE_CURSOR | RL_GAMECANVAS_SUP_PREFER_PIXELPERFECT;
+	sc.iFlags          = RL_GAMECANVAS_SUP_HIDE_CURSOR | RL_GAMECANVAS_SUP_PREFER_PIXELPERFECT |
+		RL_GAMECANVAS_SUP_MAXIMIZED | RL_GAMECANVAS_SUP_FULLSCREEN;
 	sc.iModeCount      = MODE_COUNT;
 	sc.pcoModes        = oModes;
 
