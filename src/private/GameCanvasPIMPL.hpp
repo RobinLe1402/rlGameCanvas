@@ -122,8 +122,6 @@ namespace rlGameCanvasLib
 
 		void updateConfig(const Config &cfg);
 
-		void handleResize(unsigned iClientWidth, unsigned iClientHeight);
-
 
 		void sendMessage(
 			rlGameCanvas_UInt     iMsg,

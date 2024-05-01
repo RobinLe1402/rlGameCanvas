@@ -878,7 +878,17 @@ namespace rlGameCanvasLib
 			};
 
 			if (oNewClientSize != m_oClientSize)
-				handleResize(oNewClientSize.x, oNewClientSize.y);
+			{
+				waitForGraphicsThread();
+
+				m_oClientSize = oNewClientSize;
+
+				if (!m_bFBO)
+					m_bGraphicsThread_NewViewport = true;
+
+
+				calcRenderParams();
+			}
 
 			break;
 		}
@@ -1323,24 +1333,6 @@ namespace rlGameCanvasLib
 		if (m_bNewMode)
 			initializeCurrentMode();
 
-		calcRenderParams();
-	}
-
-	void GameCanvas::PIMPL::handleResize(unsigned iClientWidth, unsigned iClientHeight)
-	{
-#ifndef NDEBUG
-		printf("> Resize: %u x %u pixels\n", iClientWidth, iClientHeight);
-#endif // NDEBUG
-
-		waitForGraphicsThread();
-		
-		m_oClientSize.x = iClientWidth;
-		m_oClientSize.y = iClientHeight;
-
-		if (!m_bFBO)
-			m_bGraphicsThread_NewViewport = true;
-
-		
 		calcRenderParams();
 	}
 
