@@ -67,12 +67,12 @@
 /*
 	SUP = StartUp
 
-	RL_GAMECANVAS_SUP_WINDOWED
-		Launch in windowed mode.
-		Don't combine with RL_GAMECANVAS_SUP_MAXIMIZED or RL_GAMECANVAS_SUP_FULLSCREEN.
+	RL_GAMECANVAS_SUP_MAXIMIZED
+		Launch in maximized mode.
+		When combined with RL_GAMECANVAS_SUP_FULLSCREEN, fullscreen mode will initially be used,
+		however, once the user exits fullscreen mode, the window will be maximized.
 	RL_GAMECANVAS_SUP_FULLSCREEN
 		Launch in fullscreen mode.
-		Don't combine with RL_GAMECANVAS_SUP_WINDOWED or RL_GAMECANVAS_SUP_MAXIMIZED.
 	RL_GAMECANVAS_SUP_RESTRICT_CURSOR
 		If this flag is set, the mouse cursor position will be restricted to the canvas while the
 		window has focus.
@@ -85,7 +85,7 @@
 		If this flag is set, the screen will only be upscaled in multiples of the original size
 		(when possible).
 */
-#define RL_GAMECANVAS_SUP_WINDOWED              (0x00000001)
+#define RL_GAMECANVAS_SUP_MAXIMIZED             (0x00000001)
 #define RL_GAMECANVAS_SUP_FULLSCREEN            (0x00000002)
 //                                              (0x00000004) is reserved for future use.
 //                                              (0x00000008) is reserved for future use.

@@ -196,7 +196,7 @@ namespace rlGameCanvasLib
 		// configurable data: runtime ==============================================================
 		bool         m_bHideCursor;
 		bool         m_bFullscreen;
-		bool         m_bMaximized = false; // todo: add to startup options
+		bool         m_bMaximized;
 		UInt         m_iCurrentMode = 0;
 		Pixel        m_pxBackground = rlGameCanvas_Color_Black;
 		//==========================================================================================

@@ -225,10 +225,11 @@ namespace rlGameCanvasLib
 		m_fnOnMsg              (config.fnOnMsg),
 		m_fnOnWinMsg           (config.fnOnWinMsg),
 		m_oModes               (config.iModeCount), // set values later
-		m_bPreferPixelPerfect  (config.iFlags & RL_GAMECANVAS_SUP_PREFER_PIXELPERFECT  ),
-		m_bRestrictCursor      (config.iFlags & RL_GAMECANVAS_SUP_RESTRICT_CURSOR      ),
-		m_bHideCursor          (config.iFlags & RL_GAMECANVAS_SUP_HIDE_CURSOR          ),
-		m_bFullscreen          (config.iFlags & RL_GAMECANVAS_SUP_FULLSCREEN           )
+		m_bPreferPixelPerfect  (config.iFlags & RL_GAMECANVAS_SUP_PREFER_PIXELPERFECT),
+		m_bRestrictCursor      (config.iFlags & RL_GAMECANVAS_SUP_RESTRICT_CURSOR    ),
+		m_bHideCursor          (config.iFlags & RL_GAMECANVAS_SUP_HIDE_CURSOR        ),
+		m_bMaximized           (config.iFlags & RL_GAMECANVAS_SUP_MAXIMIZED          ),
+		m_bFullscreen          (config.iFlags & RL_GAMECANVAS_SUP_FULLSCREEN         )
 	{
 		// check if the configuration is valid
 		bool bValidConfig =
@@ -331,6 +332,9 @@ namespace rlGameCanvasLib
 			// so it makes sense to always adjust the windowed size here; no matter if the window
 			// is initially set to fullscreen or not.
 			adjustWindowedSize();
+
+			if (m_bMaximized)
+				SetWindowLongW(m_hWnd, GWL_STYLE, dwStyle_Windowed | WS_MAXIMIZE);
 
 			if (m_bFullscreen)
 				enterFullscreenMode();
