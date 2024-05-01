@@ -137,8 +137,6 @@ int main(int argc, char* argv[])
 	sc.iModeCount = 1;
 	sc.pcoModes   = &oMODE;
 
-	sc.iFlags = RL_GAMECANVAS_SUP_MAXIMIZED;
-
 	constexpr char8_t szCAPTION[] = u8"Hi there! :)";
 	sc.szWindowCaption = szCAPTION;
 
