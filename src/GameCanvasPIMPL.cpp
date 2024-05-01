@@ -676,7 +676,7 @@ namespace rlGameCanvasLib
 			0,                               // Y
 			rcWindow.right  - rcWindow.left, // cx
 			rcWindow.bottom - rcWindow.top,  // cy
-			SWP_NOZORDER // uFlags
+			SWP_NOZORDER | SWP_NOMOVE        // uFlags
 		);
 	}
 
