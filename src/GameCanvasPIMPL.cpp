@@ -886,7 +886,6 @@ namespace rlGameCanvasLib
 				break;
 
 			case SIZE_RESTORED:
-				if (!m_bRestoreHandled)
 				{
 					m_eMaximization = Maximization::Windowed;
 					const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
@@ -937,16 +936,16 @@ namespace rlGameCanvasLib
 			break;
 		}
 
-		case WM_KILLFOCUS:
-			m_bHasFocus = false;
-			sendMessage(RL_GAMECANVAS_MSG_LOSEFOCUS, 0, 0);
-			m_bMouseOverCanvas = false; // todo: still true sometimes?
-			break;
-
 		case WM_SETFOCUS:
 			m_bHasFocus = true;
 			sendMessage(RL_GAMECANVAS_MSG_GAINFOCUS, 0, 0);
 			applyCursorRestriction();
+			break;
+
+		case WM_KILLFOCUS:
+			m_bHasFocus = false;
+			sendMessage(RL_GAMECANVAS_MSG_LOSEFOCUS, 0, 0);
+			m_bMouseOverCanvas = false;
 			break;
 
 		case WM_CLOSE:
