@@ -538,8 +538,7 @@ namespace rlGameCanvasLib
 	{
 		createGraphicsData();
 
-		if (!m_bFullscreen && !m_bMaximized)
-			adjustWindowedSize();
+		adjustWindowedSize();
 
 		calcRenderParams();
 		if (m_bFBO)
@@ -652,9 +651,39 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::adjustWindowedSize()
 	{
-		waitForGraphicsThread();
-
 		const auto &mode = currentMode();
+
+		// currently not in windowed mode --> modify saved WINDOWPLACEMENT struct
+		if (m_bFullscreen || m_bMaximized)
+		{
+			if (m_bMaximized)
+				GetWindowPlacement(m_hWnd, &m_wndpl);
+
+			RECT rc =
+			{
+				.left   = 0,
+				.top    = 0,
+				.right  = LONG(mode.oScreenSize.x),
+				.bottom = LONG(mode.oScreenSize.y)
+			};
+			AdjustWindowRect(&rc, dwStyle_Windowed, FALSE);
+
+			const auto iMinWidth  = GetSystemMetrics(SM_CXMIN);
+			const auto iMinHeight = GetSystemMetrics(SM_CYMIN);
+
+			const int iWindowedWidth  = std::max<int>(iMinWidth,  rc.right  - rc.left);
+			const int iWindowedHeight = std::max<int>(iMinHeight, rc.bottom - rc.top );
+
+			m_wndpl.rcNormalPosition.right  = m_wndpl.rcNormalPosition.left + iWindowedWidth;
+			m_wndpl.rcNormalPosition.bottom = m_wndpl.rcNormalPosition.top  + iWindowedHeight;
+
+			if (m_bMaximized)
+				SetWindowPlacement(m_hWnd, &m_wndpl);
+
+			return;
+		}
+
+		waitForGraphicsThread();
 
 		if (m_bFBO)
 			m_bGraphicsThread_NewFBOSize = true;
