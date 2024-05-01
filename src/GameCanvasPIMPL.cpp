@@ -17,7 +17,7 @@ namespace rlGameCanvasLib
 	namespace
 	{
 
-		constexpr DWORD dwStyle_Windowed = WS_OVERLAPPEDWINDOW & ~(WS_MAXIMIZEBOX | WS_THICKFRAME);
+		constexpr DWORD dwStyle_Windowed = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME;
 		constexpr DWORD dwStyle_Fullscreen = WS_POPUP;
 
 		constexpr double dSECONDS_TILL_CURSOR_HIDE_EX = 2.0;
@@ -538,7 +538,7 @@ namespace rlGameCanvasLib
 	{
 		createGraphicsData();
 
-		if (!m_bFullscreen)
+		if (!m_bFullscreen && !m_bMaximized)
 			adjustWindowedSize();
 
 		calcRenderParams();
@@ -866,6 +866,13 @@ namespace rlGameCanvasLib
 				m_bMinimized = true;
 				sendMessage(RL_GAMECANVAS_MSG_MINIMIZE, 1, 0);
 				break;
+
+			case SIZE_MAXIMIZED:
+				m_bMaximized = true;
+				break;
+
+			default:
+				m_bMaximized = false; // todo: move somewhere else?
 			}
 
 			if (m_bMinimized)
