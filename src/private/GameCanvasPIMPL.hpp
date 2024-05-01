@@ -34,13 +34,6 @@ namespace rlGameCanvasLib
 			Stopped     // graphics thread was stopped after working.
 		};
 
-		enum class Maximization
-		{
-			Unknown,
-			Windowed,
-			Fullscreen
-		};
-
 		enum class GraphicsThreadTask
 		{
 			Draw,         // draw next frame (default)
@@ -205,7 +198,6 @@ namespace rlGameCanvasLib
 		// configurable data: runtime ==============================================================
 		bool         m_bHideCursor;
 		bool         m_bFullscreen;
-		Maximization m_eMaximization;
 		UInt         m_iCurrentMode = 0;
 		Pixel        m_pxBackground = rlGameCanvas_Color_Black;
 		//==========================================================================================

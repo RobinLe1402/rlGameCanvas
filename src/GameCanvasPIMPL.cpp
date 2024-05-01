@@ -48,22 +48,6 @@ namespace rlGameCanvasLib
 			return memcmp(&o1, &o2, sizeof(Config)) != 0;
 		}
 
-		Maximization StartupFlagsToMaximizationEnum(UInt iStartupFlags)
-		{
-			iStartupFlags &= 0x0000000F;
-
-			switch (iStartupFlags)
-			{
-			case RL_GAMECANVAS_SUP_WINDOWED:
-				return Maximization::Windowed;
-			case RL_GAMECANVAS_SUP_FULLSCREEN:
-				return Maximization::Fullscreen;
-
-			default:
-				return Maximization::Unknown;
-			}
-		}
-
 
 
 		void GetFullscreenCoordAndSize(RECT &rcWindow, Resolution &oClientSize)
@@ -277,12 +261,10 @@ namespace rlGameCanvasLib
 		m_bPreferPixelPerfect  (config.iFlags & RL_GAMECANVAS_SUP_PREFER_PIXELPERFECT  ),
 		m_bRestrictCursor      (config.iFlags & RL_GAMECANVAS_SUP_RESTRICT_CURSOR      ),
 		m_bHideCursor          (config.iFlags & RL_GAMECANVAS_SUP_HIDE_CURSOR          ),
-		m_bFullscreen          (config.iFlags & RL_GAMECANVAS_SUP_FULLSCREEN           ),
-		m_eMaximization        (StartupFlagsToMaximizationEnum(config.iFlags))
+		m_bFullscreen          (config.iFlags & RL_GAMECANVAS_SUP_FULLSCREEN           )
 	{
 		// check if the configuration is valid
 		bool bValidConfig =
-			m_eMaximization  != Maximization::Unknown &&
 			m_fnCreateState  != nullptr &&
 			m_fnCopyState    != nullptr &&
 			m_fnDestroyState != nullptr &&
@@ -689,6 +671,7 @@ namespace rlGameCanvasLib
 		ShowWindow(m_hWnd, SW_HIDE);
 
 		SetWindowLongW(m_hWnd, GWL_STYLE, dwStyle_Windowed);
+		m_bIgnoreResize = false;
 		SetWindowPlacement(m_hWnd, &m_wndpl);
 
 		m_bFullscreen                 = false;
@@ -696,7 +679,6 @@ namespace rlGameCanvasLib
 
 		calcRenderParams();
 
-		m_bIgnoreResize = false;
 
 		ShowWindowAsync(m_hWnd, SW_SHOW);
 	}
@@ -919,39 +901,38 @@ namespace rlGameCanvasLib
 				break;
 
 			case SIZE_RESTORED:
+			{
+				const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
+
+				const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
+				RECT rcWindow;
+
+				if (m_iPixelSize != 1)
+					m_bGraphicsThread_NewFBOSize = true;
+				m_iPixelSize = 1;
+
+				GetRestoredCoordAndSize(m_hWnd, oScreenSize, m_iPixelSize, rcWindow);
+
+				if (
+					LOWORD(lParam) != m_iPixelSize * oScreenSize.x ||
+					HIWORD(lParam) != m_iPixelSize * oScreenSize.y
+				)
 				{
-					m_eMaximization = Maximization::Windowed;
-					const auto &oScreenSize = m_oModes[m_iCurrentMode].oScreenSize;
-
-					const DWORD dwStyle = GetWindowLongW(m_hWnd, GWL_STYLE);
-					RECT rcWindow;
-
-					if (m_iPixelSize != 1)
-						m_bGraphicsThread_NewFBOSize = true;
-					m_iPixelSize = 1;
-
-					GetRestoredCoordAndSize(m_hWnd, oScreenSize, m_iPixelSize, rcWindow);
-
-					if (
-						LOWORD(lParam) != m_iPixelSize * oScreenSize.x ||
-						HIWORD(lParam) != m_iPixelSize * oScreenSize.y
-					)
-					{
-						SetWindowPos(
-							m_hWnd,                          // hWnd
-							NULL,                            // hWndInsertAfter
-							rcWindow.left,                   // X
-							rcWindow.top,                    // Y
-							rcWindow.right  - rcWindow.left, // cx
-							rcWindow.bottom - rcWindow.top,  // cy
-							SWP_NOZORDER                     // uFlags
-						);
-						const auto oClientSize = GetActualClientSize(m_hWnd);
-						handleResize(oClientSize.x, oClientSize.y);
-						return 0;
-					}
+					SetWindowPos(
+						m_hWnd,                          // hWnd
+						NULL,                            // hWndInsertAfter
+						rcWindow.left,                   // X
+						rcWindow.top,                    // Y
+						rcWindow.right  - rcWindow.left, // cx
+						rcWindow.bottom - rcWindow.top,  // cy
+						SWP_NOZORDER                     // uFlags
+					);
+					const auto oClientSize = GetActualClientSize(m_hWnd);
+					handleResize(oClientSize.x, oClientSize.y);
+					return 0;
 				}
 				break;
+			}
 			}
 
 			if (m_bMinimized)
@@ -1280,7 +1261,7 @@ namespace rlGameCanvasLib
 
 	void GameCanvas::PIMPL::doUpdate()
 	{
-		const bool bPrevFullscreen = m_eMaximization == Maximization::Fullscreen;
+		const bool bPrevFullscreen = m_bFullscreen;
 		const Config cfgOld =
 		{
 			.iMode  = m_iCurrentMode,
@@ -1389,21 +1370,11 @@ namespace rlGameCanvasLib
 
 
 
-		m_eMaximization = bFullscreen ? Maximization::Fullscreen : Maximization::Windowed;
 		m_iCurrentMode  = cfg.iMode;
 
 		const auto &mode    = m_oModes[cfg.iMode];
 		const bool bRunning = m_eGraphicsThreadState != GraphicsThreadState::NotStarted;
 
-
-		const bool bHidden = bRunning &&
-			((m_bNewMode && m_eMaximization == Maximization::Windowed) || bFullscreenToggled);
-		if (bHidden)
-		{
-			m_bIgnoreResize = true;
-			ShowWindow(m_hWnd, SW_HIDE);
-			m_bIgnoreResize = false;
-		}
 
 		if (bRunning)
 			waitForGraphicsThread(); // todo: can be removed later
@@ -1420,9 +1391,6 @@ namespace rlGameCanvasLib
 			initializeCurrentMode();
 
 		calcRenderParams();
-
-		if (bHidden)
-			ShowWindow(m_hWnd, SW_SHOW);
 	}
 
 	void GameCanvas::PIMPL::handleResize(unsigned iClientWidth, unsigned iClientHeight)
