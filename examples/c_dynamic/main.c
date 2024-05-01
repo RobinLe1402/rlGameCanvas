@@ -410,8 +410,8 @@ int main(int argc, char* argv[])
 	sc.fnCopyState     = CopyData;
 	sc.fnOnMsg         = CanvasMsg;
 	sc.fnOnWinMsg      = WinMsg;
-	sc.iFlags          = RL_GAMECANVAS_SUP_WINDOWED    | RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE |
-	                     RL_GAMECANVAS_SUP_HIDE_CURSOR | RL_GAMECANVAS_SUP_DONT_OVERSAMPLE;
+	sc.iFlags          = RL_GAMECANVAS_SUP_WINDOWED    | RL_GAMECANVAS_SUP_HIDE_CURSOR |
+		RL_GAMECANVAS_SUP_PREFER_PIXELPERFECT;
 	sc.iModeCount      = MODE_COUNT;
 	sc.pcoModes        = oModes;
 

@@ -36,17 +36,14 @@ namespace rlGameCanvasLib
 
 		enum class Maximization
 		{
-			Unknown, // for startup
+			Unknown,
 			Windowed,
-			Maximized,
 			Fullscreen
 		};
 
 		enum class WindowResizeReason
 		{
 			None,
-			DragResize,
-			Maximize,
 			Minimize,
 			Restore
 		};
@@ -216,8 +213,7 @@ namespace rlGameCanvasLib
 		const MsgCallback          m_fnOnMsg;
 		const WinMsgCallback       m_fnOnWinMsg;
 		std::vector<Mode_CPP>      m_oModes;
-		const bool                 m_bFullscreenOnMaximize;
-		const bool                 m_bDontOversample;
+		const bool                 m_bPreferPixelPerfect;
 		bool                       m_bRestrictCursor;
 		// configurable data: runtime ==============================================================
 		bool         m_bHideCursor;
@@ -230,7 +226,6 @@ namespace rlGameCanvasLib
 		bool   m_bHideCursorEx = false;
 
 		bool m_bNewMode = true;
-		Maximization m_eNonFullscreenMaximization;
 
 
 

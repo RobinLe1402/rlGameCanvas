@@ -70,38 +70,30 @@
 	RL_GAMECANVAS_SUP_WINDOWED
 		Launch in windowed mode.
 		Don't combine with RL_GAMECANVAS_SUP_MAXIMIZED or RL_GAMECANVAS_SUP_FULLSCREEN.
-	RL_GAMECANVAS_SUP_MAXIMIZED
-		Launch in maximized mode.
-		Don't combine with RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE, RL_GAMECANVAS_SUP_WINDOWED or
-		RL_GAMECANVAS_SUP_FULLSCREEN.
 	RL_GAMECANVAS_SUP_FULLSCREEN
 		Launch in fullscreen mode.
 		Don't combine with RL_GAMECANVAS_SUP_WINDOWED or RL_GAMECANVAS_SUP_MAXIMIZED.
-	RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE
-		When the user tries to maximize the window, switch to fullscreen mode instead.
-		If this flag is set, RL_GAMECANVAS_SUP_MAXIMIZED cannot be set, as maximization is disabled
-		altogether.
 	RL_GAMECANVAS_SUP_RESTRICT_CURSOR
 		If this flag is set, the mouse cursor position will be restricted to the canvas while the
 		window has focus.
-	RL_GAMECANVAS_SUP_DONT_OVERSAMPLE
-		If this flag is not set, the screen will allways be upscaled to fill the maximum area while
-		retaining the original aspect ratio.
-		If this flag is set, the screen will only be upscaled in multiples of the original size.
 	RL_GAMECANVAS_SUP_HIDE_CURSOR
 		If this flag is set, the cursor will initially be hidden.
 		This can be changed later in the Update callback.
+	RL_GAMECANVAS_SUP_PREFER_PIXELPERFECT
+		If this flag is not set, the screen will allways be upscaled to fill the maximum area while
+		retaining the original aspect ratio.
+		If this flag is set, the screen will only be upscaled in multiples of the original size
+		(when possible).
 */
 #define RL_GAMECANVAS_SUP_WINDOWED              (0x00000001)
-#define RL_GAMECANVAS_SUP_MAXIMIZED             (0x00000002)
-#define RL_GAMECANVAS_SUP_FULLSCREEN            (0x00000004)
+#define RL_GAMECANVAS_SUP_FULLSCREEN            (0x00000002)
+//                                              (0x00000004) is reserved for future use.
 //                                              (0x00000008) is reserved for future use.
-#define RL_GAMECANVAS_SUP_FULLSCREEN_ON_MAXIMZE (0x00000010)
-#define RL_GAMECANVAS_SUP_DONT_OVERSAMPLE       (0x00000020)
+#define RL_GAMECANVAS_SUP_RESTRICT_CURSOR       (0x00000010)
+#define RL_GAMECANVAS_SUP_HIDE_CURSOR           (0x00000020)
 //                                              (0x00000040) is reserved for future use.
 //                                              (0x00000080) is reserved for future use.
-#define RL_GAMECANVAS_SUP_RESTRICT_CURSOR       (0x00000100)
-#define RL_GAMECANVAS_SUP_HIDE_CURSOR           (0x00000200)
+#define RL_GAMECANVAS_SUP_PREFER_PIXELPERFECT   (0x00000100)
 
 
 
