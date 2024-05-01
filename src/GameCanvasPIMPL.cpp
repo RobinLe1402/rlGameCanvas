@@ -338,6 +338,37 @@ namespace rlGameCanvasLib
 			// is initially set to fullscreen or not.
 			adjustWindowedSize();
 
+			// place at center of primary monitor
+			{
+				const HMONITOR hMon = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
+				MONITORINFO mi{ sizeof(mi) };
+				GetMonitorInfoW(hMon, &mi);
+
+				RECT rcWindow;
+				GetWindowRect(m_hWnd, &rcWindow);
+
+				const int iWinWidth  = rcWindow.right  - rcWindow.left;
+				const int iWinHeight = rcWindow.bottom - rcWindow.top;
+
+				const int iMonWidth  = mi.rcWork.right  - mi.rcWork.left;
+				const int iMonHeight = mi.rcWork.bottom - mi.rcWork.top;
+
+				// the left window border can be out of bounds.
+				// the top one, however, should be visible, so that the user can use the title bar.
+				const int iWinX = mi.rcWork.left +             (iMonWidth  - iWinWidth ) / 2;
+				const int iWinY = mi.rcWork.top  + std::max(0, (iMonHeight - iWinHeight) / 2);
+
+				SetWindowPos(
+					m_hWnd,                   // hWnd
+					NULL,                     // hWndInsertAfter
+					iWinX,                    // X
+					iWinY,                    // Y
+					0,                        // cx
+					0,                        // cy
+					SWP_NOZORDER | SWP_NOSIZE // uFlags
+				);
+			}
+
 			if (bMaximize)
 			{
 				SetWindowLongW(m_hWnd, GWL_STYLE, dwStyle_Windowed | WS_MAXIMIZE);
