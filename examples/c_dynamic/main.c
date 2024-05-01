@@ -15,6 +15,7 @@
 
 #define WIDTH  256
 #define HEIGHT 240
+#define HEIGHT_DEBUG (HEIGHT + 10)
 
 #define MODE_COUNT 2
 #define MODEID_DEFAULT 0
@@ -241,8 +242,18 @@ void __stdcall Draw(
 		{
 			const rlGameCanvas_Pixel px = RLGAMECANVAS_MAKEPIXEL(255, 255, 255, 48);
 
-			poLayers[LAYERID_BG].bmp.ppxData[0] = px;
-			poLayers[LAYERID_BG].bmp.ppxData[3] = px;
+			for (unsigned iY = 0; iY < poLayers[LAYERID_BG].bmp.size.y; ++iY)
+			{
+				unsigned iColorIndicator = iY % 2;
+
+				for (unsigned iX = 0; iX < poLayers[LAYERID_BG].bmp.size.x; ++iX)
+				{
+					if ((iX + iColorIndicator) % 2 == 0)
+						poLayers[LAYERID_BG].bmp.ppxData[
+							iY * poLayers[LAYERID_BG].bmp.size.x + iX
+						] = px;
+				}
+			}
 		}
 
 		for (unsigned iY = 0; iOffset + iY < HEIGHT; ++iY)
@@ -386,8 +397,8 @@ int main(int argc, char* argv[])
 	const char szTitle[] = "rlGameCanvas test in C";
 
 	rlGameCanvas_LayerMetadata LAYERS[LAYER_COUNT] = { 0 };
-	LAYERS[LAYERID_BG].oLayerSize.x = 2;
-	LAYERS[LAYERID_BG].oLayerSize.y = 2;
+	LAYERS[LAYERID_BG].oLayerSize.x = WIDTH;
+	LAYERS[LAYERID_BG].oLayerSize.y = HEIGHT_DEBUG;
 
 	rlGameCanvas_Mode oModes[MODE_COUNT] = { 0 };
 
@@ -397,7 +408,7 @@ int main(int argc, char* argv[])
 	oModes[MODEID_DEFAULT].pcoLayerMetadata = LAYERS;
 
 	oModes[MODEID_DEBUG] = oModes[MODEID_DEFAULT];
-	oModes[MODEID_DEBUG].oScreenSize.y += 10;
+	oModes[MODEID_DEBUG].oScreenSize.y = HEIGHT_DEBUG;
 
 
 	sc.szWindowCaption = szTitle;

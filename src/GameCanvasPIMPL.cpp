@@ -329,7 +329,17 @@ namespace rlGameCanvasLib
 						oLayerSize.x = output.oScreenSize.x;
 					if (oLayerSize.y == 0)
 						oLayerSize.y = output.oScreenSize.y;
+
+					// check if layer size is smaller than the screen size
+					if (oLayerSize.x < input.oScreenSize.x || oLayerSize.y < input.oScreenSize.y)
+					{
+						bValidConfig = false;
+						break;
+					}
 				}
+
+				if (!bValidConfig)
+					break;
 			}
 		}
 
