@@ -304,9 +304,6 @@ namespace rlGameCanvasLib
 		if (m_iCurrentMode >= config.iModeCount)
 			m_iCurrentMode = config.iModeCount;
 
-		const DWORD dwStyle =
-			(m_bFullscreen) ? dwStyle_Fullscreen : dwStyle_Windowed;
-
 		try
 		{
 			// try to create the window
@@ -314,7 +311,7 @@ namespace rlGameCanvasLib
 				NULL,                                                   // dwExStyle
 				s_szCLASSNAME,                                          // lpClassName
 				UTF8toWindowsUnicode(m_sWindowCaption.c_str()).c_str(), // lpWindowName
-				dwStyle,                                                // dwStyle
+				dwStyle_Windowed,                                       // dwStyle
 				CW_USEDEFAULT,                                          // X
 				CW_USEDEFAULT,                                          // Y
 				CW_USEDEFAULT,                                          // nWidth
@@ -330,10 +327,13 @@ namespace rlGameCanvasLib
 			if (m_hWnd == NULL)
 				throw std::exception{ "Failed to create the window: No handle." };
 
+			// non-fullscreen state must be correct when calling enterFullscreenMode(),
+			// so it makes sense to always adjust the windowed size here; no matter if the window
+			// is initially set to fullscreen or not.
+			adjustWindowedSize();
+
 			if (m_bFullscreen)
 				enterFullscreenMode();
-			else
-				adjustWindowedSize();
 
 			if (m_hIconSmall != NULL)
 				SendMessageW(m_hWnd, WM_SETICON, ICON_SMALL,
