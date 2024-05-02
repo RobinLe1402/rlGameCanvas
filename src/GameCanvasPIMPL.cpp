@@ -53,19 +53,6 @@ namespace rlGameCanvasLib
 
 
 
-		void GetFullscreenCoordAndSize(RECT &rcWindow, Resolution &oClientSize)
-		{
-			const HMONITOR hMonitor = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
-			MONITORINFO mi{ sizeof(mi) };
-			if (!GetMonitorInfoW(hMonitor, &mi))
-				ThrowWithLastError("Monitor info could not be retreived.");
-
-			rcWindow = mi.rcMonitor;
-			oClientSize.x = rcWindow.right  - rcWindow.left;
-			oClientSize.y = rcWindow.bottom - rcWindow.top;
-			++rcWindow.right; // to avoid implicit fullscreen mode
-		}
-
 		Resolution GetActualClientSize(HWND hWnd)
 		{
 			const DWORD dwStyle = (DWORD)GetWindowLongW(hWnd, GWL_STYLE);
