@@ -17,6 +17,8 @@ namespace rlGameCanvasLib
 	namespace
 	{
 
+		constexpr double dMaxWindowedSize = 0.85; // times the monitor width and height
+
 		constexpr DWORD dwStyle_Windowed = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME;
 		constexpr DWORD dwStyle_Fullscreen = WS_POPUP;
 
@@ -740,8 +742,8 @@ namespace rlGameCanvasLib
 			m_iPixelSize_Win = std::max<UInt>(
 				1,
 				std::min(
-					(oMonRes.x - m_oWindowedBorderSize.x) / mode.oScreenSize.x,
-					(oMonRes.y - m_oWindowedBorderSize.y) / mode.oScreenSize.y
+					(UInt)((oMonRes.x - m_oWindowedBorderSize.x) * 0.8) / mode.oScreenSize.x,
+					(UInt)((oMonRes.y - m_oWindowedBorderSize.y) * 0.8) / mode.oScreenSize.y
 				)
 			);
 		}
