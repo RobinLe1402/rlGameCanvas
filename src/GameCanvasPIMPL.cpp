@@ -25,6 +25,8 @@ namespace rlGameCanvasLib
 		// time, in seconds, before cursor is hidden over the nonclient area.
 		constexpr double dCursorHideExTimeout = 2.0;
 
+		constexpr UINT_PTR iTimerID = 1;
+
 
 
 		[[noreturn]]
@@ -162,6 +164,21 @@ namespace rlGameCanvasLib
 
 			return it->second->localWndProc(hWnd, uMsg, wParam, lParam);
 		}
+	}
+
+	void CALLBACK GameCanvas::PIMPL::TimerProc(HWND hWnd, UINT uMsg, UINT idTimer, DWORD dwTime)
+	{
+		if (idTimer != iTimerID)
+		{
+			std::fprintf(stderr, "An unknown timer was triggered.\n");
+			return;
+		}
+
+		auto it = s_oInstances.find(hWnd);
+		if (it == s_oInstances.end())
+			std::fprintf(stderr, "The repaint timer of an unknown window was triggered.\n");
+		else
+			it->second->onRepaintTimer();
 	}
 
 	bool GameCanvas::PIMPL::RegisterWindowClass()
@@ -854,6 +871,22 @@ namespace rlGameCanvasLib
 			m_hDC  = GetDC(m_hWnd);
 			break;
 
+		case WM_ENTERSIZEMOVE:
+			SetTimer(m_hWnd, iTimerID, USER_TIMER_MINIMUM, (TIMERPROC)TimerProc);
+
+#ifndef NDEBUG
+			std::printf("> Enabled repaint timer for window sizing/moving\n");
+#endif
+			break;
+
+		case WM_EXITSIZEMOVE:
+			KillTimer(m_hWnd, iTimerID);
+
+#ifndef NDEBUG
+			std::printf("> Disabled repaint timer for window sizing/moving\n");
+#endif
+			break;
+
 		case WM_SYSKEYDOWN:
 			// [Alt] + [Return] --> toggle fullscreen
 			if ((wParam == VK_RETURN) && (HIWORD(lParam) & KF_ALTDOWN))
@@ -1027,6 +1060,16 @@ namespace rlGameCanvasLib
 		}
 
 		return DefWindowProcW(hWnd, uMsg, wParam, lParam);
+	}
+
+	void GameCanvas::PIMPL::onRepaintTimer()
+	{
+		if (m_bGraphicsThreadHasControlOverGL)
+		{
+			runGraphicsTask(GraphicsThreadTask::GiveUpOpenGL);
+			wglMakeCurrent(m_hDC, m_hOpenGL);
+		}
+		logicFrame();
 	}
 
 	void GameCanvas::PIMPL::graphicsThreadProc()

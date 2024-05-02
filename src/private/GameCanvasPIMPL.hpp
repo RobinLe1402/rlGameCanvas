@@ -56,6 +56,7 @@ namespace rlGameCanvasLib
 	private: // static methods
 
 		static LRESULT CALLBACK StaticWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+		static void CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT idTimer, DWORD dwTime);
 		static bool RegisterWindowClass();
 
 
@@ -109,6 +110,7 @@ namespace rlGameCanvasLib
 
 
 		LRESULT localWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+		void onRepaintTimer();
 
 		void graphicsThreadProc();
 
