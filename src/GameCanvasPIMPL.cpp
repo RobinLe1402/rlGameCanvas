@@ -17,7 +17,7 @@ namespace rlGameCanvasLib
 	namespace
 	{
 
-		constexpr double dMaxWindowedSize = 0.85; // times the monitor width and height
+		constexpr double dMaxWindowedSize = 0.80; // times the monitor width and height
 
 		constexpr DWORD dwStyle_Windowed = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME;
 		constexpr DWORD dwStyle_Fullscreen = WS_POPUP;
