@@ -284,6 +284,15 @@ namespace rlGameCanvasLib
 
 
 
+		// get the windowed border size
+
+		AdjustWindowRect(&m_rcWindowedBorder, dwStyle_Windowed, FALSE);
+
+		m_oWindowedBorderSize.x = m_rcWindowedBorder.right  - m_rcWindowedBorder.left;
+		m_oWindowedBorderSize.y = m_rcWindowedBorder.bottom - m_rcWindowedBorder.top;
+
+
+
 		if (m_hIconBig && !m_hIconSmall)
 			m_hIconSmall = m_hIconBig;
 		else if (m_hIconSmall && !m_hIconBig)
@@ -333,6 +342,7 @@ namespace rlGameCanvasLib
 			const bool bFullscreen = m_bFullscreen;
 			m_bMaximized  = false;
 			m_bFullscreen = false;
+
 			// non-fullscreen state must be correct when calling enterFullscreenMode(),
 			// so it makes sense to always adjust the windowed size here; no matter if the window
 			// is initially set to fullscreen or not.
@@ -697,29 +707,47 @@ namespace rlGameCanvasLib
 	{
 		const auto &mode = currentMode();
 
+		// determine windowed pixel size
+		{
+			const HMONITOR hMon = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
+			MONITORINFO mi{ sizeof(mi) };
+			GetMonitorInfoW(hMon, &mi);
+
+			const Resolution oMonRes =
+			{
+				.x = UInt(mi.rcWork.right  - mi.rcWork.left),
+				.y = UInt(mi.rcWork.bottom - mi.rcWork.top )
+			};
+
+			m_iPixelSize_Win = std::max<UInt>(
+				1,
+				std::min(
+					(oMonRes.x - m_oWindowedBorderSize.x) / mode.oScreenSize.x,
+					(oMonRes.y - m_oWindowedBorderSize.y) / mode.oScreenSize.y
+				)
+			);
+		}
+
+		const Resolution oClientSize =
+		{
+			.x = m_iPixelSize_Win * mode.oScreenSize.x,
+			.y = m_iPixelSize_Win * mode.oScreenSize.y
+		};
+
+		const Resolution oWindowSize =
+		{
+			.x = std::max(m_oMinWinSize.x, oClientSize.x + m_oWindowedBorderSize.x),
+			.y = std::max(m_oMinWinSize.y, oClientSize.y + m_oWindowedBorderSize.y)
+		};
+
 		// currently not in windowed mode --> modify saved WINDOWPLACEMENT struct
 		if (m_bFullscreen || m_bMaximized)
 		{
 			if (m_bMaximized)
 				GetWindowPlacement(m_hWnd, &m_wndpl);
 
-			RECT rc =
-			{
-				.left   = 0,
-				.top    = 0,
-				.right  = LONG(m_iPixelSize_Win * mode.oScreenSize.x),
-				.bottom = LONG(m_iPixelSize_Win * mode.oScreenSize.y)
-			};
-			AdjustWindowRect(&rc, dwStyle_Windowed, FALSE);
-
-			const auto iMinWidth  = GetSystemMetrics(SM_CXMIN);
-			const auto iMinHeight = GetSystemMetrics(SM_CYMIN);
-
-			const int iWindowedWidth  = std::max<int>(iMinWidth,  rc.right  - rc.left);
-			const int iWindowedHeight = std::max<int>(iMinHeight, rc.bottom - rc.top );
-
-			m_wndpl.rcNormalPosition.right  = m_wndpl.rcNormalPosition.left + iWindowedWidth;
-			m_wndpl.rcNormalPosition.bottom = m_wndpl.rcNormalPosition.top  + iWindowedHeight;
+			m_wndpl.rcNormalPosition.right  = m_wndpl.rcNormalPosition.left + oWindowSize.x;
+			m_wndpl.rcNormalPosition.bottom = m_wndpl.rcNormalPosition.top  + oWindowSize.y;
 
 			if (m_bMaximized)
 				SetWindowPlacement(m_hWnd, &m_wndpl);
@@ -732,24 +760,14 @@ namespace rlGameCanvasLib
 		if (m_bFBO)
 			m_bGraphicsThread_NewFBOSize = true;
 
-		RECT rcWindow =
-		{
-			.left   = 0,
-			.top    = 0,
-			.right  = LONG(m_iPixelSize_Win * mode.oScreenSize.x),
-			.bottom = LONG(m_iPixelSize_Win * mode.oScreenSize.y)
-		};
-
-		AdjustWindowRect(&rcWindow, dwStyle_Windowed, FALSE);
-
 		SetWindowPos(
-			m_hWnd,                          // hWnd
-			NULL,                            // hWndInsertAfter
-			0,                               // X
-			0,                               // Y
-			rcWindow.right  - rcWindow.left, // cx
-			rcWindow.bottom - rcWindow.top,  // cy
-			SWP_NOZORDER | SWP_NOMOVE        // uFlags
+			m_hWnd,                   // hWnd
+			NULL,                     // hWndInsertAfter
+			0,                        // X
+			0,                        // Y
+			oWindowSize.x,            // cx
+			oWindowSize.y,            // cy
+			SWP_NOZORDER | SWP_NOMOVE // uFlags
 		);
 	}
 

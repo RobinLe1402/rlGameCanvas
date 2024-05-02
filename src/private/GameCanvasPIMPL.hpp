@@ -139,6 +139,11 @@ namespace rlGameCanvasLib
 		HGLRC         m_hOpenGL = NULL;
 		HDC           m_hDC     = NULL;
 
+		RECT       m_rcWindowedBorder    = {};
+		Resolution m_oWindowedBorderSize = {};
+		const Resolution m_oMinWinSize =
+		{ .x = (UInt)GetSystemMetrics(SM_CXMIN), .y = (UInt)GetSystemMetrics(SM_CYMIN) };
+
 		WINDOWPLACEMENT m_wndpl = {};
 
 		std::unique_ptr<OpenGL> m_upOpenGL; // extended OpenGL interface
