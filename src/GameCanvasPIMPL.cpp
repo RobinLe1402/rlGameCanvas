@@ -53,26 +53,6 @@ namespace rlGameCanvasLib
 
 
 
-		Resolution GetActualClientSize(HWND hWnd)
-		{
-			const DWORD dwStyle = (DWORD)GetWindowLongW(hWnd, GWL_STYLE);
-
-			RECT rcBorder = {};
-			AdjustWindowRect(&rcBorder, dwStyle, FALSE); // TODO: error handling?
-
-			RECT rcWindow = {};
-			GetWindowRect(hWnd, &rcWindow); // TODO: error handling?
-
-			Resolution result =
-			{
-				.x = UInt((rcWindow.right  - rcBorder.right)  - (rcWindow.left - rcBorder.left)),
-				.y = UInt((rcWindow.bottom - rcBorder.bottom) - (rcWindow.top  - rcBorder.top))
-			};
-			return result;
-		}
-
-
-
 		Resolution GetScaledResolution(Resolution oResolution, Resolution oAvailableSpace,
 			bool bPreferPixelPerfect)
 		{
