@@ -22,7 +22,8 @@ namespace rlGameCanvasLib
 		constexpr DWORD dwStyle_Windowed = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME;
 		constexpr DWORD dwStyle_Fullscreen = WS_POPUP;
 
-		constexpr double dSECONDS_TILL_CURSOR_HIDE_EX = 2.0;
+		// time, in seconds, before cursor is hidden over the nonclient area.
+		constexpr double dCursorHideExTimeout = 2.0;
 
 
 
@@ -1386,7 +1387,7 @@ namespace rlGameCanvasLib
 		if (!m_bHideCursorEx)
 		{
 			m_dTimeSinceLastMouseMove += dElapsedSeconds;
-			if (m_dTimeSinceLastMouseMove >= dSECONDS_TILL_CURSOR_HIDE_EX)
+			if (m_dTimeSinceLastMouseMove >= dCursorHideExTimeout)
 			{
 				m_dTimeSinceLastMouseMove = 0.0;
 				m_bHideCursorEx = true;
