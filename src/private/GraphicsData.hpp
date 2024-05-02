@@ -26,7 +26,8 @@ private: // types
 	public: // methods
 
 		Layer(const Layer &other);
-		Layer(GLsizei iWidth, GLsizei iHeight, const lib::Resolution &oScreenSize);
+		Layer(GLsizei iWidth, GLsizei iHeight, const lib::Resolution &oScreenPos,
+			const lib::Resolution &oScreenSize);
 		~Layer();
 
 		GLsizei width()  const { return m_iWidth;  }

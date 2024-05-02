@@ -22,14 +22,15 @@ GraphicsData::Layer::Layer(const Layer &other) :
 	memcpy_s(m_up_pxData.get(), iDataSize, other.m_up_pxData.get(), iDataSize);
 }
 
-GraphicsData::Layer::Layer(GLsizei iWidth, GLsizei iHeight, const lib::Resolution &oScreenSize)
+GraphicsData::Layer::Layer(GLsizei iWidth, GLsizei iHeight, const lib::Resolution &oScreenPos,
+	const lib::Resolution &oScreenSize)
 	:
 	m_iWidth (iWidth ),
 	m_iHeight(iHeight),
 	m_oScreenSize(oScreenSize),
 	m_up_pxData(std::make_unique<lib::Pixel[]>(iWidth * iHeight))
 {
-	setScreenPos({});
+	setScreenPos(oScreenPos);
 }
 
 GraphicsData::Layer::~Layer()
@@ -174,7 +175,9 @@ bool GraphicsData::create(const lib::Mode_CPP &mode)
 		if (oLayerSize.y == 0)
 			oLayerSize.y = mode.oScreenSize.y;
 
-		m_oLayers .push_back(Layer(setup.oLayerSize.x, setup.oLayerSize.y, mode.oScreenSize));
+		m_oLayers.push_back(
+			Layer(setup.oLayerSize.x, setup.oLayerSize.y, setup.oScreenPos, mode.oScreenSize)
+		);
 		m_oVisible.push_back(!setup.bHide);
 	}
 

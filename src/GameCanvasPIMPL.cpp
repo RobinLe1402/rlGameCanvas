@@ -244,6 +244,8 @@ namespace rlGameCanvasLib
 				output.oLayerMetadata.reserve(input.iLayerCount);
 				for (size_t iLayer = 0; iLayer < input.iLayerCount; ++iLayer)
 				{
+					const auto &layer = input.pcoLayerMetadata[iLayer];
+
 					output.oLayerMetadata.push_back(input.pcoLayerMetadata[iLayer]);
 
 					auto &oLayerSize = output.oLayerMetadata.back().oLayerSize;
@@ -255,6 +257,24 @@ namespace rlGameCanvasLib
 
 					// check if layer size is smaller than the screen size
 					if (oLayerSize.x < input.oScreenSize.x || oLayerSize.y < input.oScreenSize.y)
+					{
+						bValidConfig = false;
+						break;
+					}
+
+
+					// check if screen position of layer is in bounds
+
+					const Resolution oMaxScreenPos =
+					{
+						.x = oLayerSize.x - output.oScreenSize.x,
+						.y = oLayerSize.y - output.oScreenSize.y
+					};
+
+					if (
+						layer.oScreenPos.x > oMaxScreenPos.x ||
+						layer.oScreenPos.y > oMaxScreenPos.y
+						)
 					{
 						bValidConfig = false;
 						break;
@@ -1174,6 +1194,35 @@ namespace rlGameCanvasLib
 			reinterpret_cast<rlGameCanvas_Pixel *>(&m_pxBackground), // ppxBackground
 			iDrawFlags                                               // iFlags
 		);
+
+		// go through layers and check if the screen position was changed
+		for (size_t iLayer = 0; iLayer < mode.oLayerMetadata.size(); ++iLayer)
+		{
+			auto &layerOrig = m_oLayersForCallback[iLayer];
+			auto &layerCopy = m_oLayersForCallback_Copy[iLayer];
+
+			if (
+				layerCopy.poScreenPos->x <= layerOrig.poScreenPos->x &&
+				layerCopy.poScreenPos->y <= layerOrig.poScreenPos->y
+				)
+				continue;
+
+
+			const Resolution oMaxScreenPos =
+			{
+				.x = layerOrig.bmp.size.x - mode.oScreenSize.x,
+				.y = layerOrig.bmp.size.y - mode.oScreenSize.y
+			};
+
+			if (layerCopy.poScreenPos->x > oMaxScreenPos.x)
+				layerCopy.poScreenPos->x = oMaxScreenPos.x;
+			if (layerCopy.poScreenPos->y > oMaxScreenPos.y)
+				layerCopy.poScreenPos->y = oMaxScreenPos.y;
+
+			m_oGraphicsData.setScreenPos(iLayer, *layerCopy.poScreenPos);
+
+			*layerOrig.poScreenPos = *layerCopy.poScreenPos;
+		}
 
 		m_pxBackground = RLGAMECANVAS_MAKEPIXELOPAQUE(m_pxBackground);
 
