@@ -140,7 +140,6 @@ namespace rlGameCanvasLib
 		HDC           m_hDC     = NULL;
 		HMONITOR      m_hMon    = NULL;
 
-		RECT       m_rcWindowedBorder    = {};
 		Resolution m_oWindowedBorderSize = {};
 		const Resolution m_oMinWinSize =
 		{ .x = (UInt)GetSystemMetrics(SM_CXMIN), .y = (UInt)GetSystemMetrics(SM_CYMIN) };
@@ -176,10 +175,8 @@ namespace rlGameCanvasLib
 		bool m_bMinimized         = false;
 		bool m_bFullscreenToggled = false;
 
-		bool m_bRunning       = false; // is the game logic running?
-		bool m_bRunningUpdate = false; // is the fnUpdate callback currently being run?
-		bool m_bIgnoreResize  = false;
-		bool m_bMaxFullscreen = false;
+		bool m_bRunning      = false; // is the game logic running?
+		bool m_bIgnoreResize = false;
 
 		std::chrono::system_clock::time_point m_tp1, m_tp2;
 
@@ -214,7 +211,6 @@ namespace rlGameCanvasLib
 
 
 
-		Resolution m_oMinClientSize = {};
 		Resolution m_oClientSize    = {};
 		UInt       m_iPixelSize     = 1;
 		UInt       m_iPixelSize_Win = 2;

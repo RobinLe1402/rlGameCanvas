@@ -255,11 +255,13 @@ namespace rlGameCanvasLib
 
 
 		// get the windowed border size
+		{
+			RECT rcBorder = {};
+			AdjustWindowRect(&rcBorder, dwStyle_Windowed, FALSE);
 
-		AdjustWindowRect(&m_rcWindowedBorder, dwStyle_Windowed, FALSE);
-
-		m_oWindowedBorderSize.x = m_rcWindowedBorder.right  - m_rcWindowedBorder.left;
-		m_oWindowedBorderSize.y = m_rcWindowedBorder.bottom - m_rcWindowedBorder.top;
+			m_oWindowedBorderSize.x = rcBorder.right  - rcBorder.left;
+			m_oWindowedBorderSize.y = rcBorder.bottom - rcBorder.top;
+		}
 
 
 
@@ -1337,7 +1339,6 @@ namespace rlGameCanvasLib
 		const double dElapsedSeconds =
 			std::chrono::duration_cast<std::chrono::duration<double>>(m_tp2 - m_tp1).count();
 
-		m_bRunningUpdate = true;
 		m_fnUpdateState(
 			m_oHandle,          // canvas
 			&oCurrentState,     // pcoReadonlyState
@@ -1345,7 +1346,6 @@ namespace rlGameCanvasLib
 			dElapsedSeconds,    // dSecsSinceLastCall
 			&cfgNew             // poConfig
 		);
-		m_bRunningUpdate = false;
 		m_tp1 = m_tp2;
 
 
@@ -1381,9 +1381,8 @@ namespace rlGameCanvasLib
 		const bool bRestrictCursor = cfg.iFlags & RL_GAMECANVAS_CFG_RESTRICT_CURSOR;
 		const bool bHideCursor     = cfg.iFlags & RL_GAMECANVAS_CFG_HIDE_CURSOR;
 
-		m_bNewMode                    = cfg.iMode != m_iCurrentMode;
-		const bool bFullscreenToggled = 
-			bFullscreen != m_bFullscreen;
+		m_bNewMode = cfg.iMode != m_iCurrentMode;
+		const bool bFullscreenToggled = bFullscreen != m_bFullscreen;
 
 
 		if (m_bRestrictCursor != bRestrictCursor)
