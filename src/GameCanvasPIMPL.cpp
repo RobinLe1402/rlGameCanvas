@@ -707,8 +707,8 @@ namespace rlGameCanvasLib
 			{
 				.left   = 0,
 				.top    = 0,
-				.right  = LONG(mode.oScreenSize.x),
-				.bottom = LONG(mode.oScreenSize.y)
+				.right  = LONG(m_iPixelSize_Win * mode.oScreenSize.x),
+				.bottom = LONG(m_iPixelSize_Win * mode.oScreenSize.y)
 			};
 			AdjustWindowRect(&rc, dwStyle_Windowed, FALSE);
 
@@ -736,8 +736,8 @@ namespace rlGameCanvasLib
 		{
 			.left   = 0,
 			.top    = 0,
-			.right  = LONG(m_iPixelSize * mode.oScreenSize.x),
-			.bottom = LONG(m_iPixelSize * mode.oScreenSize.y)
+			.right  = LONG(m_iPixelSize_Win * mode.oScreenSize.x),
+			.bottom = LONG(m_iPixelSize_Win * mode.oScreenSize.y)
 		};
 
 		AdjustWindowRect(&rcWindow, dwStyle_Windowed, FALSE);

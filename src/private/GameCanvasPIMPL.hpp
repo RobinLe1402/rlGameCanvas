@@ -211,6 +211,7 @@ namespace rlGameCanvasLib
 		Resolution m_oMinClientSize = {};
 		Resolution m_oClientSize    = {};
 		UInt       m_iPixelSize     = 1;
+		UInt       m_iPixelSize_Win = 2;
 		Rect       m_oDrawRect      = {};
 
 		
