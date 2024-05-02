@@ -338,21 +338,40 @@ namespace rlGameCanvasLib
 				throw std::exception{ "Failed to create the window: No handle." };
 
 
+
 			const bool bMaximize   = m_bMaximized;
 			const bool bFullscreen = m_bFullscreen;
 			m_bMaximized  = false;
 			m_bFullscreen = false;
+
+			// determine the monitor to initially show the window on
+			{
+				// launched in fullscreen mode
+				// => show on primary monitor to not confuse the user when exiting fullsceen mode
+				if (bFullscreen)
+					m_hMon = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
+
+				// launched in windowed/maximized mode
+				// => check for currently active window, if found launch on same monitor.
+				else
+				{
+					const HWND hWndForeground = GetForegroundWindow();
+					if (hWndForeground != NULL)
+						m_hMon = MonitorFromWindow(hWndForeground, MONITOR_DEFAULTTONEAREST);
+					else
+						m_hMon = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
+				}
+			}
 
 			// non-fullscreen state must be correct when calling enterFullscreenMode(),
 			// so it makes sense to always adjust the windowed size here; no matter if the window
 			// is initially set to fullscreen or not.
 			adjustWindowedSize();
 
-			// place at center of primary monitor
+			// place at center of initial monitor
 			{
-				const HMONITOR hMon = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
 				MONITORINFO mi{ sizeof(mi) };
-				GetMonitorInfoW(hMon, &mi);
+				GetMonitorInfoW(m_hMon, &mi);
 
 				RECT rcWindow;
 				GetWindowRect(m_hWnd, &rcWindow);
@@ -709,9 +728,8 @@ namespace rlGameCanvasLib
 
 		// determine windowed pixel size
 		{
-			const HMONITOR hMon = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
 			MONITORINFO mi{ sizeof(mi) };
-			GetMonitorInfoW(hMon, &mi);
+			GetMonitorInfoW(m_hMon, &mi);
 
 			const Resolution oMonRes =
 			{
@@ -988,6 +1006,20 @@ namespace rlGameCanvasLib
 				calcRenderParams();
 			}
 
+			break;
+		}
+			
+		case WM_MOVING:
+		{
+			const auto hMon = MonitorFromWindow(m_hWnd, MONITOR_DEFAULTTONEAREST);
+			if (hMon == m_hMon)
+				break;
+
+#ifndef NDEBUG
+			std::printf("> Monitor changed\n");
+#endif
+			m_hMon = hMon;
+			adjustWindowedSize();
 			break;
 		}
 

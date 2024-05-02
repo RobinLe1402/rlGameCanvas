@@ -138,6 +138,7 @@ namespace rlGameCanvasLib
 		HACCEL        m_hAccel  = NULL;
 		HGLRC         m_hOpenGL = NULL;
 		HDC           m_hDC     = NULL;
+		HMONITOR      m_hMon    = NULL;
 
 		RECT       m_rcWindowedBorder    = {};
 		Resolution m_oWindowedBorderSize = {};
