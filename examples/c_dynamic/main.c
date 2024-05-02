@@ -220,6 +220,9 @@ void __stdcall Draw(
 	if (bPaused)
 		return;
 
+	// "wiggle" background layer (to test screen position functionality)
+	poLayers[LAYERID_BG].poScreenPos->y = ++poLayers[LAYERID_BG].poScreenPos->y % 2;
+
 	const unsigned iWidth  = oScreenSize.x;
 	const unsigned iHeight = oScreenSize.y;
 
@@ -398,7 +401,7 @@ int main(int argc, char* argv[])
 
 	rlGameCanvas_LayerMetadata LAYERS[LAYER_COUNT] = { 0 };
 	LAYERS[LAYERID_BG].oLayerSize.x = WIDTH;
-	LAYERS[LAYERID_BG].oLayerSize.y = HEIGHT_DEBUG;
+	LAYERS[LAYERID_BG].oLayerSize.y = HEIGHT_DEBUG + 1;
 
 	rlGameCanvas_Mode oModes[MODE_COUNT] = { 0 };
 

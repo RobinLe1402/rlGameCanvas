@@ -1198,30 +1198,29 @@ namespace rlGameCanvasLib
 		// go through layers and check if the screen position was changed
 		for (size_t iLayer = 0; iLayer < mode.oLayerMetadata.size(); ++iLayer)
 		{
-			auto &layerOrig = m_oLayersForCallback[iLayer];
-			auto &layerCopy = m_oLayersForCallback_Copy[iLayer];
+			auto &layer = m_oLayersForCallback_Copy[iLayer];
 
-			if (
-				layerCopy.poScreenPos->x <= layerOrig.poScreenPos->x &&
-				layerCopy.poScreenPos->y <= layerOrig.poScreenPos->y
-				)
+			const auto oldPos = m_oGraphicsData.getScreenPos(iLayer);
+			auto &newPos = *layer.poScreenPos;
+
+			if (newPos == oldPos)
 				continue;
 
-
-			const Resolution oMaxScreenPos =
+			if (newPos.x > oldPos.x || newPos.y > oldPos.y)
 			{
-				.x = layerOrig.bmp.size.x - mode.oScreenSize.x,
-				.y = layerOrig.bmp.size.y - mode.oScreenSize.y
-			};
+				const Resolution oMaxScreenPos =
+				{
+					.x = layer.bmp.size.x - mode.oScreenSize.x,
+					.y = layer.bmp.size.y - mode.oScreenSize.y
+				};
 
-			if (layerCopy.poScreenPos->x > oMaxScreenPos.x)
-				layerCopy.poScreenPos->x = oMaxScreenPos.x;
-			if (layerCopy.poScreenPos->y > oMaxScreenPos.y)
-				layerCopy.poScreenPos->y = oMaxScreenPos.y;
+				if (newPos.x > oMaxScreenPos.x)
+					newPos.x = oMaxScreenPos.x;
+				if (newPos.y > oMaxScreenPos.y)
+					newPos.y = oMaxScreenPos.y;
+			}
 
-			m_oGraphicsData.setScreenPos(iLayer, *layerCopy.poScreenPos);
-
-			*layerOrig.poScreenPos = *layerCopy.poScreenPos;
+			m_oGraphicsData.setScreenPos(iLayer, *layer.poScreenPos);
 		}
 
 		m_pxBackground = RLGAMECANVAS_MAKEPIXELOPAQUE(m_pxBackground);

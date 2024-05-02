@@ -74,6 +74,10 @@ public: // methods
 	{
 		m_oLayers[iLayer].setScreenPos(oScreenPos);
 	}
+	lib::Resolution getScreenPos(size_t iLayer)
+	{
+		return m_oLayers[iLayer].getScreenPos();
+	}
 	void setVisible  (size_t iLayer, bool bVisible) { m_oVisible[iLayer] = bVisible; }
 
 	void draw();
