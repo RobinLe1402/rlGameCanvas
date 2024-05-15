@@ -10,6 +10,11 @@
 
 #pragma comment(lib, "Opengl32.lib")
 
+#ifndef RL_GAMECANVAS_NOWIN11
+#include <dwmapi.h>
+#pragma comment(lib, "Dwmapi.lib")
+#endif // RL_GAMECANVAS_NOWIN11
+
 
 
 namespace rlGameCanvasLib
@@ -345,6 +350,26 @@ namespace rlGameCanvasLib
 			// for compiler: C687 - "could be zero"
 			if (m_hWnd == NULL)
 				throw std::exception{ "Failed to create the window: No handle." };
+
+#ifndef RL_GAMECANVAS_NOWIN11
+#ifdef _MSC_VER // only when compiling with Microsoft Visual C++
+
+			// if Windows 11 SDK is present -> disable rounded corners
+			__if_exists(DWM_WINDOW_CORNER_PREFERENCE)
+			{
+#ifndef NDEBUG
+				std::printf("> Disabling window rounding...\n");
+#endif
+				const auto pref = DWM_WINDOW_CORNER_PREFERENCE::DWMWCP_DONOTROUND;
+				DwmSetWindowAttribute(
+					m_hWnd,
+					DWMWINDOWATTRIBUTE::DWMWA_WINDOW_CORNER_PREFERENCE,
+					&pref,
+					sizeof(pref)
+				);
+			}
+#endif // _MSC_VER
+#endif // RL_GAMECANVAS_NOWIN11
 
 
 
