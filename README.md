@@ -3,10 +3,32 @@
 
 This library acts like a canvas for pixel-based (= bitmap-like graphics) video games.
 
-At this point in time, only Windows is supported.
 
-While the library interface is written to be backwards compatible to older C++ standards, C++20 is
-required to compile the library.
+
+## System requirements
+
+### Execution
+Windows XP or up.
+<img alt="Windows XP compatible" src="res/winxp.png">
+
+#### Microsoft Visual C++ Redistributable
+By default, MSVC++ redistributables are required to be installed on the host.
+
+As written [here](https://learn.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist#notes),
+Microsoft has ended Windows XP support in 2014, and the most recent version of the MSVC++ redistributables that is still compatible with Windows XP
+is Visual Studio 2019 version 16.7. I offer a download option for this redistributable (both 32 and 64 bit) [on my website](https://download.robinle.net/thirdparty/vc_redist).
+
+> [!IMPORTANT]  
+> The provided download link for Microsoft Visual C++ redistributables only serves as a fallback.
+> If you can get an **official** download link from Microsoft, use that one instead.
+>
+> Don't trust a third party if you don't have to.
+
+
+### Compilation (Visual Studio)
+I use Visual Studio 2022. In theory, compilation with an older Visual Studio version could work, however, I don't test for that.
+
+You'll need the `C++ Windows XP Support` component in order to compile Windows-XP-compatible binaries. In my Visual Studio Installer, it's called `C++ Windows XP Support for VS 2017 (v141) tools [Deprecated]`.
 
 
 
