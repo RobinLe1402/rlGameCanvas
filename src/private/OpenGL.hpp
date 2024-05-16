@@ -7,6 +7,8 @@
 
 #include <functional>
 #include <string>
+
+typedef struct IUnknown IUnknown;
 #include <Windows.h>
 #include <gl/GL.h>
 
@@ -98,7 +100,11 @@ namespace rlGameCanvasLib
 					iMinor   == other.iMinor &&
 					iRelease == other.iRelease;
 			}
-			bool operator!=(const Version &) const = default;
+
+			bool operator!=(const Version &other) const
+			{
+				return !(*this == other);
+			}
 
 			double asDouble() const
 			{

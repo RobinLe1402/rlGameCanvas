@@ -13,14 +13,20 @@ namespace rlGameCanvasLib
 	namespace
 	{
 
+		// as a C++17 replacement for C++20's std::lerp
+		constexpr double lerp(double a, double b, double t) noexcept
+		{
+			return a * (1.0 - t) + (b * t);
+		}
+
 		Pixel PixelLerp(const Pixel &px1, const Pixel &px2, double dOffset)
 		{
 			Pixel pxResult;
 
-			pxResult.rgba.a = (uint8_t)std::lerp(px1.rgba.a, px2.rgba.a, dOffset);
-			pxResult.rgba.r = (uint8_t)std::lerp(px1.rgba.r, px2.rgba.r, dOffset);
-			pxResult.rgba.g = (uint8_t)std::lerp(px1.rgba.g, px2.rgba.g, dOffset);
-			pxResult.rgba.b = (uint8_t)std::lerp(px1.rgba.b, px2.rgba.b, dOffset);
+			pxResult.rgba.a = (uint8_t)lerp(px1.rgba.a, px2.rgba.a, dOffset);
+			pxResult.rgba.r = (uint8_t)lerp(px1.rgba.r, px2.rgba.r, dOffset);
+			pxResult.rgba.g = (uint8_t)lerp(px1.rgba.g, px2.rgba.g, dOffset);
+			pxResult.rgba.b = (uint8_t)lerp(px1.rgba.b, px2.rgba.b, dOffset);
 
 			return pxResult;
 		}
@@ -50,8 +56,8 @@ namespace rlGameCanvasLib
 
 			resVisible =
 			{
-				.x = resOverlay.x - iStartX,
-				.y = resOverlay.y - iStartY
+				/* x */ resOverlay.x - iStartX,
+				/* y */ resOverlay.y - iStartY
 			};
 
 			const UInt iRightmost  = UInt(iOverlayX + Int(resOverlay.x));
@@ -202,8 +208,8 @@ namespace rlGameCanvasLib
 
 		const Resolution resScaled =
 		{
-			.x = iOverlayScaledWidth,
-			.y = iOverlayScaledHeight
+			/* x */ iOverlayScaledWidth,
+			/* y */ iOverlayScaledHeight
 		};
 		UInt       iStartX, iStartY;
 		Resolution resVisible;
@@ -221,11 +227,11 @@ namespace rlGameCanvasLib
 		);
 		Bitmap bmpTemp =
 		{
-			.ppxData = reinterpret_cast<rlGameCanvas_Pixel *>(up_pxScaled.get()),
-			.size =
+			/* ppxData */ reinterpret_cast<rlGameCanvas_Pixel *>(up_pxScaled.get()),
+			/* size */
 			{
-				.x = resVisible.x,
-				.y = resVisible.y
+				/* x */ resVisible.x,
+				/* y */ resVisible.y
 			}
 		};
 

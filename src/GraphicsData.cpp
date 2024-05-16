@@ -43,8 +43,8 @@ void GraphicsData::Layer::setScreenPos(const lib::Resolution &oScreenPos)
 {
 	m_oScreenPos =
 	{
-		.x = oScreenPos.x % m_oScreenSize.x,
-		.y = oScreenPos.y % m_oScreenSize.y
+		/* x */ oScreenPos.x % m_oScreenSize.x,
+		/* y */ oScreenPos.y % m_oScreenSize.y
 	};
 
 	m_fTexLeft   =        (float(m_oScreenPos.x                  ) / m_iWidth );

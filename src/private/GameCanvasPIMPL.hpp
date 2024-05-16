@@ -144,7 +144,7 @@ namespace rlGameCanvasLib
 
 		Resolution m_oWindowedBorderSize = {};
 		const Resolution m_oMinWinSize =
-		{ .x = (UInt)GetSystemMetrics(SM_CXMIN), .y = (UInt)GetSystemMetrics(SM_CYMIN) };
+		{ /* x */ (UInt)GetSystemMetrics(SM_CXMIN), /* y */ (UInt)GetSystemMetrics(SM_CYMIN)};
 
 		WINDOWPLACEMENT m_wndpl = {};
 
@@ -185,7 +185,7 @@ namespace rlGameCanvasLib
 
 
 		// configurable data: startup ==============================================================
-		const std::u8string        m_sWindowCaption;
+		const std::string          m_sWindowCaption;
 		HICON                      m_hIconSmall;
 		HICON                      m_hIconBig;
 		const UpdateStateCallback  m_fnUpdateState;

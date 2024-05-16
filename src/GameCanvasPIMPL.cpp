@@ -5,6 +5,8 @@
 #include "private/PrivateTypes.hpp"
 #include "private/Windows.hpp"
 
+#include <algorithm>
+
 #include <gl/glext.h>
 #include <windowsx.h>
 
@@ -68,8 +70,8 @@ namespace rlGameCanvasLib
 			// calculate the biggest possible size that keeps the aspect ratio
 			Resolution oResult =
 			{
-				.x = UInt(oAvailableSpace.y * dRatio),
-				.y = oAvailableSpace.y
+				/* x */ UInt(oAvailableSpace.y * dRatio),
+				/* y */ oAvailableSpace.y
 			};
 
 
@@ -272,8 +274,8 @@ namespace rlGameCanvasLib
 
 					const Resolution oMaxScreenPos =
 					{
-						.x = oLayerSize.x - output.oScreenSize.x,
-						.y = oLayerSize.y - output.oScreenSize.y
+						/* x */ oLayerSize.x - output.oScreenSize.x,
+						/* y */ oLayerSize.y - output.oScreenSize.y
 					};
 
 					if (
@@ -452,9 +454,9 @@ namespace rlGameCanvasLib
 
 			ACCEL accAltEnter =
 			{
-				.fVirt = FALT,
-				.key   = VK_RETURN,
-				.cmd = 0
+				/* fVirt*/ FALT,
+				/* key  */ VK_RETURN,
+				/* cmd  */ 0
 			};
 
 			m_hAccel = CreateAcceleratorTableW(&accAltEnter, 1);
@@ -674,14 +676,14 @@ namespace rlGameCanvasLib
 
 			m_oLayersForCallback[iLayer] =
 			{
-				.bmp =
+				/* bmp */
 				{
-					.ppxData =
+					/* ppxData */
 						reinterpret_cast<rlGameCanvas_Pixel*>(m_oGraphicsData.scanline(iLayer, 0)),
-					.size  = oLayerSpecs.oLayerSize,
+					/* size */ oLayerSpecs.oLayerSize,
 				},
-				.poScreenPos = &oLayerSettings.oScreenPos,
-				.pbVisible   = &oLayerSettings.bVisible
+				/* poScreenPos */ &oLayerSettings.oScreenPos,
+				/* pbVisible   */ &oLayerSettings.bVisible
 			};
 		}
 	}
@@ -708,8 +710,8 @@ namespace rlGameCanvasLib
 
 		const Resolution oMonitorSize =
 		{
-			.x = UInt(mi.rcMonitor.right  - mi.rcMonitor.left),
-			.y = UInt(mi.rcMonitor.bottom - mi.rcMonitor.top)
+			/* x */ UInt(mi.rcMonitor.right  - mi.rcMonitor.left),
+			/* y */ UInt(mi.rcMonitor.bottom - mi.rcMonitor.top)
 		};
 
 		m_oClientSize = oMonitorSize;
@@ -767,8 +769,8 @@ namespace rlGameCanvasLib
 
 			const Resolution oMonRes =
 			{
-				.x = UInt(mi.rcWork.right  - mi.rcWork.left),
-				.y = UInt(mi.rcWork.bottom - mi.rcWork.top )
+				/* x */ UInt(mi.rcWork.right  - mi.rcWork.left),
+				/* y */ UInt(mi.rcWork.bottom - mi.rcWork.top )
 			};
 
 			m_iPixelSize_Win = std::max<UInt>(
@@ -782,14 +784,14 @@ namespace rlGameCanvasLib
 
 		const Resolution oClientSize =
 		{
-			.x = m_iPixelSize_Win * mode.oScreenSize.x,
-			.y = m_iPixelSize_Win * mode.oScreenSize.y
+			/* x */ m_iPixelSize_Win * mode.oScreenSize.x,
+			/* y */ m_iPixelSize_Win * mode.oScreenSize.y
 		};
 
 		const Resolution oWindowSize =
 		{
-			.x = std::max(m_oMinWinSize.x, oClientSize.x + m_oWindowedBorderSize.x),
-			.y = std::max(m_oMinWinSize.y, oClientSize.y + m_oWindowedBorderSize.y)
+			/* x */ std::max(m_oMinWinSize.x, oClientSize.x + m_oWindowedBorderSize.x),
+			/* y */ std::max(m_oMinWinSize.y, oClientSize.y + m_oWindowedBorderSize.y)
 		};
 
 		// currently not in windowed mode --> modify saved WINDOWPLACEMENT struct
@@ -881,24 +883,24 @@ namespace rlGameCanvasLib
 	{
 		POINT ptTopLeft =
 		{
-			.x = LONG(m_oDrawRect.iLeft),
-			.y = LONG(m_oDrawRect.iTop)
+			/* x */ LONG(m_oDrawRect.iLeft),
+			/* y */ LONG(m_oDrawRect.iTop)
 		};
 		ClientToScreen(m_hWnd, &ptTopLeft);
 
 		POINT ptBottomRight =
 		{
-			.x = LONG(m_oDrawRect.iRight),
-			.y = LONG(m_oDrawRect.iBottom)
+			/* x */ LONG(m_oDrawRect.iRight),
+			/* y */ LONG(m_oDrawRect.iBottom)
 		};
 		ClientToScreen(m_hWnd, &ptBottomRight);
 
 		RECT rcResult =
 		{
-			.left   = ptTopLeft.x,
-			.top    = ptTopLeft.y,
-			.right  = ptBottomRight.x,
-			.bottom = ptBottomRight.y
+			/* left   */ ptTopLeft.x,
+			/* top    */ ptTopLeft.y,
+			/* right  */ ptBottomRight.x,
+			/* bottom */ ptBottomRight.y
 		};
 
 		return rcResult;
@@ -986,8 +988,8 @@ namespace rlGameCanvasLib
 				const int iCanvasY = iClientY - m_oDrawRect.iTop;
 				m_oCursorPos =
 				{
-					.x = std::min(UInt(iCanvasX / dPixelSize), oScreenSize.x - 1),
-					.y = std::min(UInt(iCanvasY / dPixelSize), oScreenSize.y - 1)
+					/* x */ std::min(UInt(iCanvasX / dPixelSize), oScreenSize.x - 1),
+					/* y */ std::min(UInt(iCanvasY / dPixelSize), oScreenSize.y - 1)
 				};
 
 				if (m_bRestrictCursor && !bMouseOverCanvasBefore)
@@ -1039,8 +1041,8 @@ namespace rlGameCanvasLib
 
 			const Resolution oNewClientSize =
 			{
-				.x = LOWORD(lParam),
-				.y = HIWORD(lParam)
+				/* x */ LOWORD(lParam),
+				/* y */ HIWORD(lParam)
 			};
 
 			if (oNewClientSize != m_oClientSize)
@@ -1235,8 +1237,8 @@ namespace rlGameCanvasLib
 			{
 				const Resolution oMaxScreenPos =
 				{
-					.x = layer.bmp.size.x - mode.oScreenSize.x,
-					.y = layer.bmp.size.y - mode.oScreenSize.y
+					/* x */ layer.bmp.size.x - mode.oScreenSize.x,
+					/* y */ layer.bmp.size.y - mode.oScreenSize.y
 				};
 
 				if (newPos.x > oMaxScreenPos.x)
@@ -1425,8 +1427,8 @@ namespace rlGameCanvasLib
 		const bool bPrevFullscreen = m_bFullscreen;
 		const Config cfgOld =
 		{
-			.iMode  = m_iCurrentMode,
-			.iFlags =
+			/* iMode  */ m_iCurrentMode,
+			/* iFlags */
 				UInt(bPrevFullscreen   ? RL_GAMECANVAS_CFG_FULLSCREEN      : 0) |
 				UInt(m_bRestrictCursor ? RL_GAMECANVAS_CFG_RESTRICT_CURSOR : 0) |
 				UInt(m_bHideCursor     ? RL_GAMECANVAS_CFG_HIDE_CURSOR     : 0)
@@ -1442,8 +1444,8 @@ namespace rlGameCanvasLib
 		const bool bMouseOverCanvas = m_bMouseOverCanvas && m_bHasFocus;
 		const State oCurrentState =
 		{
-			.oMousePos = m_oCursorPos,
-			.iFlags    = (bMouseOverCanvas ? RL_GAMECANVAS_STA_MOUSE_ON_CANVAS : 0u)
+			/* oMousePos */ m_oCursorPos,
+			/* iFlags    */ (bMouseOverCanvas ? RL_GAMECANVAS_STA_MOUSE_ON_CANVAS : 0u)
 		};
 
 

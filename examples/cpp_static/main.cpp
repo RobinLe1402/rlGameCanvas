@@ -82,8 +82,8 @@ constexpr lib::PixelInt pxData[] =
 
 constexpr lib::Bitmap bmpTest =
 {
-	.ppxData = const_cast<lib::PixelInt *>(pxData),
-	.size = { .x = 10, .y = 10 }
+	/* ppxData */ const_cast<lib::PixelInt *>(pxData),
+	/* size    */ { /* x */ 10, /* y */ 10}
 };
 
 void __stdcall DrawState_(
@@ -125,19 +125,19 @@ int main(int argc, char* argv[])
 
 	constexpr lib::LayerMetadata oLAYER_METADATA =
 	{
-		.oLayerSize = { .x = 10, .y = 10 }
+		/* oLayerSize */ { /* x */ 10, /* y */ 10}
 	};
 	const lib::Mode oMODE =
 	{
-		.oScreenSize = { .x = 10, .y = 10 },
-		.iLayerCount = 1,
-		.pcoLayerMetadata = &oLAYER_METADATA
+		/* oScreenSize */      { /* x */ 10, /* y */ 10},
+		/* iLayerCount */      1,
+		/* pcoLayerMetadata */ &oLAYER_METADATA
 	};
 
 	sc.iModeCount = 1;
 	sc.pcoModes   = &oMODE;
 
-	constexpr char8_t szCAPTION[] = u8"Hi there! :)";
+	constexpr char szCAPTION[] = u8"Hi there! :)";
 	sc.szWindowCaption = szCAPTION;
 
 	sc.hIconBig = LoadIconW(GetModuleHandleW(NULL), L"ROBINLE_ICON");
