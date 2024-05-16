@@ -9,6 +9,7 @@ This library acts like a canvas for pixel-based (= bitmap-like graphics) video g
 
 ### Execution
 Windows XP or up.
+
 <img alt="Windows XP compatible" src="res/winxp.png">
 
 #### Microsoft Visual C++ Redistributable
