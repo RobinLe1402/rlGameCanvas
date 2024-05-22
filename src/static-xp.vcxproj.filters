@@ -14,61 +14,61 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
     <Filter Include="Header Files\Private">
-      <UniqueIdentifier>{6cfc31f1-b2a4-4ca5-806f-bfb9b20ce81b}</UniqueIdentifier>
+      <UniqueIdentifier>{363a04e2-9d19-48d3-b737-39aa42960be5}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Private\ThirdParty">
-      <UniqueIdentifier>{82da9715-119a-42a8-81ec-9674fbad6ccf}</UniqueIdentifier>
+      <UniqueIdentifier>{eba3bab0-8167-4988-a2d6-0ab0d754755f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\Bitmap.cpp">
+    <ClCompile Include="GameCanvas.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\GameCanvas.cpp">
+    <ClCompile Include="GameCanvasPIMPL.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\GameCanvasPIMPL.cpp">
+    <ClCompile Include="Windows.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\GraphicsData.cpp">
+    <ClCompile Include="OpenGL.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\OpenGL.cpp">
+    <ClCompile Include="GraphicsData.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\Windows.cpp">
+    <ClCompile Include="Bitmap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\include\rlGameCanvas++\GameCanvas.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\include\rlGameCanvas++\Types.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\private\GameCanvasPIMPL.hpp">
+    <ClInclude Include="..\include\rlGameCanvas++\Pixel.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="private\GameCanvasPIMPL.hpp">
       <Filter>Header Files\Private</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\private\GraphicsData.hpp">
+    <ClInclude Include="private\Windows.hpp">
       <Filter>Header Files\Private</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\private\OpenGL.hpp">
+    <ClInclude Include="private\OpenGL.hpp">
       <Filter>Header Files\Private</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\private\Windows.hpp">
-      <Filter>Header Files\Private</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\gl\glext.h">
-      <Filter>Header Files\Private\ThirdParty</Filter>
     </ClInclude>
     <ClInclude Include="..\include\KHR\khrplatform.h">
       <Filter>Header Files\Private\ThirdParty</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\gl\glext.h">
+      <Filter>Header Files\Private\ThirdParty</Filter>
+    </ClInclude>
+    <ClInclude Include="private\GraphicsData.hpp">
+      <Filter>Header Files\Private</Filter>
+    </ClInclude>
     <ClInclude Include="..\include\rlGameCanvas++\Bitmap.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\rlGameCanvas++\GameCanvas.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\rlGameCanvas++\Pixel.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
