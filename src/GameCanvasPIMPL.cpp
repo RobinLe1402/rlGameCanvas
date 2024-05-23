@@ -1221,7 +1221,7 @@ namespace rlGameCanvasLib
 				continue;
 
 			m_oGraphicsData.setScreenPos(iLayer, *layer.poScreenPos);
-			*m_oLayersForCallback[iLayer].poScreenPos = newPos;
+			m_oLayerSettings[iLayer].oScreenPos = newPos;
 		}
 
 		m_pxBackground = RLGAMECANVAS_MAKEPIXELOPAQUE(m_pxBackground);
