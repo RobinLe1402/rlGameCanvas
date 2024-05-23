@@ -43,6 +43,9 @@ typedef struct
 
 	bool                    bMouseOnCanvas;
 	rlGameCanvas_Resolution oMousePos;
+
+	int iXMove;
+	int iYMove;
 } GraphicsData;
 
 #define RESIZETEST 1
@@ -59,6 +62,8 @@ bool bFullscreenToggled     = false;
 bool bRestrictCursorToggled = false;
 bool bHideCursorToggled     = false;
 bool bModeToggled           = false;
+int  iXMove                 = 0;
+int  iYMove                 = 0;
 bool bCloseRequested        = false;
 
 bool bMouseCursorOnCanvas = false;
@@ -125,6 +130,12 @@ void __stdcall Update(
 		poConfig->iMode = ++poConfig->iMode % MODE_COUNT;
 		bModeToggled    = false;
 	}
+
+	pDataT->iXMove = iXMove;
+	pDataT->iYMove = iYMove;
+	iXMove = 0;
+	iYMove = 0;
+
 	if (bCloseRequested)
 		rlGameCanvas_Quit(canvas);
 
@@ -200,6 +211,22 @@ void __stdcall WinMsg(
 
 		case 'X':
 			bCloseRequested = true;
+			break;
+
+		case VK_LEFT:
+			++iXMove;
+			break;
+
+		case VK_RIGHT:
+			--iXMove;
+			break;
+
+		case VK_UP:
+			--iYMove;
+			break;
+
+		case VK_DOWN:
+			++iYMove;
 			break;
 		}
 		break;
@@ -373,6 +400,31 @@ void __stdcall Draw(
 			RL_GAMECANVAS_BMP_OVERLAY_REPLACE
 		);
 	}
+
+	if (pDataT->iXMove > 0)
+		poLayers[LAYERID_LOGO].poScreenPos->x += pDataT->iXMove;
+	else if (pDataT->iXMove < 0)
+	{
+		if (poLayers[LAYERID_LOGO].poScreenPos->x == 0)
+			poLayers[LAYERID_LOGO].poScreenPos->x =
+			poLayers[LAYERID_LOGO].bmp.size.x - (-pDataT->iXMove);
+		else
+			poLayers[LAYERID_LOGO].poScreenPos->x -= (-pDataT->iXMove);
+	}
+
+	if (pDataT->iYMove > 0)
+		poLayers[LAYERID_LOGO].poScreenPos->y += pDataT->iYMove;
+	else if (pDataT->iYMove < 0)
+	{
+		if (poLayers[LAYERID_LOGO].poScreenPos->y == 0)
+			poLayers[LAYERID_LOGO].poScreenPos->y =
+			poLayers[LAYERID_LOGO].bmp.size.y - (-pDataT->iYMove);
+		else
+			poLayers[LAYERID_LOGO].poScreenPos->y -= (-pDataT->iYMove);
+	}
+
+	iXMove = 0;
+	iYMove = 0;
 }
 
 void __stdcall CreateData(void** pData)
@@ -445,6 +497,7 @@ int main(int argc, char* argv[])
 		"[F]ullscreen - Toggle fullscreen.\n"
 		"[M]ode       - Toggle debug mode.\n"
 		"[R]estrict   - Toggle mouse cursor restriction.\n"
+		"[Arrow keys] - Move logo.\n"
 		"E[x]it       - Close the demo.\n"
 		"==================================================\n"
 	);
