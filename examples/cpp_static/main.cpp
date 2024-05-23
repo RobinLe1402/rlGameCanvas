@@ -125,7 +125,8 @@ int main(int argc, char* argv[])
 
 	constexpr lib::LayerMetadata oLAYER_METADATA =
 	{
-		/* oLayerSize */ { /* x */ 10, /* y */ 10}
+		/* oLayerSize */ { /* x */ 10, /* y */ 10 },
+		/* oScreenPos */ { /* x */  0, /* y */  0 }
 	};
 	const lib::Mode oMODE =
 	{

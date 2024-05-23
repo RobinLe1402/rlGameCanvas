@@ -256,32 +256,19 @@ namespace rlGameCanvasLib
 					output.oLayerMetadata.push_back(input.pcoLayerMetadata[iLayer]);
 
 					auto &oLayerSize = output.oLayerMetadata.back().oLayerSize;
+					auto &oLayerPos  = output.oLayerMetadata.back().oScreenPos;
 
 					if (oLayerSize.x == 0)
 						oLayerSize.x = output.oScreenSize.x;
 					if (oLayerSize.y == 0)
 						oLayerSize.y = output.oScreenSize.y;
 
+					oLayerPos.x %= input.oScreenSize.x;
+					oLayerPos.y %= input.oScreenSize.y;
+
+
 					// check if layer size is smaller than the screen size
 					if (oLayerSize.x < input.oScreenSize.x || oLayerSize.y < input.oScreenSize.y)
-					{
-						bValidConfig = false;
-						break;
-					}
-
-
-					// check if screen position of layer is in bounds
-
-					const Resolution oMaxScreenPos =
-					{
-						/* x */ oLayerSize.x - output.oScreenSize.x,
-						/* y */ oLayerSize.y - output.oScreenSize.y
-					};
-
-					if (
-						layer.oScreenPos.x > oMaxScreenPos.x ||
-						layer.oScreenPos.y > oMaxScreenPos.y
-						)
 					{
 						bValidConfig = false;
 						break;
@@ -1233,21 +1220,8 @@ namespace rlGameCanvasLib
 			if (newPos == oldPos)
 				continue;
 
-			if (newPos.x > oldPos.x || newPos.y > oldPos.y)
-			{
-				const Resolution oMaxScreenPos =
-				{
-					/* x */ layer.bmp.size.x - mode.oScreenSize.x,
-					/* y */ layer.bmp.size.y - mode.oScreenSize.y
-				};
-
-				if (newPos.x > oMaxScreenPos.x)
-					newPos.x = oMaxScreenPos.x;
-				if (newPos.y > oMaxScreenPos.y)
-					newPos.y = oMaxScreenPos.y;
-			}
-
 			m_oGraphicsData.setScreenPos(iLayer, *layer.poScreenPos);
+			*m_oLayersForCallback[iLayer].poScreenPos = newPos;
 		}
 
 		m_pxBackground = RLGAMECANVAS_MAKEPIXELOPAQUE(m_pxBackground);
