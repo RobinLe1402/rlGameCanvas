@@ -946,6 +946,19 @@ namespace rlGameCanvasLib
 
 		case WM_MOUSEMOVE:
 		{
+			if (!m_bMouseTracking)
+			{
+				TRACKMOUSEEVENT tme{};
+				tme.cbSize    = sizeof(tme);
+				tme.hwndTrack = hWnd;
+				tme.dwFlags   = TME_LEAVE;
+
+				TrackMouseEvent(&tme);
+
+				m_bMouseTracking = true;
+			}
+
+
 			m_dTimeSinceLastMouseMove = 0.0;
 
 			m_bMouseCursorOutsideClient = false;
@@ -995,6 +1008,8 @@ namespace rlGameCanvasLib
 		case WM_MOUSELEAVE:
 			m_bMouseCursorOutsideClient = true;
 			m_bMouseOverCanvas = false;
+
+			m_bMouseTracking = false;
 			break;
 
 		case WM_SIZE:

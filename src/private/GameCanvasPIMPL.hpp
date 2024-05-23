@@ -176,6 +176,7 @@ namespace rlGameCanvasLib
 		bool m_bHasFocus          = false;
 		bool m_bMinimized         = false;
 		bool m_bFullscreenToggled = false;
+		bool m_bMouseTracking     = false;
 
 		bool m_bRunning      = false; // is the game logic running?
 		bool m_bIgnoreResize = false;
