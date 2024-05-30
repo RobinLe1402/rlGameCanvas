@@ -1,3 +1,11 @@
+/***************************************************************************************************
+  rlGameCanvas PIXEL DEFINITIONS
+  ==============================
+
+  This file contains pixel-related macros and constants for the rlGameCanvas library.
+
+  (c) 2024 RobinLe
+***************************************************************************************************/
 #ifndef RLGAMECANVAS_PIXEL_C
 #define RLGAMECANVAS_PIXEL_C
 

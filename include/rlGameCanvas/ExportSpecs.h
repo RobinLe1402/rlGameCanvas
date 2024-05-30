@@ -1,3 +1,11 @@
+/***************************************************************************************************
+  rlGameCanvas EXPORT DEFINITIONS
+  ===============================
+
+  This file contains export-/import-related preprocessor definitions for the rlGameCanvas library.
+
+  (c) 2024 RobinLe
+***************************************************************************************************/
 #ifndef RLGAMECANVAS_CORE_EXPORTSPECS
 #define RLGAMECANVAS_CORE_EXPORTSPECS
 

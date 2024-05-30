@@ -1,3 +1,11 @@
+/***************************************************************************************************
+  rlGameCanvas TYPE DECLARATIONS
+  ==============================
+
+  This file contains type declarations for the rlGameCanvas library.
+
+  (c) 2024 RobinLe
+***************************************************************************************************/
 #ifndef RLGAMECANVAS_TYPES_C
 #define RLGAMECANVAS_TYPES_C
 

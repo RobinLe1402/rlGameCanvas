@@ -3,7 +3,7 @@
   =======================
 
   This file contains additional function definitions for handling bitmaps within the rlGameCanvas
-  dynamic library.
+  library.
 
   (c) 2024 RobinLe
 ***************************************************************************************************/

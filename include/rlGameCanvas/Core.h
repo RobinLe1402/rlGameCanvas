@@ -2,7 +2,7 @@
   rlGameCanvas CORE API
   =====================
 
-  This file contains the core function definitions for the rlGameCanvas dynamic library.
+  This file contains the core function definitions for the rlGameCanvas library.
 
   (c) 2024 RobinLe
 ***************************************************************************************************/

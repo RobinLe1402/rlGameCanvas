@@ -1,3 +1,11 @@
+/***************************************************************************************************
+  rlGameCanvas DEFINITIONS
+  ========================
+
+  This file contains preprocessor definitions for the rlGameCanvas library.
+
+  (c) 2024 RobinLe
+***************************************************************************************************/
 #ifndef RLGAMECANVAS_CORE_DEFINITIONS_C
 #define RLGAMECANVAS_CORE_DEFINITIONS_C
 
