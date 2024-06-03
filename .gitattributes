@@ -9,4 +9,4 @@
 # misc. text files
 *.md  text working-tree-encoding=UTF-8
 
-*.rc diff
+*.rc text
